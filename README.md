@@ -4,7 +4,7 @@ Code to prepare data from NuSTAR and other instruments for use in DEM analysis, 
 Requirements:
 - Python packages: numpy, matplotlib, sunpy, astropy, aiapy, scipy
 - For NuSTAR data prep: Heasoft with NuSTAR mission-specific tools, installed and initialized (https://heasarc.gsfc.nasa.gov/docs/software/heasoft/). 
-- SSWIDL installation (https://www.lmsal.com/solarsoft/ssw_setup.html) with all relevant observatories included. This code explicitly uses the SDO/AIA and Hinode/XRT libraries (see the hissw section below). In addition, SSW provides:
+- SSWIDL installation (https://www.lmsal.com/solarsoft/ssw_setup.html) with all relevant observatories included. This code explicitly uses the SDO/AIA, Hinode/XRT, and XRAY libraries (see the hissw section below). In addition, SSW provides:
   - AIA error tables (set path to error tables in your system in aia_dem_prep.py)
   - Functionality for XRT data download and prep to level 1.
 - hissw (https://wtbarnes.github.io/hissw/) – Package used to run SSWIDL from within Python. This is used for:
