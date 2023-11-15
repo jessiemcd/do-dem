@@ -6,13 +6,10 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib
-import matplotlib.colors as colors
-from matplotlib.colors import LogNorm
 
 #https://docs.python.org/3/library/glob.html
 import glob
 import astropy.time
-from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import sunpy.map
@@ -20,13 +17,12 @@ from sunpy.net import Fido
 from sunpy.net import attrs as a
 import regions
 
-import scipy
-import scipy.io as io
 
 import hissw
 import pathlib
 import pickle
 import copy
+import scipy.io as io
 
 #Jessie Code
 import lightcurves as lc
@@ -44,19 +40,19 @@ Preparing AIA Data for DEM: IDL/other helpers
         
         NOTE: Self-contained (data is downloaded and prepped from scratch by functions defined in this file).
         
-        aia_response_hissw_wrapper.pro - for getting AIA response (uses aia_get_response from SSWIDL aia
-                                         library). This is set up to run automatically if the correctly-named 
-                                         file containing its output is not found in the current directory. 
+        aia_response_hissw_wrapper.pro - for getting AIA response (uses aia_get_response.pro from SSWIDL aia
+                                         library). This is set up to run automatically via hissw if the 
+                                         correctly-named file containing its output (the aia temperature responses)
+                                         is not found in the current directory. 
                                          
         NOTE: getting aia uncertainties via aiapy.calibrate.estimate_error was failing on an issue downloading the
-        error tables at the time this was written. There is a line in map_to_dn_s_px() that hard-codes to a specific 
+        error tables at the time this was written. There is a line here that hard-codes to a specific 
         existing error table file on Jessie's UMN machine; edit if that is not where you are using this code. 
         
   
 """
 
 #AIA Error table - set path to location in your system.
-
 errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt'
 
 
@@ -69,6 +65,42 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     -Retrieves AIA degradation factors and corrects for degradation.
     -Returns DN/s/px for each channel
     
+    Keywords
+    ---------
+	
+    time - start time of interval for DEM (astropy Time)
+         FORMAT LIKE, time=astropy.time.Time('2018-05-29T19:08:00', scale='utc')
+         
+    bl, tr - define rectangular region for DEM (bottom left, top right in arcsec)
+        FORMAT LIKE, bl=[-200*u.arcsec,150*u.arcsec]
+                      tr=[-50*u.arcsec,300*u.arcsec]
+	
+	plot - save AIA images for later reference (slow)	
+	
+	aia_exclude - wavelength channels to throw out (if not set, uses 94, 131, 171, 193, 211, 335)
+	
+	aia_path - location where we will place (or find) a directory specific to input time interval
+	
+	method
+    	Middle - takes single AIA file per channel from near the center of the time interval
+    	Average - averages results from all AIA files in a given channel during time interval    
+    	
+	input_region - type of region object used to select data. Currently supports: 
+			'rectangle' (RectangleSkyObject)
+			'circle' (CircleSkyObject)
+			[] - if not set, uses rectangular region described by bl,tr
+			
+			if you want to add more, go edit map_to_dn_s_px()
+			
+	input_region_dict - dictionary of inputs needed to define chosen region object. See map_to_dn_s_px()
+						for expected contents for each type of region.
+						
+						
+	real_aia_err - set True to use aiapy.estimate_error + 10% in quadrature (else, return no error)
+	
+	aia_clobber - set True to start over prepping data from scratch (not use saved prepped map files)				
+			
+    	
     """
     
     clobber=aia_clobber
@@ -93,6 +125,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     timestring=timestring+'_'+stopstring
     #print(timestring)
     
+    #Check for time-interval-specific directory, make one if we don't have one already
     save_path = pathlib.Path(aia_path) / timestring
     if not save_path.exists():
         save_path.mkdir()
@@ -212,29 +245,34 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
             
         #=========================
         #Check if there are prepped files named like this method expects...
-        #  ...and then get aia data, make maps, and average over the interval.
+        #  ...if not, fetch them. Then make maps, get values, and average over the interval.
         #=========================
         
         aia_dn_s_px=[]
         aia_err_dn_s_px=[]
+        #For each channel...
         for w in range(0,len(waves)):
-            #Look for all prepped files
+            #Look for all prepped files...
             wstring=str(waves[w])
             if waves[w] == 94:
                 wstring=str(0)+str(waves[w])
             ffp=sorted(glob.glob(aia_path+timestring+'/'+'map_t*_'+wstring+'.fits'))
+            #If under two files, get more
             if len(ffp)<2 or clobber==True:
                 print('Less than two files ready to average (or clobber set); we will go prep more.')
                 aia_for_DEM(time, bl, tr, wav=[waves[w]], plot=plot, aia_path=aia_path, method='Average', clobber=clobber)
                 ffp=sorted(glob.glob(aia_path+timestring+'/'+'map_t*_'+wstring+'.fits'))
+                #If still less than two files, quit.
                 if len(ffp)<2:
                     print('Still less than two files - quitting (something wrong).')
+                    print('If your time interval is very short, perhaps use the Middle method option')
                     return
 
+            #Maps of all files
             aprep=sunpy.map.Map(ffp)
 
             
-            #Get data from each file
+            #Get data from each map
             wav_dn_s_px=[]
             wav_err_dn_s_px=[]
             for i in range(0,len(aprep)):
@@ -257,10 +295,6 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
                                                   timestring=timestring, aia_path=aia_path))
 
                 
-            #print(wav_dn_s_px) 
-            #fig = plt.figure(figsize=(9, 4))
-            #plt.plot(wav_dn_s_px)
-            #plt.axhline(np.mean(wav_dn_s_px))
              
             #Take the mean of all the files
             aia_dn_s_px.append(np.mean(wav_dn_s_px))
@@ -273,9 +307,10 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     aia_dn_s_px = np.array(aia_dn_s_px)
     
     # #  Load in the AIA responses from sswidl make_aiaresp_forpy.pro
-    # Note, this involves a call to aia_get_response with keyword /evenorm set, which involves a normalization to 
-    # agree with the SDO/EVE instrument.
-    #Note this is NOT for a specific interval, so it just goes in the working directory.
+    # Note, this involves a call to aia_get_response with keyword /evenorm set, which involves a 
+    # normalization to agree with the SDO/EVE instrument.
+    
+    #Note this is NOT for a specific time interval, so it just goes in the working directory.
     try:
         aia_tresp=io.readsav('aia_tresp_en.dat')
     except FileNotFoundError: 
@@ -299,12 +334,13 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         aia_tresp['channels'][i]=aia_tresp['channels'][i].decode("utf-8")
     chans=np.array(aia_tresp['channels']) 
 
-    # Get the temperature response functions in the correct form for demreg
+    # Get the temperature response functions in the correct form for dem input
     #Define the list of temperatures for which we have AIA response values
     tresp_logt=np.array(aia_tresp['logt'])
     
     aia_tr = aia_tresp['tr']
     
+    #If we are excluding any channels from the default list...
     if bool(aia_exclude):
         print('Excluding AIA: ', aia_exclude)
         main_list = list(set(waves) - set(aia_exclude))
@@ -316,7 +352,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         aia_tr = aia_tr[c, :]
         
     if real_aia_err:
-        print('Adding 10% error in quadrature with real error.')
+        print('Adding 10% error in quadrature with aiapy.estimate_error output.')
         tens = 0.1*np.copy(aia_dn_s_px)
         #print(aia_err_dn_s_px)
         newerr = [(aia_err_dn_s_px[i]**2+tens[i]**2)**(1/2) for i in range(0, len(aia_err_dn_s_px))]
@@ -339,9 +375,25 @@ def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle',
     time - start time of interval for DEM (astropy Time)
          FORMAT LIKE, time=astropy.time.Time('2018-05-29T19:08:00', scale='utc')
          
-    bl, tr - define regtangular region for DEM (bottom left, top right in arcsec)
+    bl, tr - define rectangular region for DEM (bottom left, top right in arcsec)
         FORMAT LIKE, bl=[-200*u.arcsec,150*u.arcsec]
                       tr=[-50*u.arcsec,300*u.arcsec]
+	
+	wav - if you only one a specific wavelength channel (if not set, default is to fetch
+			94, 131, 171, 193, 211, 335)
+			
+	method - depending on whether we are taking one file (Middle) or averaging (Average), 
+			we will sample differently in time.
+			
+	aia_path - location of time interval directory (or where one will be placed)
+	
+	plot - set True to plot image maps for later reference
+	
+	clobber - set True to overwrite previously prepped files
+	
+	Returns
+	--------
+	Nothing (saves map files)
     
     """
     
@@ -520,6 +572,34 @@ def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=False):
 
 def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=[], plot=False, 
                   timestring='', aia_path='', real_aia_err=False, errortab=errortab):
+    """
+    
+    Inputs
+    -------
+    m - AIA sunpy map
+    deg - degradation factor for m
+    
+    Keywords
+    -------
+    
+    bl, tr OR input_region and input_aia_region_dict - define the region we care about
+    timestring - also the name of the time interval directory
+    aia_path - where time interval directory is located
+	plot - set True to plot image map for later reference
+	real_aia_err - set True to use aiapy.estimate_error + 10% in quadrature (else, return no error)
+	errortab - point to AIA error table file (used if real_aia_err==True)  
+	
+	Outputs
+	---------
+	DN/px/s value
+	
+	OR (if real_aia_err==True):
+	
+	DN/px/s value, error
+	
+    """
+    
+    
     
     dur = m.meta['exptime']
     wav = m.meta['wavelnth']
