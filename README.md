@@ -13,3 +13,11 @@ Requirements:
   - fetching x-ray thermal emission model for use in generating NuSTAR temperature response (using fvth.pro) - done in nustar_dem_prep.py
   - doing DEMs via xrt_dem_iterative2.pro (wrapper for this method included in dodem.py)
 - To use the demreg method for DEM calculation (python version): demreg repository (https://github.com/ianan/demreg/tree/master)
+
+
+Procedure:
+
+- Download NuSTAR data from HEASARC https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl
+  - Unpack files
+  - Run initial pipeline (with pixpos correction)
+- If desired, search for, download, and prep XRT data to level 1. (IDL CODE FOR THIS TO BE ADDED, for now check out https://xrt.cfa.harvard.edu/resources/documents/XAG/XAG.pdf)
