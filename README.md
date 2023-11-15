@@ -18,6 +18,7 @@ Requirements:
 Procedure:
 
 - Download NuSTAR data from HEASARC https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl
-  - Unpack files
-  - Run initial pipeline (with pixpos correction)
+  - Unpack files (bash: gunzip -r OBSID)
+  - Run initial pipeline (with pixpos correction) - if you don't know how to do this, contact Jessie or any other NuSTAR Heliophysics Team member. 
 - If desired, search for, download, and prep XRT data to level 1. (IDL CODE FOR THIS TO BE ADDED, for now check out https://xrt.cfa.harvard.edu/resources/documents/XAG/XAG.pdf)
+- 
