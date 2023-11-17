@@ -1113,8 +1113,8 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT, xrt=True, aia=True, nustar=T
     inputs = {'obs_val': list(dn_in), 'obs_err': list(edn_in), 'temps': list(temps), 
          'obs_index': list(chanax), 'trmatrix': trmatrix.tolist(), 'mc_iter': mc_iter, 'dT': dT, 
           'Name': [timestring], 'min_T': minT, 'max_T': maxT}
-    ssw = hissw.Environment()
-    ssw_resp = ssw.run('/Users/jessieduncan/dems/may29_o3_1_coobs/calc_iterative.pro', args=inputs)
+    ssw = hissw.Environment(ssw_packages=['hinode/xrt','sdo/aia'], ssw_paths=['xrt', 'aia'])
+    ssw_resp = ssw.run('/Users/jessieduncan/dems/calc_iterative.pro', args=inputs)
 
     #Fetch DEM results + other helpful values from hissw run
     dem_out=ssw_resp['dem_out']
@@ -1221,7 +1221,7 @@ def read_iterative_outputs(data, chi_thresh=0.95, name=''):
         
     return data    
     
-def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=7.2,
+def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=7.2, dT=0.05,
                        gtifile='starter_gti.fits', regfile='starter_region.reg', name2='',
                        xrt=True, aia=True, nustar=True, edit_regfile=False, use_fit_regfile=False,
                        COM_nustar_region=False, nuclobber=False, special_pha='', pile_up_corr=False,
@@ -1261,7 +1261,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
         
         
     if demmethod=='DEMREG':                   
-        res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=0.05,
+        res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
                     name=name, compare_fpm=False, combine_fpm=True,
                     nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                     make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
@@ -1281,7 +1281,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
         
     if demmethod=='XRT_ITER':
         res1 = run_iterative_wrapper(time, bl, tr, minT1, maxT1, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=0.1, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
+                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                           edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
                           COM_nustar_region=COM_nustar_region, nuclobber=nuclobber, special_pha=special_pha,
                           xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
@@ -1298,7 +1298,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     maxT2=7.0
     
     if demmethod=='DEMREG':
-        res2 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=0.05,
+        res2 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
                     name=name, compare_fpm=False, combine_fpm=True,
                     nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                     make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
@@ -1318,7 +1318,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     
     if demmethod=='XRT_ITER':
         res2 = run_iterative_wrapper(time, bl, tr, minT2, maxT2, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=0.1, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
+                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                           edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
                           COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
                           xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
@@ -1335,7 +1335,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     maxT3=6.84
     
     if demmethod=='DEMREG':
-        res3 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=0.05,
+        res3 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
                     name=name, compare_fpm=False, combine_fpm=True,
                     nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                     make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
@@ -1355,7 +1355,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     
     if demmethod=='XRT_ITER':
         res3 = run_iterative_wrapper(time, bl, tr, minT3, maxT3, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=0.1, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
+                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                           edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
                           COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
                           xrt_factor=xrt_factor, real_xrt_err=real_xrt_err, 
@@ -1372,7 +1372,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     maxT4=6.7
     
     if demmethod=='DEMREG':                  
-        res4 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=0.05,
+        res4 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
                     name=name, compare_fpm=False, combine_fpm=True,
                     nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                     make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
@@ -1393,7 +1393,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     
     if demmethod=='XRT_ITER':
         res4 = run_iterative_wrapper(time, bl, tr, minT4, maxT4, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=0.1, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
+                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
                           edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
                           COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
                           xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
