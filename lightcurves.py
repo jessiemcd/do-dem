@@ -299,11 +299,19 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
     return all_dict
 
 
-def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
+def plot_nustar_lightcurves(timerange=[datetime.datetime(2018, 5, 29, 22, 20), datetime.datetime(2018, 5, 29, 23, 20)],
+                            eranges = [[2.,4.],[4.,6.],[6.,10.]]):
 
     """
-    UNDER CONSTRUCTION TO MAKE A NUSTAR SPECIFIC PLOT FUNCTION
+    To be run after prepare_nustar_lightcurves has already been run for each energy range for the obsid in question.
+    
+    Single orbit/single obsid functionality.
+    
+    
     """
+    print('Using time limits:')
+    print(timerange)
+    
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(15, 10))
     instrument='NuSTAR'
     clrs=make_colors(26)
@@ -374,10 +382,10 @@ def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
                  **default_kwargs, color='Black')
     ax3.plot(times_convertedB, lvtB, 
                  label='NuSTAR FPMA Livetime',
-                 **default_kwargs, color='Black', linestyle='dashed')
+                 **default_kwargs, color='Red')
     
     #ax1.set_ylim(range1[0], range1[1])
-    #ax1.set_xlim(timerange[0], timerange[1])
+    ax1.set_xlim(timerange[0], timerange[1])
     ax1.legend(ncol=3)
     ax1.set_title('Normalized Lightcurves')
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -385,13 +393,13 @@ def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
 
     ax2.legend(ncol=3)
     #ax2.set_ylim(range2[0], range2[1])
-    #ax2.set_xlim(timerange[0], timerange[1])
+    ax2.set_xlim(timerange[0], timerange[1])
     ax2.set_title('Lightcurves')
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
 
     #ax3.set_ylim(range3[0],range3[1])
-    #ax3.set_xlim(timerange[0], timerange[1])
+    ax3.set_xlim(timerange[0], timerange[1])
     ax3.set_title('Livetimes')
     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     ax3.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
