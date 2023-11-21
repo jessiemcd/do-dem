@@ -334,6 +334,10 @@ def plot_nustar_lightcurves(timerange=[datetime.datetime(2018, 5, 29, 22, 20), d
         erange=er
 
         data = load_lightcurves(instrument, erange=erange)
+        
+        if data is None:
+            print('Missing prepared data - exiting.')
+            return
 
         times_convertedA = data['FPMA_times']
         countrateA = data['FPMA_countrate']
