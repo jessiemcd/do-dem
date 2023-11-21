@@ -299,7 +299,7 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
     return all_dict
 
 
-def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]])
+def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
 
     """
     UNDER CONSTRUCTION TO MAKE A NUSTAR SPECIFIC PLOT FUNCTION
