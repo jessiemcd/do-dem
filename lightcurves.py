@@ -304,7 +304,7 @@ def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
     """
     UNDER CONSTRUCTION TO MAKE A NUSTAR SPECIFIC PLOT FUNCTION
     """
-    fig, (ax1, ax2, ax3) = plt.subplots(2, 1, figsize=(15, 7))
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(15, 10))
     instrument='NuSTAR'
     clrs=make_colors(26)
     ind=8
