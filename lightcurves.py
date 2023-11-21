@@ -299,6 +299,106 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
     return all_dict
 
 
+def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]])
+
+    """
+    UNDER CONSTRUCTION TO MAKE A NUSTAR SPECIFIC PLOT FUNCTION
+    """
+    fig, (ax1, ax2, ax3) = plt.subplots(2, 1, figsize=(15, 7))
+    instrument='NuSTAR'
+    clrs=make_colors(26)
+    ind=8
+    for er in eranges:
+        erange=er
+
+        data = load_lightcurves(instrument, erange=erange)
+
+        times_convertedA = data['FPMA_times']
+        countrateA = data['FPMA_countrate']
+        lvtA = data['FPMA_livetime']
+        times_convertedB = data['FPMB_times']
+        countrateB = data['FPMB_countrate']
+        lvtB = data['FPMB_livetime']
+
+        maxA = max(countrateA[np.isfinite(countrateA)])
+        maxB = max(countrateB[np.isfinite(countrateB)])
+
+        ax1.plot(times_convertedA, countrateA/maxA, 
+                 label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)',
+                 **default_kwargs, color=clrs[ind])
+        ax1.plot(times_convertedB, countrateB/maxB, 
+                 label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)', 
+                 **default_kwargs, color=clrs[ind+1])
+        
+        ax2.plot(times_convertedA, countrateA, 
+                 label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV',
+                 **default_kwargs, color=clrs[ind])
+        ax2.plot(times_convertedB, countrateB, 
+                 label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV', 
+                 **default_kwargs, color=clrs[ind+1])        
+        
+        #Normalized boxcar
+        n_bx = 5
+        arr_lc = np.array(countrateA/maxA)
+        avg_lc = boxcar_average(arr_lc, n_bx)
+        avg_lc[0:3]=arr_lc[0:3]
+        avg_lc[-3:]=arr_lc[-3:]
+        ax1.plot(times_convertedA, avg_lc, color=clrs[ind])
+        
+        #Non-normalized boxcar
+        arr_lc = np.array(countrateA)
+        avg_lc = boxcar_average(arr_lc, n_bx)
+        avg_lc[0:3]=arr_lc[0:3]
+        avg_lc[-3:]=arr_lc[-3:]
+        ax2.plot(times_convertedA, avg_lc, color=clrs[ind])
+
+        arr_lc = np.array(countrateB/maxB)
+        avg_lc = boxcar_average(arr_lc, n_bx)
+        avg_lc[0:3]=arr_lc[0:3]
+        avg_lc[-3:]=arr_lc[-3:]
+
+        ax1.plot(times_convertedB, avg_lc, color=clrs[ind+1])
+                
+        #Non-normalized boxcar
+        arr_lc = np.array(countrateB)
+        avg_lc = boxcar_average(arr_lc, n_bx)
+        avg_lc[0:3]=arr_lc[0:3]
+        avg_lc[-3:]=arr_lc[-3:]
+        ax2.plot(times_convertedB, avg_lc, color=clrs[ind+1])        
+        
+        ind+=2  
+        
+        
+    ax3.plot(times_convertedA, lvtA, 
+                 label='NuSTAR FPMA Livetime',
+                 **default_kwargs, color='Black')
+    ax3.plot(times_convertedB, lvtB, 
+                 label='NuSTAR FPMA Livetime',
+                 **default_kwargs,, color='Black', linestyle='dashed')
+    
+    #ax1.set_ylim(range1[0], range1[1])
+    #ax1.set_xlim(timerange[0], timerange[1])
+    ax1.legend(ncol=3)
+    ax1.set_title('Normalized Lightcurves')
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax1.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+
+    ax2.legend(ncol=3)
+    #ax2.set_ylim(range2[0], range2[1])
+    #ax2.set_xlim(timerange[0], timerange[1])
+    ax2.set_title('Lightcurves')
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+
+    #ax3.set_ylim(range3[0],range3[1])
+    #ax3.set_xlim(timerange[0], timerange[1])
+    ax3.set_title('Livetimes')
+    ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax3.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    ax3.legend()  
+    
+    plt.savefig('NuSTAR_lightcurves.png')
+
 def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES=True,
                            wavelengths=wavelengths, filters=filters,
                           range1=[0.97,1.01], range2=[0.,1.], range3=[0.,1.], range4=[5e-9,1e-7],
