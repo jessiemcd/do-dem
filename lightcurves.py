@@ -374,7 +374,7 @@ def plot_nustar_lightcurves(eranges = [[2.,4.],[4.,6.],[6.,10.]]):
                  **default_kwargs, color='Black')
     ax3.plot(times_convertedB, lvtB, 
                  label='NuSTAR FPMA Livetime',
-                 **default_kwargs,, color='Black', linestyle='dashed')
+                 **default_kwargs, color='Black', linestyle='dashed')
     
     #ax1.set_ylim(range1[0], range1[1])
     #ax1.set_xlim(timerange[0], timerange[1])
