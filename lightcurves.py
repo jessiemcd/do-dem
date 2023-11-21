@@ -216,15 +216,24 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
     """
     
     if instrument == 'GOES':
-        with open(lc_dir+'GOES_lightcurve.pickle', 'rb') as f:
-            data = pickle.load(f)
-        return data
+        try:
+            with open(lc_dir+'GOES_lightcurve.pickle', 'rb') as f:
+                data = pickle.load(f)
+            return data
+        except FileNotFoundError:
+            print('Not finding prepared GOES data in this directory: ', lc_dir)
+            print('Please use get_goes() to do this.')
+            return            
     
     if instrument == 'NuSTAR':
-        with open(lc_dir+'NuSTAR_lightcurve_'+str(erange[0])+'_to_'+str(erange[1])+'_keV.pickle', 'rb') as f:
-            data = pickle.load(f)
-        return data
-
+        try:
+            with open(lc_dir+'NuSTAR_lightcurve_'+str(erange[0])+'_to_'+str(erange[1])+'_keV.pickle', 'rb') as f:
+                data = pickle.load(f)
+            return data
+        except FileNotFoundError:
+            print('Not finding prepared NuSTAR data in the range: ', erange, ' in this directory: ', lc_dir)
+            print('Please use prepare_nustar_lightcurves() to do this.')
+            return 
     
     #print('Using: ', instrument, wavelengths)
     
@@ -248,9 +257,14 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
         if instrument=='XRT':
             chanlabel='XRT_'+w
             
-        with open(lc_dir+chanlabel+'_lightcurve.pickle', 'rb') as f:
-            data = pickle.load(f)
-
+        try:
+            with open(lc_dir+chanlabel+'_lightcurve.pickle', 'rb') as f:
+                data = pickle.load(f)
+        except FileNotFoundError:
+            print('Not finding the following prepared lightcurve file: ', lc_dir+chanlabel+'_lightcurve.pickle')
+            print('Use prepare_lightcurves() to prepare data for this instrument.')
+            return
+            
         all_dict.update(data)
      
     if fexviii==True:
@@ -397,6 +411,7 @@ def plot_nustar_lightcurves(timerange=[datetime.datetime(2018, 5, 29, 22, 20), d
     ax2.set_title('Lightcurves')
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    ax2.set_yscale('log')
 
     #ax3.set_ylim(range3[0],range3[1])
     ax3.set_xlim(timerange[0], timerange[1])
