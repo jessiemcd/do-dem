@@ -75,7 +75,7 @@ Preparing NuSTAR Data for DEM: IDL/other helpers + other needed prep
 
 
 def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=True,
-                        compare_fpm=False, nofit=False, pile_up_corr=False, clobber=False):
+                        compare_fpm=False, nofit=False, pile_up_corr=False, clobber=False, nuradius=150):
     """
     See load_nustar() documentation.
     
@@ -132,8 +132,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
         
     if edit_regfile: 
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
-        newregfile, percent = rf.get_file_region(sun_file_0[0], time[0], time[1], regfile, nofit=nofit, radius=150)
-        #print(percent)
+        newregfile, percent = rf.get_file_region(sun_file_0[0], time[0], time[1], regfile, nofit=nofit, radius=nuradius)
     else:
         newregfile=regfile
         
@@ -156,7 +155,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     if edit_regfile:
         return percent
     else:
-        return 1
+        return newregfile
     
 def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
     """
@@ -167,6 +166,9 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
     rmf_files = glob.glob(nustar_path+timestring+'/*'+fpm+'*'+grade+'_p_sr.rmf')
     if bool(special_pha):
         pha_files = glob.glob(special_pha+timestring+'*'+fpm+'*.pha')
+        if pha_files == []:
+            print("Didn't find any .pha files in your special_pha directory.")
+            print("Note expected format: timestring+'*'+fpm+'*.pha' where timestring is of the form 'hh-mm-ss_hh-mm-ss'")
     else:
         pha_files = glob.glob(nustar_path+timestring+'/*'+fpm+'06_'+grade+'_p_sr.pha')
     print('ARF File: ', arf_files)
@@ -178,7 +180,8 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
 
 def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapath='', regfile='', 
                 edit_regfile=True, actual_total_counts=False, nofit=False, use_fit_regfile=False,
-               clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False):
+               clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
+               nuradius=150):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
     
@@ -194,7 +197,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              combine_fpm=True, actual_total_counts=actual_total_counts,
                                              nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                              default_err=default_err, special_pha=special_pha,
-                                             pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades)
+                                             pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
+                                             nuradius=nuradius)
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -212,7 +216,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              combine_fpm=True, actual_total_counts=actual_total_counts,
                                              nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                               default_err=default_err, special_pha=special_pha,
-                                             pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades)
+                                             pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
+                                             nuradius=nuradius)
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -285,7 +290,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
 def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', datapath='', regfile='', 
                 edit_regfile=True, compare_fpm=False, combine_fpm=False, actual_total_counts=False, nofit=False,
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
-                   adjacent_grades=False):
+                   adjacent_grades=False, nuradius=150):
     """
     Load in NuSTAR data and response, return DEM inputs.
     
@@ -357,6 +362,9 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                             For more info, see find_intervals().
     
     """
+    
+    #If edit_regfile=True, this will be updated. 
+    newregfile=[]
     
 
     timestring = time[0].strftime('%H-%M-%S')
@@ -448,12 +456,15 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             print('We require 1 of each.')        
         
         if make_nustar:
+            if compare_fpm:
+                print('Comparing FPM, so we will edit the region file (setting edit_regfile=True)')
+                edit_regfile=True
             if clobber:
                 print('Clobber set– so we will make data products anyway.')
             else:
                 print('Now we will make some spectral data products.')
             mn = make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr)
+                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, nuradius=nuradius)
             if compare_fpm:
                 if fpm == 'A':
                     fpm2='B'
@@ -462,12 +473,14 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 print('Compare FPM is set – examining fpm', fpm2, 
                           ' also to see which has more emission in its optimal region.')
                 mn2 = make_nustar_products(time, fpm2, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr)
+                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, nuradius=nuradius)
                 print('FPM', fpm, ' region has ', mn, '% of emission. FPM', fpm2, ' region has ', mn2, '% of emission.' )
                 if mn2>mn:
                     print('Switching to FPM', fpm2)
                     fpm=fpm2
-
+            else:
+                newregfile=mn
+                
             if mn is None:
                 return
             else:
@@ -491,9 +504,18 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             return
     
     print('')
-
-        
     
+    #Get area of NuSTAR region
+    if nofit:
+        area = nuradius**2*np.pi*7.25e7*7.25e7  
+    else:
+        if bool(newregfile)==False:
+            newregfile=regfile
+        print("For NuSTAR area, using region in: ", newregfile)
+        offset, rad = rf.read_regfile(newregfile, time[0], time[1], 'hourangle')
+        area = (rad.value)**2*np.pi*7.25e7*7.25e7 
+
+
     #======================================================
     
     
@@ -661,9 +683,10 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         #EM-independent observed count rate as a function of temp.
         
         #The input to fvth is unitless (IDL) - it's just 1 (input should be "em_49, emission measure units of 10^49"
-        #according to documentation). To make DEM units work out, dividing by EM units of 1/cm^5 here. 
+        #according to documentation). Assuming volume EM units of 1/cm^3 here. Then, we multiply the response by the 
+        #area used for data selection to give overall units counts/s * cm^5.
 
-        tresp[:,i]=mm[0,:]/1e49 #units counts/s * cm^5
+        tresp[:,i]=mm[0,:]*area/1e49 #units counts/s * cm^2 * cm^3
 
         
     # Work out the total count rate and error in the energy bands
@@ -681,24 +704,18 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     quit=False
     for i in np.arange(len(eng_tr)):
         erange=eng_tr[i]
-        #print('erange:', erange)
         #Where the NuSTAR-observed energies (from PHA file) were within the selected energy range.
         gd=np.where((engs >= erange[0]) & (engs < erange[1]) )
-        #print('Where energies are in range: ', gd)
-        #print(cnts)
-        #print(cnts[gd])
         #Rate: (units:cts/s) energies in energy range divided by the livetime
         if pile_up_corr:
             ratt = np.sum(cnts[gd])/lvtm
             rate[i]=ratt
-            #print('Rate, uncorr:', ratt)
             ratt_c = np.sum(cnts_corr[gd])/lvtm
             if ratt_c < 0:
                 quitindex=i
                 quit=True
                 continue
             rate_corr[i]=ratt_c
-            #print('Rate, corr:', ratt_c)  
             erate_corr[i]=np.sqrt(np.sum(cnts_corr[gd]))/lvtm
             #print('Erate, corr:', erate_corr[i])
             #print('Default % of rate, squared:', (default_err*rate_corr[i])**2)
@@ -713,11 +730,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         else:
             ratt = np.sum(cnts[gd])/lvtm
             rate[i]=ratt
-            #print('Ratt:', ratt)
             #Error on the rate: square root of the counts divided by the livetime
             erate[i]=np.sqrt(np.sum(cnts[gd]))/lvtm
-            #print(erange, 'counts:', cnts[gd], np.sum(cnts[gd]), np.sqrt(np.sum(cnts[gd])), lvtm)
-            #print(erange, 'actual counts: ', np.sum(cnts[gd]))
             #add previous error in quadrature with 20% uncertainty
             erate[i]=(erate[i]**2+(default_err*rate[i])**2)**0.5
             
@@ -727,7 +741,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 print('')
         
         #Make label
-        nutr=str(erange[0])+'–'+str(erange[1])+'keV'
+        nutr=str(erange[0])+'-'+str(erange[1])+'keV'
         nutrs.append(nutr)
        
             
