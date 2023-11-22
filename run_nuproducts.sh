@@ -2,11 +2,12 @@
 # usage: run_nuproducts.sh PATH/TO/OBSID
 # Variables below must correspond to names of files
 
-interval=19-36-30_19-42-00
-region=./19-36-30_19-42-00/nu80410203001B06_0_p_cl_sunpos_COM_region.reg
+interval=22-22-00_22-27-00
+region=initial_dem/22-22-00_22-27-00/nu80410205001B06_0_p_cl_sunpos_COM_region.reg
 fpm=B
-INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410203001/
-unphys_products=1
+INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
+unphys_products=0
+working_dir=./initial_dem/
 
 type="STATUS==b0000xx00xx0xx000"
 
@@ -17,11 +18,11 @@ STEMINPUTS=nu`basename ${INDIR}`
 nuproducts indir=$INDIR/event_cl/ \
 instrument=FPM$fpm \
 steminputs=$STEMINPUTS \
-outdir=./$interval \
+outdir=$working_dir/$interval \
 extended=no \
 runmkarf=yes \
 runmkrmf=yes \
-infile=./$interval/$STEMINPUTS$fpm"06_0_p_cl.evt" \
+infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_p_cl.evt" \
 bkgextract=no \
 srcregionfile=$region \
 attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
@@ -31,11 +32,11 @@ clobber=yes
 nuproducts indir=$INDIR/event_cl/ \
 instrument=FPM$fpm \
 steminputs=$STEMINPUTS \
-outdir=./$interval \
+outdir=$working_dir/$interval \
 extended=no \
 runmkarf=yes \
 runmkrmf=yes \
-infile=./$interval/$STEMINPUTS$fpm"06_0_4_p_cl.evt" \
+infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_4_p_cl.evt" \
 bkgextract=no \
 srcregionfile=$region \
 attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
@@ -50,11 +51,11 @@ fi
 nuproducts indir=$INDIR/event_cl/ \
 instrument=FPM$fpm \
 steminputs=$STEMINPUTS \
-outdir=./$interval \
+outdir=$working_dir/$interval \
 extended=no \
 runmkarf=yes \
 runmkrmf=yes \
-infile=./$interval/$STEMINPUTS$fpm"06_21_24_p_cl.evt" \
+infile=$working_dir/$interval/$STEMINPUTS$fpm"06_21_24_p_cl.evt" \
 bkgextract=no \
 srcregionfile=$region \
 attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
