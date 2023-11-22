@@ -263,7 +263,7 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
     except FileNotFoundError: 
         print('No response file found, now trying to make the response file using HISSW to run IDL code.')
         
-        ssw = hissw.Environment(ssw_packages=['hinode/xrt'], ssw_paths=['xrt', 'aia'])
+        ssw = hissw.Environment(ssw_packages=['hinode/xrt', 'hessi'], ssw_paths=['xrt', 'aia', 'hessi'])
         #Default emission model
         #agr_path = '/Users/jessieduncan/dems/xrt_tresp_hissw_wrapper.pro'
         #AIA emission model (more consistent with assumptions made in calculating AIA response)
@@ -288,19 +288,19 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
         filters_res[i]=filters_res[i].decode('utf-8')
         
     print(filters)
-    print(filters_res)
+    #print(filters_res)
 
     #Check that we have a response for every filter we have data from
     check=all(item in filters_res for item in list(filters))
     
-    print('check:',check)
+    #print('check:',check)
     if check==False:
         print('Not all XRT filters from data files are in response file.')
         print('Data filters: ', filters)
         print('Response filters: ', list(filters_res))
         print("Going to make a nice new xrt response file using HISSW to run IDL code.")
         
-        ssw = hissw.Environment(ssw_packages=['hinode/xrt'], ssw_paths=['xrt'])
+        ssw = hissw.Environment(ssw_packages=['hinode/xrt', 'hessi'], ssw_paths=['xrt', 'hessi'])
         agr_path = path_to_dodem+'/hissw_idl/xrt_tresp_hissw_wrapper_aiaspec.pro'
         inputs = {'filters': filters, 'time': [datestring], 'xrt_path': [xrt_path]}
         try:
@@ -524,7 +524,16 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             region = regions.CircleSkyRegion(
                 SkyCoord(*region_data['center'], frame=subm.coordinate_frame ),
                 region_data['radius']
-            )     
+            ) 
+            
+        if plot:
+            fig = plt.figure(figsize=(9, 7))
+            ax = fig.add_subplot(projection=subm)
+            subm.plot(axes=ax)
+            (region.to_pixel(subm.wcs)).plot(ax=ax, color='blue')
+            norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see           
+            plt.colorbar(norm=norm)
+            plt.savefig(saveimage+'_input_region_xrt_image.png')    
         
         data = get_region_data(subm, region, b_full_size=True, fill_value=-20)            
         positive_pix = data[np.where(data > 0)]
@@ -727,8 +736,6 @@ def get_region_data(map_obj: sunpy.map.Map,
     #print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
     #print('Shape of map data, no change:', map_data.shape)
     #print('Y bound max-min, X bound max-min:', ymax-ymin, xmax-xmin)
-    
-    print(reg_mask.shape, map_data.shape)
     
     region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
 

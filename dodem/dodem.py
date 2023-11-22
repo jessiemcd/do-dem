@@ -35,7 +35,7 @@ exposure_dict={'Be_thin': [],
 
 def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05, 
           xrt=True, aia=True, nustar=True, eis=True,
-          plot=True, plotresp=True, just_prep=False, plotMK=False, name='',
+          plotresp=True, just_prep=False, plotMK=False, name='',
           use_prior_prep=False, default_err=0.2, use_highTprep=False,
           path_to_dodem='./', working_directory='./',
           
@@ -45,10 +45,10 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
           COM_nustar_region=False, compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
           #XRT-related
           xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='First', xrt_exposure_dict=exposure_dict,
-          input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False,
+          input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False, plot_xrt=False,
           #AIA-related
           real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
-          input_aia_region=[], input_aia_region_dict=[],
+          input_aia_region=[], input_aia_region_dict=[], plot_aia=False,
           sunpy_dir='/Users/jessieduncan/sunpy/', 
           errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
           #EIS-related
@@ -466,7 +466,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                 else:
                     aiamethod='Middle'
 
-            res = aia_dem_prep.load_aia(time, bl, tr, plot=plot, aia_exclude=aia_exclude, aia_path=working_directory, 
+            res = aia_dem_prep.load_aia(time, bl, tr, plot=plot_aia, aia_exclude=aia_exclude, aia_path=working_directory, 
                                         method=aiamethod, input_region=input_aia_region, aia_clobber=aia_clobber,
                                         input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
                                        sunpy_dir=sunpy_dir,errortab=errortab,path_to_dodem=path_to_dodem)
@@ -487,7 +487,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
         if xrt:
             print('')
             #Load in XRT data, uncertainty(if set), labels, temperature response, and corresponding temperatures
-            res = xrt_dem_prep.load_xrt(xrt_path, time, bl, tr, xrt_exclude=xrt_exclude, plot=plot, method=xrtmethod,
+            res = xrt_dem_prep.load_xrt(xrt_path, time, bl, tr, xrt_exclude=xrt_exclude, plot=plot_xrt, method=xrtmethod,
                                        exposure_dict=xrt_exposure_dict, input_xrt_region_dict=input_xrt_region_dict,
                                        input_xrt_region=input_xrt_region, real_xrt_err=real_xrt_err,
                                         path_to_dodem=path_to_dodem)

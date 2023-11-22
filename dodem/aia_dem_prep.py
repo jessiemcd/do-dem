@@ -6,6 +6,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib import colors
 
 #https://docs.python.org/3/library/glob.html
 import glob
