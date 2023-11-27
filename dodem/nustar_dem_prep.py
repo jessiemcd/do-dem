@@ -104,7 +104,8 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
         #Edit shell script to run nuscreen (component of NuSTAR pipeline). This makes both grade 0 and 21-24 .evt files.
         edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath)
         f = open(nustar_path+timestring+'/'+fpm+"nuscreen_output.txt", "w")
-        screenprocess = subprocess.call(path_to_dodem+'run_nuscreen.sh', stdout=f)
+        #screenprocess = subprocess.call(path_to_dodem+'run_nuscreen.sh', stdout=f)
+        screenprocess = subprocess.run('bash '+path_to_dodem+'run_nuscreen.sh', stdout=f, shell=True)
         
     #Now we should definitely have the desired .evt file:    
     evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
@@ -154,7 +155,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     #Edit shell script to run nuproducts (component of NuSTAR pipeline)
     edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, newregfile, datapath, unphys_products=unphys_products)
     f = open(nustar_path+timestring+'/'+fpm+"nuproducts_output.txt", "w")
-    productprocess = subprocess.call(path_to_dodem+'run_nuproducts.sh', stdout=f)
+    productprocess = subprocess.run('bash '+path_to_dodem+'run_nuproducts.sh', stdout=f, shell=True)
     
     #======================================================
 

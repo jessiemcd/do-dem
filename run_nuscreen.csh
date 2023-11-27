@@ -1,11 +1,11 @@
-#!/bin/sh
-# usage: run_screensplit.sh PATH/TO/OBSID
+#!/bin/csh
+# usage: run_nuscreen.csh PATH/TO/OBSID
 # Variables below must correspond to names of files
 
-interval=22-22-00_22-27-00
-fpm=A
-INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
-work_dir=./initial_dem/
+set interval=22-22-00_22-27-00
+set fpm=A
+set INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
+set work_dir=./initial_dem/
 
 # syntax: run_screensplit.sh INDIR
 # if [ $# != 1 ] ; then
@@ -13,10 +13,10 @@ work_dir=./initial_dem/
 #     exit 1
 # fi
 
-type="STATUS==b0000xx00xx0xx000"
+set type="STATUS==b0000xx00xx0xx000"
 
 
-STEMINPUTS=nu`basename ${INDIR}`
+set STEMINPUTS=nu`basename ${INDIR}`
 
 nuscreen obsmode=SCIENCE_SC infile=$INDIR/event_cl/$STEMINPUTS$fpm"_uf.evt" \
 gtiscreen=yes evtscreen=yes gtiexpr=DEFAULT \

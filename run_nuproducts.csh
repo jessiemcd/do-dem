@@ -1,18 +1,18 @@
-#!/bin/sh
-# usage: run_nuproducts.sh PATH/TO/OBSID
+#!/bin/csh
+# usage: run_nuproducts.csh PATH/TO/OBSID
 # Variables below must correspond to names of files
 
-interval=22-22-00_22-27-00
-region=initial_dem/22-22-00_22-27-00/nu80410205001A06_0_p_cl_sunpos_COM_region.reg
-fpm=A
-INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
-unphys_products=1
-working_dir=./initial_dem/
+set interval=22-22-00_22-27-00
+set region=initial_dem/22-22-00_22-27-00/nu80410205001A06_0_p_cl_sunpos_COM_region.reg
+set fpm=A
+set INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
+set unphys_products=1
+set working_dir=./initial_dem/
 
-type="STATUS==b0000xx00xx0xx000"
+set type="STATUS==b0000xx00xx0xx000"
 
 
-STEMINPUTS=nu`basename ${INDIR}`
+set STEMINPUTS=nu`basename ${INDIR}`
 
 
 nuproducts indir=$INDIR/event_cl/ \
