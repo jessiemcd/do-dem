@@ -22,7 +22,6 @@ from astropy import coordinates as coord
 #Also, coordinate conversion routines,
 #Adapted from: https://github.com/ianan/nustar_pysolar/blob/master/nustar_pysolar/utils.py
 
-#This is to make do-dem not have to rely on nustar_pysolar, as we are only using a few things. 
 
 def read_pha(file):
     ''' Takes a .pha file and extracts useful information from it.
