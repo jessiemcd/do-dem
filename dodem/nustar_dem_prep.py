@@ -539,7 +539,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         print(nustar_path+'fvth_out.dat')
         print('Let us now make a new one using hissw to run the IDL code.')
         
-        ssw = hissw.Environment(ssw_packages=['xray'])
+        ssw = hissw.Environment(ssw_packages=['xray', 'hessi'])
         agr_path = path_to_dodem+'/hissw_idl/fvtharray_hissw_wrapper.pro'
         try:
             ssw_resp = ssw.run(agr_path)

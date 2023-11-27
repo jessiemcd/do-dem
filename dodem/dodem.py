@@ -53,10 +53,10 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
           errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
           #EIS-related
           eis_path='./', eisbox_bl=[0,0], eisbox_tr=[0,0], contrib_file='chiantipy_gfnt.pickle', 
-          edens=1.e+9, eis_exclude=[], fiasco=False,
+          edens=1.e+9, eis_exclude=[], fiasco=False, fiascofile='',
           #DEMREG/DEM-related
           mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
-          dem_norm0=None, nmu=40, emd_int=True, emd_ret=True, fiascofile=''):
+          dem_norm0=None, nmu=40, emd_int=True, emd_ret=True):
     """
     Wrapper for doing multi-instrument DEMs of a particular region/interval.
     
