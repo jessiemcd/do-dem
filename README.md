@@ -22,4 +22,4 @@ Procedure:
   - Run initial pipeline (with pixpos correction) - if you don't know how to do this, contact Jessie or any other NuSTAR Heliophysics Team member. 
 - If desired, search for, download, and prep XRT data to level 1. (IDL CODE FOR THIS TO BE ADDED, for now check out https://xrt.cfa.harvard.edu/resources/documents/XAG/XAG.pdf) You will need the grade maps as well.
 - Initial DEM process example notebook (examples with and without XRT) - getting_started.ipynb
-- COMING SOON: examples of how to do... DEMs with xrt_dem_iterative2.pro, NuSTAR-statistics-motivated time interval selection, variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them), pile-up-corrected DEMs
+- COMING SOON: examples of how to do... DEMs with xrt_dem_iterative2.pro, NuSTAR-statistics-motivated time interval selection, variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them to remove a non-thermal component...), pile-up-corrected DEMs
