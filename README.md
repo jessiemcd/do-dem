@@ -2,7 +2,8 @@
 Code to prepare data from NuSTAR and other instruments for use in DEM analysis, do DEMs (either using DEMREG or xrt_dem_iterative2), and visualize results.
 
 Requirements:
-- Python packages: numpy, matplotlib, sunpy, astropy, aiapy, scipy
+- Python packages: numpy, matplotlib, sunpy, astropy, aiapy, scipy, regions
+- NuSTAR pysolar: https://github.com/ianan/nustar_pysolar/tree/main 
 - For NuSTAR data prep: Heasoft with NuSTAR mission-specific tools, installed and initialized (https://heasarc.gsfc.nasa.gov/docs/software/heasoft/). 
 - SSWIDL installation (https://www.lmsal.com/solarsoft/ssw_setup.html) with all relevant observatories included. This code explicitly uses the SDO/AIA, Hinode/XRT, HESSI, and XRAY libraries (see the hissw section below). In addition, SSW provides:
   - AIA error tables (set path to error tables in your system in aia_dem_prep.py)
@@ -12,7 +13,7 @@ Requirements:
   - fetching xrt response (using make_xrt_temp_resp.pro, make_xrt_wave_resp.pro, etc) - done in xrt_dem_prep.py
   - fetching x-ray thermal emission model for use in generating NuSTAR temperature response (using fvth.pro) - done in nustar_dem_prep.py
   - doing DEMs via xrt_dem_iterative2.pro (wrapper for this method included in dodem.py)
-- To use the demreg method for DEM calculation (python version): demreg repository (https://github.com/ianan/demreg/tree/master)
+- To use the demreg method for DEM calculation (python version): demreg repository (https://github.com/ianan/demreg/tree/master) Note that this has its own requirements, which are described in https://github.com/ianan/demreg/tree/master/python 
 
 
 Procedure:
