@@ -77,7 +77,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
             )
         fig = plt.figure(figsize=(16,10))
         ax = fig.add_subplot(121, projection=submap)
-        submap.plot(ax, norm=norm, cmap=cmap)
+        submap.plot(axes=ax, norm=norm, cmap=cmap)
         
         #Diameter of plot window (pixels) - to make things easier to read
         d=300
@@ -85,7 +85,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         ax.set_ylim(com[0]-d/2, com[0]+d/2)
         
         og_region = region.to_pixel(submap.wcs)
-        og_region.plot(ax=ax, color='green', ls='--', lw=3, label='Chosen Region')
+        og_region.plot(axes=ax, color='green', ls='--', lw=3, label='Chosen Region')
         
         regdata = get_region_data(nustar_map, region, 0)
         
@@ -109,7 +109,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
 
         cmap = plt.cm.get_cmap('plasma')
         norm = colors.Normalize(0, np.max(submap.data))
-        submap.plot(ax, norm=norm, cmap=cmap)
+        submap.plot(axes=ax, norm=norm, cmap=cmap)
 
         #Diameter of plot window (pixels) - to make things easier to read
         d=300
@@ -118,10 +118,10 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
 
 
         og_region = region.to_pixel(submap.wcs)
-        og_region.plot(ax=ax, color='pink', ls='--', lw=3, label='OG Region')
+        og_region.plot(axes=ax, color='pink', ls='--', lw=3, label='OG Region')
 
         fitted_pix_region = fitted_region.to_pixel(submap.wcs)
-        fitted_pix_region.plot(ax=ax, color='lightgreen', ls='--', lw=3, label='Fitted Region')
+        fitted_pix_region.plot(axes=ax, color='lightgreen', ls='--', lw=3, label='Fitted Region')
         
         newregfile = write_regfile(regfile, midway, fitted_region, 
                              './'+Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_fit_region')
@@ -143,7 +143,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
 
     ax = fig.add_subplot(122, projection=det_submap)
 
-    det_submap.plot(ax)
+    det_submap.plot(axes=ax)
     ax.set_xlim(com[1]-d/2, com[1]+d/2)
     ax.set_ylim(com[0]-d/2, com[0]+d/2)    
     
@@ -299,7 +299,7 @@ def just_plot_region(nufile, time0, time1, regRAunit='hourangle', file=''):
 
     cmap = plt.cm.get_cmap('plasma')
     norm = colors.Normalize(0, np.max(submap.data))
-    submap.plot(ax, norm=norm, cmap=cmap)
+    submap.plot(axes=ax, norm=norm, cmap=cmap)
     submap.draw_limb()
 
     #Diameter of plot window (pixels) - to make things easier to read
