@@ -100,7 +100,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
         grade_prep+=1
     
     if pile_up_corr==False:
-        if grade_prep==2 and clobber=-False:
+        if grade_prep==2 and clobber==False:
             print('We have both grade 0 and grades 0-4 products already, and clobber is not set - exiting.')
             return
     if pile_up_corr==True:
