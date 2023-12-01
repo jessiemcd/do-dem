@@ -1,9 +1,9 @@
 #!/bin/sh
-# usage: run_screensplit.sh PATH/TO/OBSID
+# usage: run_nuscreen.sh
 # Variables below must correspond to names of files
 
-interval=22-22-00_22-27-00
-fpm=A
+interval=22-22-00_22-32-00
+fpm=B
 INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
 work_dir=./initial_dem/
 

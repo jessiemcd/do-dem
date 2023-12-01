@@ -90,6 +90,26 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     save_path = pathlib.Path(nustar_path) / timestring
     if not save_path.exists():
         save_path.mkdir()
+        
+    grade_prep=0    
+    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0')
+    if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+        grade_prep+=1
+    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0_4')
+    if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+        grade_prep+=1
+    
+    if pile_up_corr==False:
+        if grade_prep==2 and clobber=False:
+            print('We have both grade 0 and grades 0-4 products already, and clobber is not set - exiting.')
+            return
+    if pile_up_corr==True:
+        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
+        if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+            grade_prep+=1
+        if grade_prep==3 and clobber=False:
+            print('We have, grade 0, grades 0-4, and grades 21-24 products already, and clobber is not set - exiting.')
+            return
     
     #======================================================
     #TIME INTERVAL SCREENING
@@ -151,7 +171,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     unphys_products=0
     if pile_up_corr:
         unphys_products=1
-        
+    
     #Edit shell script to run nuproducts (component of NuSTAR pipeline)
     edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, newregfile, datapath, unphys_products=unphys_products)
     f = open(nustar_path+timestring+'/'+fpm+"nuproducts_output.txt", "w")
