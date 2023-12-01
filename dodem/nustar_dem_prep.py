@@ -100,14 +100,14 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
         grade_prep+=1
     
     if pile_up_corr==False:
-        if grade_prep==2 and clobber=False:
+        if grade_prep==2 and clobber=-False:
             print('We have both grade 0 and grades 0-4 products already, and clobber is not set - exiting.')
             return
     if pile_up_corr==True:
         arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
         if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
             grade_prep+=1
-        if grade_prep==3 and clobber=False:
+        if grade_prep==3 and clobber==False:
             print('We have, grade 0, grades 0-4, and grades 21-24 products already, and clobber is not set - exiting.')
             return
     
