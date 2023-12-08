@@ -42,6 +42,18 @@ FUNCTION lets_get_that_xrt, nutimes=nutimes, nupointing=nupointing, obsid=obsid,
 		;			checkimage -- set checkimage=1 to plot a full-disk solar image, with the NuSTAR pointing as 
 		;						a green X and the FOV of every XRT image shown as red boxes
 		;
+		
+		
+;                Sample run: 
+;                
+;                IDL> nutimes='2018-may-29 '+['1909','1955'] 
+;                IDL> nupointing=[-110., 250]
+;                IDL> lgtx = lets_get_that_xrt(nutimes=nutimes, nupointing=nupointing, $
+;                IDL>    download=1, prep=1, obsid=80410203001)
+;                
+;                This will download level 0 files, and place them in './80410203001_coobs/'
+;                It will then prep files, and place level 1 files + grade maps in './80410203001_coobs/XRT_for_DEM/'	
+;			
 
 		default, download, 0
 		default, checkimage, 0
