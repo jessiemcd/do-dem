@@ -2,7 +2,7 @@
 from sys import path as sys_path
 
 # Change to your local copy's location...
-sys_path.append('/Users/jessieduncan/packages/demreg/python/')
+sys_path.append('/Users/jessieduncan/demreg/python/')
 from dn2dem_pos import dn2dem_pos
 import dn2dem_pos
 
