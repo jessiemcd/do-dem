@@ -29,6 +29,14 @@ FUNCTION lets_get_that_xrt, nutimes=nutimes, nupointing=nupointing, obsid=obsid,
 		;-Developing an automated search process for getting NuSTAR/XRT co-observations
 		;-Assuming NuSTAR search is handled elsewhere, so here we will start with NuSTAR times and 
 		;pointings.
+		
+		
+		; Note: you will need some of the database files available via SSWDB: 
+		;https://www.mssl.ucl.ac.uk/surf/sswdoc/solarsoft/sswdb_install.html
+		;Particularly, xrt_genxcat_sirius + xrt_genxcat
+		;If your installation isn't working, check to make sure you're using the 'spawn' keyword
+		; i.e. sswdb_upgrade, /spawn 
+		; after downloading the db file and placing it in $SSW/site/setup/
 
 		;Keywords: 
 		;			nutimes –– nustar data interval (or other interesting interval of time), see default for
