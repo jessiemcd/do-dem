@@ -806,7 +806,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
 #     print('-Simulated counts in each channel, based on DEM results + response')
     
     #DO DEM
-    dem70o,edem70o,elogt70o,chisq70o,dn_reg70o,rmatrix\
+    dem70o,edem70o,elogt70o,chisq70o,dn_reg70o\
         =dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci, emd_int=emd_int,
                                emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter, rgt_fact=rgt_fact, 
                                dem_norm0=dem_norm0, nmu=nmu)
@@ -817,7 +817,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
         print('Not saving!! Re-TRYING')
         tries=5
         while tries > 0:
-            dem70o,edem70o,elogt70o,chisq70o,dn_reg70o,rmatrix\
+            dem70o,edem70o,elogt70o,chisq70o,dn_reg70o\
                     =dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
                                            emd_int=emd_int, emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter,
                                            rgt_fact=rgt_fact, dem_norm0=dem_norm0, nmu=nmu)
@@ -886,7 +886,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
             error=(np.random.rand(len(dn_in))*2-1)*edn_in
             dn_in_now = dn_in+error
             #DO DEM
-            dem70oMC,edem70oMC,elogt70oMC,chisq70oMC,dn_reg70oMC,rmatrixMC\
+            dem70oMC,edem70oMC,elogt70oMC,chisq70oMC,dn_reg70oMC\
                 =dn2dem_pos.dn2dem_pos(np.array(dn_in_now), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
                                        emd_int=emd_int,
                                        emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter, rgt_fact=rgt_fact, 
