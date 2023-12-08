@@ -79,6 +79,11 @@ FUNCTION lets_get_that_xrt, nutimes=nutimes, nupointing=nupointing, obsid=obsid,
 		if keyword_set(path) then begin
 			thepath = path
 		endif
+		
+		res = FILE_TEST(thepath, /DIRECTORY)
+		if res EQ 0 then begin
+			FILE_MKDIR, thepath
+		endif
 
 
 		;DO NOT USE WITHOUT ALSO CHANGING THE OBSID AND THE POINTING!
