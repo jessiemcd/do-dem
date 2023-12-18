@@ -56,8 +56,8 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         
     #Make NuSTAR map and submap
     nustar_map = nustar.map.make_sunpy(evt_data, hdr)
-    bl = SkyCoord( *(-700, -700)*u.arcsec, frame=nustar_map.coordinate_frame)
-    tr = SkyCoord( *(700, 700)*u.arcsec, frame=nustar_map.coordinate_frame)
+    bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+    tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
     submap = nustar_map.submap(bottom_left=bl, top_right=tr)
     cmap = plt.cm.get_cmap('plasma')
     norm = colors.Normalize(0, np.max(submap.data))
