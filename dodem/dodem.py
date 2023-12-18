@@ -102,7 +102,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                         and extract inputs from that file instead of re-running the data prep code.
                         
     default_err - Default error to use (fraction of input). Used for XRT, added in quadrature with NuSTAR statistical 
-                    uncertaintty, and used for AIA if real_aia_err=False.                    
+                    uncertainty, and used for AIA if real_aia_err=False.                    
     
     working_directory - where result images + files will be placed. 
                          Also, location of timestring directory (named like /19-09-00_19-14-00/ after time interval
@@ -112,8 +112,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
     
     Keywords - DEM Calculation
     -------------------------------
-    mc_in – set True to do MCMC (repeated DEM calculation with inputs varied within their uncertainty). If this is
-            True
+    mc_in – set True to do MCMC (repeated DEM calculation with inputs varied within their uncertainty). 
     
     mc_rounds - number of mcmc iterations (intentionally distinct from max_iter, which has meaning within DEMReg)
     
@@ -161,7 +160,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
     nuenergies - if using NuSTAR data, provide an energy range (or ranges) to use
             FORMAT LIKE, nuenergies=[2.5,7]
                             OR
-                         nuenergies=[[2.5,3.5], [3.5,6.],[6,10']]
+                         nuenergies=[[2.5,3.5], [3.5,6.],[6.,10.]]
            
             
     datapath – NuSTAR data directory (location of event_cl, etc. directories). If default downloaded data is used, will
@@ -184,9 +183,8 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                 initial pipeline (see datapath). 
 
 
-    special_pha - to enter special PHA files (like to do the nonthermal subtraction for the occulted flare), set this
-                equal to a path to their location. See nustar_dem_prep.find_nuproducts() to see expected file naming 
-                structure.
+    special_pha - to enter special PHA files (like to do nonthermal subtraction), set this equal to a path to 
+                   their location. See nustar_dem_prep.find_nuproducts() to see expected file naming structure.
                 NOTE: each file name must contain the fpm (capitalized) (i.e. 'A' or 'B'), as well as the time interval
                 in the format expected ('hh-mm-ss_hh-mm-ss').
                    
@@ -194,7 +192,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
         Region-Related
         ---------------
 
-        regfile – If edit_regfile=True, this is used as a template to create an optimized region file. If 
+        regfile – If edit_regfile=True, this is used as a file template to create an optimized region file. If 
                     edit_regfile=False, this is used as the actual region file for making spectral data products. 
 
         edit_regfile – Bool: do we want to optimize the region file, or use the one we input?
@@ -208,8 +206,28 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                             Use first with edit_regfile=True (to make new region file). Then afterwards, with
                             edit_regfile=False. 
                             
-        nuradius -  radius (in arcseconds) of circular region, for use in the center-of-mass case. Default 150".                   
-    
+        nuradius -  radius (in arcseconds) of circular region, for use in the center-of-mass case. Default 150".
+        
+        Region keywords examples:
+            -Use a desired region in an existing file (starter_region.reg):
+                    regfile='starter_region.reg', edit_regfile=False
+                    
+            -Make a new region file, fitting to maximize NuSTAR emission in region (takes a while):
+                Note: regfile is just used as a file template.
+                    regfile='starter_region.reg', edit_regfile=True, COM_nustar_region=False 
+                    
+            -Use a region file made from a prior run fit region like the above ^:
+                    edit_regfile=False, use_fit_regfile=True
+                    
+            -Make a new region rule, of 150" radius around NuSTAR center of mass:
+                Note: regfile is just used as a file template.
+                    regfile='starter_region.reg', edit_regfile=True, COM_nustar_region=True, nuradius=150
+                    
+            -Use a region file made from a prior run COM region like the above ^:
+                Note: regardless of what you set nuradius, the region will have the radius used when last 
+                making a COM region file.
+                    regfile='starter_region.reg', edit_regfile=False, COM_nustar_region=True
+                    
 
         Pileup/Grade-Related
         ---------------
@@ -254,7 +272,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                             easily be added in xrt_dem_prep.load_xrt_filter().
     
     input_xrt_region_dict - Dictionary of input values for generating region object for each XRT map. 
-                                EX: (rectangular region)
+                                EXAMPLE: (rectangular region)
                                 region_data = {'center': (815, -543)*u.arcsec,
                                               'width': 20*u.arcsec,
                                               'height': 60*u.arcsec, 
@@ -277,6 +295,7 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                   DEM, data for all six will be prepared, and the exclude step comes right before the data is
                   returned for use in the DEM. A typical workflow would be to prep everything first, make an 
                   all-aia DEM, then perhaps remove certain AIA channels if useful in analysis. 
+                  
     
     aia_path –   Location of timestring directory (named like /19-09-00_19-14-00/ after time interval hhmmss_hhmmss).
                     The timestring directory is where AIA prepped data files are placed. 
