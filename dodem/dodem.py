@@ -224,9 +224,10 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                     regfile='starter_region.reg', edit_regfile=True, COM_nustar_region=True, nuradius=150
                     
             -Use a region file made from a prior run COM region like the above ^:
-                Note: regardless of what you set nuradius, the region will have the radius used when last 
-                making a COM region file.
-                    regfile='starter_region.reg', edit_regfile=False, COM_nustar_region=True
+                Trick question! This is actually NOT currently set up! This is because the region file edit
+                is pretty fast. If you try to do the below, it will just end up using the starter region file.
+                If you are reading this and it bothers you, contact Jessie and we can add it to the to-do list. 
+                    FAKE DO NOT USE: regfile='starter_region.reg', edit_regfile=False, COM_nustar_region=True
                     
 
         Pileup/Grade-Related
