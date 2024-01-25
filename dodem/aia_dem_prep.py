@@ -243,7 +243,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         #print('Before exclude:', waves)
         if bool(aia_exclude):
             main_list = list(set(waves) - set(aia_exclude))
-            waves = [waves[waves.index(x)] for x in main_list]
+            waves = sorted([waves[waves.index(x)] for x in main_list])
             #print('After:', waves)
             
             
@@ -349,7 +349,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     if bool(aia_exclude):
         print('Excluding AIA: ', aia_exclude)
         main_list = list(set(waves) - set(aia_exclude))
-        c = [waves.index(x) for x in main_list]
+        c = sorted([waves.index(x) for x in main_list])
         if method=='Middle':
             #print(c)
             aia_dn_s_px = aia_dn_s_px[c]
