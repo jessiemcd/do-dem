@@ -34,7 +34,7 @@ exposure_dict={'Be_thin': [],
               'Al_poly': []}
 
 def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05, 
-          xrt=True, aia=True, nustar=True, eis=True,
+          xrt=True, aia=True, nustar=True, eis=False,
           plotresp=True, just_prep=False, plotMK=False, name='',
           use_prior_prep=False, default_err=0.2, use_highTprep=False,
           path_to_dodem='./', working_directory='./',
@@ -1288,167 +1288,93 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     else:
         name=name2
         
-    #=========================================================================================================
+        
+    #Identical across temperature ranges;
+    compare_fpm=False
+    combine_fpm=True
+    eis=False
+    make_nustar=True
+    just_prep=False
+    gloci=1
+    mc_in=True
+    mc_rounds=100
+    plotresp=False
+    nustar_path='./'
+    
+    mc_iter=100
+    
+    
+    #What are the temperature ranges?
     minT1=5.6
     #maxT1=7.1
     maxT1=highT
-        
-        
-    if demmethod=='DEMREG':                   
-        res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
-                    name=name, compare_fpm=False, combine_fpm=True,
-                    nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                    make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
-                    regfile=regfile, edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
-                    COM_nustar_region=COM_nustar_region, nuclobber=nuclobber, special_pha=special_pha,
-                    xrt_path=xrt_path, plot=plot, xrt_exclude=xrt_exclude, 
-                    xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
-                    input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                    real_xrt_err=real_xrt_err,
-                    aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
-                    input_aia_region_dict=input_aia_region_dict,
-                    just_prep=False,
-                    gloci=1, mc_in=True, mc_rounds=100, 
-                    plotresp=False, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter,
-                    minT=minT1, maxT=maxT1, plotMK=plotMK, use_prior_prep=use_prior_prep,
-                    real_aia_err=real_aia_err, default_err=default_err)
-        
-    if demmethod=='XRT_ITER':
-        res1 = run_iterative_wrapper(time, bl, tr, minT1, maxT1, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                          edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
-                          COM_nustar_region=COM_nustar_region, nuclobber=nuclobber, special_pha=special_pha,
-                          xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
-                          aia_exclude=aia_exclude, name=name,
-                         plotMK=plotMK, mc_iter=100,
-                         combine_fpm=True, aiamethod=aiamethod, input_aia_region=input_aia_region,
-                         input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, aia_clobber=aia_clobber, 
-                         input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                         xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep,
-                        real_aia_err=real_aia_err, default_err=default_err)
-        
-    #========================================================================================================= 
+    
     minT2=5.6
     maxT2=7.0
     
-    if demmethod=='DEMREG':
-        res2 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
-                    name=name, compare_fpm=False, combine_fpm=True,
-                    nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                    make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
-                    regfile=regfile, edit_regfile=edit_regfile,  use_fit_regfile=use_fit_regfile,
-                    COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
-                    xrt_path=xrt_path, plot=plot, xrt_exclude=xrt_exclude, 
-                    xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
-                    input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                    real_xrt_err=real_xrt_err,
-                    aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
-                    input_aia_region_dict=input_aia_region_dict,
-                    just_prep=False,
-                    gloci=1, mc_in=True, mc_rounds=100, 
-                    plotresp=False, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter, 
-                    minT=minT2, maxT=maxT2, plotMK=plotMK,use_prior_prep=use_prior_prep,
-                    real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True)  
-    
-    if demmethod=='XRT_ITER':
-        res2 = run_iterative_wrapper(time, bl, tr, minT2, maxT2, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                          edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
-                          COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
-                          xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
-                          aia_exclude=aia_exclude, name=name,
-                         plotMK=plotMK, mc_iter=100,
-                         combine_fpm=True, aiamethod=aiamethod, input_aia_region=input_aia_region,
-                         input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, 
-                         input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                         xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep, aia_clobber=aia_clobber,
-                            real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True)
-
-    #=========================================================================================================                 
     minT3=5.6
     maxT3=6.84
     
-    if demmethod=='DEMREG':
-        res3 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
-                    name=name, compare_fpm=False, combine_fpm=True,
-                    nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                    make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
-                    regfile=regfile, edit_regfile=edit_regfile,  use_fit_regfile=use_fit_regfile,
-                    COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
-                    xrt_path=xrt_path, plot=plot, xrt_exclude=xrt_exclude, 
-                    xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
-                    input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                    real_xrt_err=real_xrt_err,
-                    aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber,
-                    input_aia_region_dict=input_aia_region_dict, 
-                    just_prep=False,
-                    gloci=1, mc_in=True, mc_rounds=100, 
-                    plotresp=False, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter, 
-                    minT=minT3, maxT=maxT3, plotMK=plotMK, use_prior_prep=use_prior_prep,
-                    real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True) 
-    
-    if demmethod=='XRT_ITER':
-        res3 = run_iterative_wrapper(time, bl, tr, minT3, maxT3, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                          edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
-                          COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
-                          xrt_factor=xrt_factor, real_xrt_err=real_xrt_err, 
-                          aia_exclude=aia_exclude, name=name,
-                         plotMK=plotMK, mc_iter=100,
-                         combine_fpm=True, aiamethod=aiamethod, input_aia_region=input_aia_region,
-                         input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, 
-                         input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                         xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep, aia_clobber=aia_clobber,
-                            real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True)
-
-    #=========================================================================================================                 
     minT4=5.6
     maxT4=6.7
     
-    if demmethod=='DEMREG':                  
-        res4 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=False, dT=dT,
-                    name=name, compare_fpm=False, combine_fpm=True,
-                    nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                    make_nustar=True, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
-                    regfile=regfile, edit_regfile=edit_regfile,  use_fit_regfile=use_fit_regfile,
-                    COM_nustar_region=COM_nustar_region,  nuclobber=False, special_pha=special_pha,
-                    xrt_path=xrt_path, plot=False, xrt_exclude=xrt_exclude, 
-                    xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
-                    input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                    real_xrt_err=real_xrt_err,
-                    aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber,
-                    input_aia_region_dict=input_aia_region_dict,
-                    just_prep=False,
-                    gloci=1, mc_in=True, mc_rounds=100, 
-                    plotresp=False, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter, 
-                    minT=minT4, maxT=maxT4, plotMK=plotMK, use_prior_prep=use_prior_prep,
-                    real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True) 
-    
-    
-    if demmethod=='XRT_ITER':
-        res4 = run_iterative_wrapper(time, bl, tr, minT4, maxT4, xrt=xrt, aia=aia, nustar=nustar, eis=False,
-                          dT=dT, nuenergies=nuenergies, nustar_path='./', pile_up_corr=pile_up_corr,
-                          edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
-                          COM_nustar_region=COM_nustar_region, nuclobber=False, special_pha=special_pha,
-                          xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
-                          aia_exclude=aia_exclude, name=name,
-                         plotMK=plotMK, mc_iter=100,
-                         combine_fpm=True, aiamethod=aiamethod, input_aia_region=input_aia_region,
-                         input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, 
-                         input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
-                         xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep, aia_clobber=aia_clobber,
-                            real_aia_err=real_aia_err, default_err=default_err, use_highTprep=True)
-    
+    #Organizing...
+    temps = [[minT1, maxT1], [minT2, maxT2], [minT3, maxT3], [minT4, maxT4]]        
+        
     #=========================================================================================================
+    results=[]
+    for tpair in temps:
+        print(tpair[0], tpair[1])
+        
+        
+        if demmethod=='DEMREG':   
+            res1 = dodem(time, bl, tr, 
+                        minT=tpair[0], maxT=tpair[1],
+                        xrt=xrt, aia=aia, nustar=nustar, eis=eis, dT=dT,
+                        name=name, compare_fpm=compare_fpm, combine_fpm=combine_fpm,
+                        nuenergies=nuenergies, nustar_path=nustar_path, pile_up_corr=pile_up_corr,
+                        make_nustar=make_nustar, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
+                        regfile=regfile, edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
+                        COM_nustar_region=COM_nustar_region, nuclobber=nuclobber, special_pha=special_pha,
+                        xrt_path=xrt_path, plot=plot, xrt_exclude=xrt_exclude, 
+                        xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
+                        input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
+                        real_xrt_err=real_xrt_err,
+                        aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
+                        input_aia_region_dict=input_aia_region_dict,
+                        just_prep=just_prep,
+                        gloci=1, mc_in=mc_in, mc_rounds=mc_rounds, 
+                        plotresp=plotresp, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter,
+                        plotMK=plotMK, use_prior_prep=use_prior_prep,
+                        real_aia_err=real_aia_err, default_err=default_err)
+        
+        if demmethod=='XRT_ITER':
 
+            res1 = run_iterative_wrapper(time, bl, tr, tpair[0], tpair[1], xrt=xrt, aia=aia, nustar=nustar, eis=eis,
+                              dT=dT, nuenergies=nuenergies, nustar_path=nustar_path, pile_up_corr=pile_up_corr,
+                              edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile, adjacent_grades=adjacent_grades,
+                              COM_nustar_region=COM_nustar_region, nuclobber=nuclobber, special_pha=special_pha,
+                              xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
+                              aia_exclude=aia_exclude, name=name,
+                             plotMK=plotMK, mc_iter=mc_iter,
+                             combine_fpm=combine_fpm, aiamethod=aiamethod, input_aia_region=input_aia_region,
+                             input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, aia_clobber=aia_clobber, 
+                             input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
+                             xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep,
+                            real_aia_err=real_aia_err, default_err=default_err)
+        
+        results.append(res1)
+        
+    #=========================================================================================================
+    
     data1, timestring1 = vdr.load_DEM(time, 
-                              filename=res1)
+                              filename=results[0])
     data2, timestring2 = vdr.load_DEM(time,
-                              filename=res2)
+                              filename=results[1])
     data3, timestring3 = vdr.load_DEM(time, 
-                              filename=res3)
+                              filename=results[2])
     data4, timestring4 = vdr.load_DEM(time, 
-                              filename=res4)
+                              filename=results[3])
                        
     consistent = vdr.compare_DEMs(data1, data2, timestring1, timestring2, 
                                            title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
