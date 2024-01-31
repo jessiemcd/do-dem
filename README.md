@@ -1,6 +1,10 @@
 # do-dem
 Code to prepare data from NuSTAR and other instruments for use in DEM analysis, do DEMs (either using DEMREG or xrt_dem_iterative2), and visualize results.
 
+For specifics on what was done in the May 29 2018 AR DEM analysis, see the Duncan_et_al_2024_Process folder.
+
+For information on how to get this going on your own machine, see below.
+
 Requirements:
 - Python packages: numpy, matplotlib, sunpy, astropy, aiapy, scipy, regions
 - NuSTAR pysolar: https://github.com/ianan/nustar_pysolar/tree/main 
