@@ -1300,6 +1300,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     mc_rounds=100
     plotresp=False
     nustar_path='./'
+    use_highT_prep=False
     
     mc_iter=100
     
@@ -1323,8 +1324,12 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
         
     #=========================================================================================================
     results=[]
+    num=0
     for tpair in temps:
         print(tpair[0], tpair[1])
+        
+        if num>0:
+            use_highTprep=True
         
         
         if demmethod=='DEMREG':   
@@ -1364,6 +1369,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
                             real_aia_err=real_aia_err, default_err=default_err)
         
         results.append(res1)
+        num+=1
         
     #=========================================================================================================
     
