@@ -1,13 +1,33 @@
 This document provides information about the specific process for DEM analysis of the May 29 2018 NuSTAR AR observation campaign with the DEMREG method. 
-This method was used to perform all DEMs whose results appear in Figures 3,4,5,6, and 7.
 
-First, we discuss choices and inputs that are not specific dodem keywords.
+The following descibes the default DEM method used in this analysis (including results shown in various figures). Modifications to the defaults are noted (search a figure name (i.e. "Figure 9") to see deviations from the default method used to generate results shown in various figures. Figures with no such modifications to the method include: Figure 3,4,5,6,7
 
-Instrument Selection: All DEMs included 6 AIA channels (94,131,171,193,211,335 \AA) as well as NuSTAR energy ranges (2.5-3.5, 3.5-6, 6-10 keV). When available, XRT filters were used as well (some combination of Be-thin, Be-med, Al-poly), depending on what images were available during which DEM time intervals.
+Additionally, the AIA and NuSTAR lightcurves in Figure 1 use the DEM-input values for observations in each channel (prepped via the same methods), and the responses shown in Figure 2 show the instrument responses (prepped via the same methods). 
 
-Time Interval Selection: time intervals were selected to achieve decent NuSTAR statistics in the 6-10 keV range (both FPM combined). These intervals are saved (for each orbit) in the included files named like "orbit(number)_time_intervals.pickle". 
+=================================================
 
-Region Selection: for NuSTAR, a 150" region around the COM of observed emission in each time interval was selected (this is done automatically, see NuSTAR keywords section below). For AIA and XRT, different 150" circular regions were used for each orbit. These were not chosen to be the same as the NuSTAR regions due to NuSTAR pointing uncertainty (see Grefensette et al. (2016)); instead, they were chosen by eye to include the bulk of the AR. These were:
+–Temperature Range Selection: the default temperature range used was logT=5.6-7.2. 
+        – Figure 8: The analysis presented in Section 4.3.2 (Figure 8) used several different ranges, via the function 
+        dodem.high_temp_analysis():
+        5.6-7.2
+        5.6-7.1
+        5.6-7.0
+        5.6-6.84
+        5.6-6.7
+
+=================================================
+
+–Instrument Selection: All DEMs included 6 AIA channels (94,131,171,193,211,335 \AA) as well as NuSTAR energy ranges (2.5-3.5, 3.5-6, 6-10 keV). When available, XRT filters were used as well (some combination of Be-thin, Be-med, Al-poly), depending on what images were available during which DEM time intervals.
+        –Figure 9: One DEM was run with nustar=False
+        –Figure 10: One DEM was run with xrt=False
+        
+=================================================        
+
+–Time Interval Selection: time intervals were selected to achieve decent NuSTAR statistics in the 6-10 keV range (both FPM combined). These intervals are saved (for each orbit) in the included files named like "orbit(number)_time_intervals.pickle". 
+
+=================================================
+
+–Region Selection: for NuSTAR, a 150" region around the COM of observed emission in each time interval was selected (this is done automatically, see NuSTAR keywords section below). For AIA and XRT, different 150" circular regions were used for each orbit. These were not chosen to be the same as the NuSTAR regions due to NuSTAR pointing uncertainty (see Grefensette et al. (2016)); instead, they were chosen by eye to include the bulk of the AR. These were:
 
 Orbit 1:
 aia_region_data = {'center': (-155.,  275.)*u.arcsec,
@@ -45,11 +65,11 @@ aia_region_data = {'center': (-95.,  275.)*u.arcsec,
 
 xrt_region_data = {'center': (-95.,  275.)*u.arcsec,
                   'radius': 150*u.arcsec}
+                  
+                  
+=================================================
 
-
-Other inputs: the following shows the keywords used for all the DEMREG DEM runs. dodem.high_temp_analysis() was used to repeat DEMs with all the same keywords except temperature range. 
-
-
+Other inputs: the following shows the keywords used for all the DEMREG DEM runs. 
 
 General Keywords:
 minT=5.6
@@ -90,6 +110,8 @@ real_xrt_err=True
 xrtmethod='Average'
 xrt_exclude=[]
 xrt_factor=2
+    –Figure 11: xrt_factor was varied (values 1,1.5,2,3,4)
+    –Figure 11: xrt_factor was varied (values 1,1.5,2,3,4)
 
 AIA Keywords:
 input_aia_region="circle"
@@ -97,14 +119,61 @@ input_aia_region_dict=aia_region_data
 real_aia_err=True
 aiamethod='Auto'
 aia_exclude=[]
-                    
-For the results presented in Figure 8, dodem.high_temp_analysis() was used to repeat DEMs with all the same keywords except temperature range. Additionally, a modified version of the demreg code was used that scales the DEM solution as described in-text. Specifically, the rescaling is:
+
+=================================================
+
+    –Figure 8: For the results presented in Figure 8, dodem.high_temp_analysis() was used to repeat DEMs with all the same
+    keywords except temperature range. Additionally, a modified version of the demreg code was used that scales the DEM 
+    solution as described in-text. Specifically, the rescaling for the full temperature range 5.6-7.2 is:
 
             mnrat=np.mean(dnin/dn_reg)
+            if rscl_factor:
+                mnrat = rscl_factor
             dem=dem*mnrat
             edem=edem*mnrat
-	    dn_reg=(rmatrix.T @ dem).squeeze()
+            dn_reg=(rmatrix.T @ dem).squeeze()
             chisq=np.sum(((dnin-dn_reg)/ednin)**2)/nf
 
- where dnin is the array of DEM inputs for each instrument (with uncertainties ednin), dn_reg is the DEM-predicted array of DEM inputs (dn_reg/dn_in are the residuals), dem is the DEM solution (with uncertainty edem), and rmatrix is the response matrix. 
+         where dnin is the array of DEM inputs for each instrument (with uncertainties ednin), dn_reg is the DEM-predicted 
+     array of DEM inputs (dn_reg/dn_in are the residuals), dem is the DEM solution (with uncertainty edem), and rmatrix
+     is the response matrix. rscl_factor is False for the DEM over logT=5.6-7.2.
+ 
+     The factor mnrat from the DEM over logT=5.6-7.2 is saved by the modified demreg code, and then used as the rscl_factor
+     input for temperarture-restricted DEMs (logT = 5.6-7.1, 5.6-7.0, 5.6-6.84, 5.6-6.7).
+
+=================================================
+     
+     –Figure 13: To do the gain-corrected DEMs, a multiplicative gain factor is first found for the time interval of 
+     interest, using the method described in Duncan et al. (2021) – Appendix. 
+     
+     This factor is then used to modify the NuSTAR .pha files that have been generated using
+     nustar_dem_prep.make_nustar_products(), using the function copied below. These new gain-corrected .pha files (FPMA, B) 
+     are then placed in a new directory and used to make DEM inputs by using the special_pha keyword to point to that 
+     directory.
+     
+     
+        def make_gain_accounted_pha(in_pha: str, out_pha: str, gain: float):
+
+            shutil.copyfile(in_pha, out_pha)
+            with fits.open(out_pha) as hdu:
+
+                energies = hdu[1].data['CHANNEL'] * 0.04 + 1.6
+                ga_channels = (energies / gain - 1.6) / 0.04
+
+                # I was unable to update the CHANNEL column data type by using header.set,
+                # so here we define a new CHANNEL column.
+                orig_header = hdu[1].header
+                new_col = fits.ColDefs([ fits.Column(name='CHANNEL', format='1D', array=ga_channels) ])
+                hdu[1] = fits.BinTableHDU.from_columns( new_col + hdu[1].columns[1] )
+                hdu[1].header = orig_header
+
+                hdu[1].header.set('TTYPE1', 'CHANNEL', comment='Gain-Accounted Pulse Invarient (PI) Channel')
+                hdu[1].header.set('TFORM1', '1D', comment='data format of field: 8-byte DOUBLE')
+                hdu[1].header.set('NAXIS1', hdu[1].header['NAXIS1']+4)
+
+                cnts=hdu[1].data['COUNTS']
+                print(np.min(cnts), np.max(cnts))
+                print('')
+
+                hdu.writeto(out_pha, overwrite=True)
 

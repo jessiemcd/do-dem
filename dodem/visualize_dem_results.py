@@ -123,7 +123,7 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
     ax.set_xticks(np.arange(nf),data['chanax'],rotation=90, fontsize=15)
     ax.set_yticks([0.5,1,2], ['0.5','1','2'], fontsize=15)
     ax.set_xlabel('Channel', fontsize=20)
-    ax.set_ylabel('DN$_\mathrm{reg}$/DN$_\mathrm{in}$', fontsize=20)
+    ax.set_ylabel('DN$_\mathrm{(DEM\ predicted)}$/DN$_\mathrm{(measured)}$', fontsize=20)
     ax.yaxis.set_minor_formatter(NullFormatter())
     ax.legend(fontsize = 15)
     
@@ -333,7 +333,7 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         ax.tick_params(axis='x', length=20)
         ax.set_yticks([0.5,1,2], ['0.5','1','2'], fontsize=25)
         #ax.set_xlabel('Channel', fontsize=30)
-        ax.set_ylabel('DN$_\mathrm{reg}$/DN$_\mathrm{in}$', fontsize=30)
+        ax.set_ylabel('DN$_\mathrm{(DEM\ predicted)}$/DN$_\mathrm{(measured)}$', fontsize=30)
         ax.yaxis.set_minor_formatter(NullFormatter())
         ax.legend(fontsize = 20)
         
@@ -627,7 +627,7 @@ def compare_DEMs_4panel(data1, data2, timestring1, timestring2, title1='', title
         ax1.tick_params(axis='x', length=20)
         ax1.set_yticks([0.5,1,2], ['0.5','1','2'], fontsize=25)
         #ax.set_xlabel('Channel', fontsize=30)
-        ax1.set_ylabel('DN$_\mathrm{reg}$/DN$_\mathrm{in}$', fontsize=30)
+        ax1.set_ylabel('DN$_\mathrm{(DEM\ predicted)}$/DN$_\mathrm{(measured)}$', fontsize=30)
         ax1.yaxis.set_minor_formatter(NullFormatter())
         ax1.legend(fontsize = 20,markerscale=2)
         

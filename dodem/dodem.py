@@ -33,10 +33,11 @@ exposure_dict={'Be_thin': [],
                 'Be_thick': [],
               'Al_poly': []}
 
-def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05, 
+def dodem(time, bl, tr, 
+          minT=5.8, maxT=7.5, dT=0.05, 
           xrt=True, aia=True, nustar=True, eis=False,
           plotresp=True, just_prep=False, plotMK=False, name='',
-          use_prior_prep=False, default_err=0.2, use_highTprep=False,
+          use_prior_prep=False, prior_name='', default_err=0.2, use_highTprep=False,
           path_to_dodem='./', working_directory='./',
           
           #NuSTAR-related
@@ -354,25 +355,38 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
     dem_path = pathlib.Path(working_directory) / timestring
     if not dem_path.exists():
         dem_path.mkdir()
+        
+    if not prior_name:
+        prior_name=name
 
     #Name the file where we will store the DEM inputs and results. 
     if mc_in:
-        picklefile = working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
+        picklefile = working_directory+\
+                        timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
+        priorpickle = working_directory+\
+                        timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+prior_name+'_MC_DEM_result.pickle'
         if use_highTprep or use_prior_prep:
-            gg = glob.glob(working_directory+timestring+'/'+timestring+'_'+str(minT)+'_*_'+name+'_MC_DEM_result.pickle')
+            gg = glob.glob(working_directory+\
+                           timestring+'/'+timestring+'_'+str(minT)+'_*_'+prior_name+'_MC_DEM_result.pickle')
             gg.sort(reverse=True)
     else:
-        picklefile = working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_DEM_result.pickle'
+        picklefile = working_directory+\
+                    timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_DEM_result.pickle'
+        priorpickle = working_directory+\
+                        timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+prior_name+'_DEM_result.pickle'
         if use_highTprep or use_prior_prep:
-            gg=glob.glob(working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(7.2)+'_'+name+'_DEM_result.pickle')
+            gg=glob.glob(working_directory+\
+                         timestring+'/'+timestring+'_'+str(minT)+'_'+str(7.2)+'_'+prior_name+'_DEM_result.pickle')
             gg.sort(reverse=True)
         
     if just_prep:
         picklefile=working_directory+\
                     timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_iterative_DEM_result.pickle'
+        priorpickle=working_directory+\
+                    timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+prior_name+'_iterative_DEM_result.pickle'
         if use_highTprep or use_prior_prep:
             gg = glob.glob(working_directory+\
-                           timestring+'/'+timestring+'_'+str(minT)+'_'+str(7.2)+'_'+name+'_iterative_DEM_result.pickle')
+                           timestring+'/'+timestring+'_'+str(minT)+'_'+str(7.2)+'_'+prior_name+'_iterative_DEM_result.pickle')
             gg.sort(reverse=True)
             
             
@@ -382,17 +396,13 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
     #========================================================================== 
     #========================================================================== 
     
-    if use_prior_prep:
-        #Using the prior result from this temperature range takes priority over using the default temperature
-        #range if both are set.
-        use_highTprep=False
+    prior_run = pathlib.Path(priorpickle)
     
-    prior_run = pathlib.Path(picklefile)
-    if use_prior_prep and prior_run.exists() or use_highTprep and bool(gg):
+    if (use_prior_prep and prior_run.exists()) or (use_highTprep and bool(gg)):
         print('')
         print('Using inputs from prior DEM run, saved in this file: ')
         if use_prior_prep:
-            with open(picklefile, 'rb') as f:
+            with open(priorpickle, 'rb') as f:
                  data = pickle.load(f)
             print(prior_run)
         if use_highTprep:
@@ -478,6 +488,12 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
 
         if aia:
             #Load in AIA data, uncertainty(if set), labels, temperature response, and corresponding temperatures
+            
+            if aia_exclude:
+                if type(aia_exclude[0]) != int:
+                    print('AIA exclude option takes a list of integers – if other input is used, it will not work!')
+                    print('You do not seem to be using a list of integers.')
+                    print('')
 
             if aiamethod=='Auto':
                 dur = (time[1]-time[0]).to(u.s).value
@@ -826,10 +842,11 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
 #     print('-Simulated counts in each channel, based on DEM results + response')
     
     #DO DEM
-    dem70o,edem70o,elogt70o,chisq70o,dn_reg70o\
-        =dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci, emd_int=emd_int,
+    demres=dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci, emd_int=emd_int,
                                emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter, rgt_fact=rgt_fact, 
                                dem_norm0=dem_norm0, nmu=nmu)
+    
+    dem70o,edem70o,elogt70o,chisq70o,dn_reg70o=demres
     
     if np.any((dem70o < 0)):
         print('')
@@ -837,10 +854,12 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
         print('Not saving!! Re-TRYING')
         tries=5
         while tries > 0:
-            dem70o,edem70o,elogt70o,chisq70o,dn_reg70o\
-                    =dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
+            demres=dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
                                            emd_int=emd_int, emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter,
                                            rgt_fact=rgt_fact, dem_norm0=dem_norm0, nmu=nmu)
+            
+            dem70o,edem70o,elogt70o,chisq70o,dn_reg70o=demres
+            
             if np.any((dem70o < 0)) == False:
                 print('Now the solution has no <0 bins, continuing.')
                 continue
@@ -903,14 +922,19 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
         
         while mc_rounds > 0:
             
-            error=(np.random.rand(len(dn_in))*2-1)*edn_in
-            dn_in_now = dn_in+error
+            mc_err='normal'
+            if mc_err=='rand':
+                error=(np.random.rand(len(dn_in))*2-1)*edn_in
+                dn_in_now = dn_in+error
+            if mc_err=='normal':
+                dn_in_now = np.random.normal(dn_in, edn_in)
             #DO DEM
-            dem70oMC,edem70oMC,elogt70oMC,chisq70oMC,dn_reg70oMC\
-                =dn2dem_pos.dn2dem_pos(np.array(dn_in_now), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
+            demres=dn2dem_pos.dn2dem_pos(np.array(dn_in_now), np.array(edn_in), trmatrix, temps, temps70, gloci=gloci,
                                        emd_int=emd_int,
                                        emd_ret=emd_ret, reg_tweak=reg_tweak, max_iter=max_iter, rgt_fact=rgt_fact, 
                                        dem_norm0=dem_norm0, nmu=nmu)
+            
+            dem70oMC,edem70oMC,elogt70oMC,chisq70oMC,dn_reg70oMC=demres
             
             if np.any((dem70oMC <= 0)):
                 print('')
@@ -920,7 +944,53 @@ def dodem(time, bl, tr, minT=5.8, maxT=7.5, dT=0.05,
                 mc_rounds-=1
                 continue
                 
-#             plt.semilogy(mkt,dem70oMC)
+            if np.max(dem70oMC) < 1e18:
+                print('WARNING: ITERATION ', mc_rounds, ' HAS Very Small Solution!')
+                print('SOLUTION MAX:', np.max(dem70oMC))
+                print('Not saving this iteration!!')
+                print('If you want to turn this off, comment it out in dodem.')
+                mc_rounds-=1
+
+                #Uncomment to save these non-desirable solutions for later inspection.
+#                 very_small_data = {'DEM': dem70oMC,
+#                                    'dnin': dn_in_now,
+#                                    'dn_reg': dn_reg70oMC,
+#                                    'chisq': chisq70oMC}
+
+#                 very_small_data = very_small_data | data
+
+#                 with open(timestring+'_'+str(maxT)+'_very_small_file.pickle', 'wb') as f:
+#                     # Pickle the 'data' dictionary using the highest protocol available.
+#                     pickle.dump(very_small_data, f, pickle.HIGHEST_PROTOCOL)
+                continue
+    
+    
+            highnu = dn_in[-1]/trmatrix[:,-1]
+            highnu = np.interp(mkt,temps,highnu)            
+            over=[]
+            for ind in range(0, len(highnu)):
+                if dem70oMC[ind] > highnu[ind]:
+                    over.append(ind)
+            if over:
+                print('WARNING: ITERATION ', mc_rounds, ' HAS Over-LOCI Solution!')
+                print('Not saving this iteration!!')
+                print('If you want to turn this off, comment it out in dodem.')
+                
+                #Uncomment to save these non-desirable solutions for later inspection.
+#                 over_loci_data = {'DEM': dem70oMC,
+#                                    'dnin': dn_in_now,
+#                                    'dn_reg': dn_reg70oMC,
+#                                    'chisq': chisq70oMC}
+
+#                 over_loci_data = over_loci_data | data
+
+#                 with open(timestring+'_'+str(maxT)+'_chisq'+str(chisq70oMC)+'_over_loci_file.pickle', 'wb') as f:
+#                     # Pickle the 'data' dictionary using the highest protocol available.
+#                     pickle.dump(over_loci_data, f, pickle.HIGHEST_PROTOCOL)
+
+                mc_rounds-=1
+                continue    
+    
             
             dnins[mc_rounds-1, :] = dn_in_now
             demouts[mc_rounds-1, :] = dem70oMC
@@ -1057,7 +1127,8 @@ def make_DEM_colors(aia=True, aia_exclude=[], xrt=True, xrt_exclude=[], nustar=T
 
 
 
-def run_iterative_wrapper(time, bl, tr, minT, maxT, xrt=True, aia=True, nustar=True, eis=False,
+def run_iterative_wrapper(time, bl, tr, minT, maxT, 
+                          xrt=True, aia=True, nustar=True, eis=False,
                           name='', return_inputs=False,save_inputs=False, plotMK=True,
                           use_prior_prep=False, special_pha='', mc_iter=100, dT=0.051, chi_thresh=0.95, 
                           default_err=0.2, use_highTprep=False,
@@ -1232,13 +1303,22 @@ def read_iterative_outputs(data, chi_thresh=0.95, name=''):
     data['dn_reg'] = dn_reg
     data['fill_color'] = 'lightgreen'
     
+    
+    #Mean, min, max of all MC DN outputs
+    #Mask out nans (never updated rows, from DEMs that failed to find a positive solution)
+    dnouts_good = data['mod_obs'][good_chis]
+    min_dnouts = dnouts_good.min(axis=0) #np.min(dnouts, axis=0)
+    max_dnouts = dnouts_good.max(axis=0) #np.max(dnouts, axis=0)
+    
+    asymmetric_error_dn = [(dn_reg-min_dnouts)/data['dn_in'], (max_dnouts-dn_reg)/data['dn_in']]
+    
     #Minimum and maximum possible residual values for each instrument, based on input data uncertainties.
-    asymmetric_error_dn = [(dn_reg/data['dn_in'])-dn_reg/(np.array(data['dn_in'])+np.array(data['edn_in'])),
-                        dn_reg/(np.array(data['dn_in'])-np.array(data['edn_in']))-(dn_reg/data['dn_in'])]
+    #asymmetric_error_dn = [(dn_reg/data['dn_in'])-dn_reg/(np.array(data['dn_in'])+np.array(data['edn_in'])),
+    #                    dn_reg/(np.array(data['dn_in'])-np.array(data['edn_in']))-(dn_reg/data['dn_in'])]
     
     
     data['edn'] = asymmetric_error_dn
-    data['edn_string'] = 'Uncertainties from data input'
+    data['edn_string'] = 'Uncertainties from outputs'
     
     temp_interval=data['temp_interval']
     minT=temp_interval[0]
@@ -1255,7 +1335,8 @@ def read_iterative_outputs(data, chi_thresh=0.95, name=''):
         
     return data    
     
-def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=7.2, dT=0.05,
+def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, 
+                       highT=7.2, dT=0.05,
                        gtifile='starter_gti.fits', regfile='starter_region.reg', name2='',
                        xrt=True, aia=True, nustar=True, edit_regfile=False, use_fit_regfile=False,
                        COM_nustar_region=False, nuclobber=False, special_pha='', pile_up_corr=False,
@@ -1264,9 +1345,10 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
                        xrt_exclude=[], xrtmethod='Average', xrt_path='./xrt_for_DEM/', xrt_factor=2,
                        input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False,
                        aiamethod='Average', input_aia_region=[], input_aia_region_dict=[],
-                       demmethod='DEMREG', use_prior_prep=False,
+                       demmethod='DEMREG', use_prior_prep=False, prior_name='',
                        real_aia_err=False, default_err=0.2,
-                       reg_tweak=1, max_iter=30, rgt_fact=1.5):
+                       reg_tweak=1, max_iter=30, rgt_fact=1.5,
+                       mc_iter=100, chi_thresh=0.95):
    
     
     """
@@ -1310,6 +1392,9 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     #maxT1=7.1
     maxT1=highT
     
+    minT15=5.6
+    maxT15=7.1
+    
     minT2=5.6
     maxT2=7.0
     
@@ -1319,8 +1404,9 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
     minT4=5.6
     maxT4=6.7
     
+    
     #Organizing...
-    temps = [[minT1, maxT1], [minT2, maxT2], [minT3, maxT3], [minT4, maxT4]]        
+    temps = [[minT1, maxT1], [minT15, maxT15], [minT2, maxT2], [minT3, maxT3], [minT4, maxT4]]        
         
     #=========================================================================================================
     results=[]
@@ -1366,7 +1452,7 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
                              input_aia_region_dict=input_aia_region_dict, xrtmethod=xrtmethod, aia_clobber=aia_clobber, 
                              input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
                              xrt_exposure_dict=exposure_dict, use_prior_prep=use_prior_prep,
-                            real_aia_err=real_aia_err, default_err=default_err)
+                            real_aia_err=real_aia_err, default_err=default_err,chi_thresh=chi_thresh)
         
         results.append(res1)
         num+=1
@@ -1381,16 +1467,21 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, highT=
                               filename=results[2])
     data4, timestring4 = vdr.load_DEM(time, 
                               filename=results[3])
+    data5, timestring5 = vdr.load_DEM(time, 
+                              filename=results[4])
                        
     consistent = vdr.compare_DEMs(data1, data2, timestring1, timestring2, 
                                            title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT2)+'_'+str(maxT2)+'_DEM')
+                                           title2=str(minT15)+'_'+str(maxT15)+'_DEM')
     consistent = vdr.compare_DEMs(data1, data3, timestring1, timestring3,
                                            title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT3)+'_'+str(maxT3)+'_DEM')
+                                           title2=str(minT2)+'_'+str(maxT2)+'_DEM')
     consistent = vdr.compare_DEMs(data1, data4, timestring1, timestring4,
                                            title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT4)+'_'+str(maxT4)+'_DEM')
+                                           title2=str(minT3)+'_'+str(maxT3)+'_DEM')
+    consistent = vdr.compare_DEMs(data1, data5, timestring1, timestring5,
+                                           title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
+                                           title2=str(minT4)+'_'+str(maxT4)+'_DEM')  
                        
     
     return 
