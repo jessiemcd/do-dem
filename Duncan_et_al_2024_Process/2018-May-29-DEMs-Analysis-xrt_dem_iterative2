@@ -1,0 +1,108 @@
+This document provides information about the specific process for DEM analysis of the May 29 2018 NuSTAR AR observation campaign with the xrt_dem_iterative2.pro method. This is done via dodem.run_iterative_wrapper() and requires a functional SSWIDL installation and hissw (see main documentation in do-dem README for other specific requirements). 
+
+This was used to check certain scientific conclusions made using the demreg DEM method (see the DEMREG version of this file). 
+
+=================================================
+
+–Temperature Range Selection: the default temperature range used was logT=5.6-7.2. 
+
+=================================================
+
+–Instrument Selection: All DEMs included 6 AIA channels (94,131,171,193,211,335 \AA) as well as NuSTAR energy ranges (2.5-3.5, 3.5-6, 6-10 keV). When available, XRT filters were used as well (some combination of Be-thin, Be-med, Al-poly), depending on what images were available during which DEM time intervals.
+        
+=================================================        
+
+–Time Interval Selection: time intervals were selected to achieve decent NuSTAR statistics in the 6-10 keV range (both FPM combined). These intervals are saved (for each orbit) in the included files named like "orbit(number)_time_intervals.pickle". 
+
+=================================================
+
+–Region Selection: for NuSTAR, a 150" region around the COM of observed emission in each time interval was selected (this is done automatically, see NuSTAR keywords section below). For AIA and XRT, different 150" circular regions were used for each orbit. These were not chosen to be the same as the NuSTAR regions due to NuSTAR pointing uncertainty (see Grefensette et al. (2016)); instead, they were chosen by eye to include the bulk of the AR. These were:
+
+Orbit 1:
+aia_region_data = {'center': (-155.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+xrt_region_data = {'center': (-155.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+Orbit 2:
+aia_region_data = {'center': (-140.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+xrt_region_data = {'center': (-140.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+
+Orbit 3:
+aia_region_data = {'center': (-125.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+xrt_region_data = {'center': (-125.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+Orbit 4:
+aia_region_data = {'center': (-110.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+xrt_region_data = {'center': (-110.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+
+Orbit 5:
+aia_region_data = {'center': (-95.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+
+xrt_region_data = {'center': (-95.,  275.)*u.arcsec,
+                  'radius': 150*u.arcsec}
+                  
+                  
+=================================================
+
+Other inputs: the following shows the keywords used for all the DEMREG DEM runs. 
+
+General Keywords:
+minT=5.6
+maxT=7.2
+dT=0.05
+demmethod='XRT_ITER'
+default_err=0.2
+
+xrt_dem_iterative2 Keywords:
+mc_iter=1000
+chi_thresh=0.99
+
+NuSTAR Keywords:
+nuenergies=[[2.5,3.5], [3.5,6.], [6.,10.]]
+combine_fpm=True
+make_nustar=True
+Region/time-specific:
+	edit_regfile=True
+	use_fit_regfile=False
+	COM_nustar_region=True
+Pile-up-specific:
+	pile_up_corr=True
+	adjacent_grades=True
+
+
+
+XRT Keywords:
+exposure_dict={'Be_thin': [1*u.s, 10*u.s],
+                'Be_med': [],
+              'Al_poly': [0.1*u.s, 1*u.s]}
+input_xrt_region="circle"
+input_xrt_region_dict=xrt_region_data
+real_xrt_err=True
+xrtmethod='Average'
+xrt_exclude=[]
+xrt_factor=2
+
+
+AIA Keywords:
+input_aia_region="circle"
+input_aia_region_dict=aia_region_data
+real_aia_err=True
+aiamethod='Auto'
+aia_exclude=[]
+
+=================================================
+

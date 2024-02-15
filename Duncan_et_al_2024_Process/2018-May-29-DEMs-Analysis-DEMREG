@@ -1,4 +1,4 @@
-This document provides information about the specific process for DEM analysis of the May 29 2018 NuSTAR AR observation campaign with the DEMREG method. 
+This document provides information about the specific process for DEM analysis of the May 29 2018 NuSTAR AR observation campaign with the DEMREG method. This is done via dodem.dodem() (see main documentation in do-dem README for other specific requirements).
 
 The following descibes the default DEM method used in this analysis (including results shown in various figures). Modifications to the defaults are noted (search a figure name (i.e. "Figure 9") to see deviations from the default method used to generate results shown in various figures. Figures with no such modifications to the method include: Figure 3,4,5,6,7
 
