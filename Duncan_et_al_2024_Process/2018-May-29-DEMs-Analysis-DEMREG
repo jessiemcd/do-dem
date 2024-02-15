@@ -136,7 +136,7 @@ aia_exclude=[]
 
          where dnin is the array of DEM inputs for each instrument (with uncertainties ednin), dn_reg is the DEM-predicted 
      array of DEM inputs (dn_reg/dn_in are the residuals), dem is the DEM solution (with uncertainty edem), and rmatrix
-     is the response matrix. rscl_factor is False for the DEM over logT=5.6-7.2.
+     is the response matrix. rscl_factor is False for the DEM over logT=5.6-7.2. This is implemented in demmap_pos.py.
  
      The factor mnrat from the DEM over logT=5.6-7.2 is saved by the modified demreg code, and then used as the rscl_factor
      input for temperarture-restricted DEMs (logT = 5.6-7.1, 5.6-7.0, 5.6-6.84, 5.6-6.7).
