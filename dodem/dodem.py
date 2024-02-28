@@ -33,6 +33,10 @@ exposure_dict={'Be_thin': [],
                 'Be_thick': [],
               'Al_poly': []}
 
+#edit to point to the correct paths for your system.
+sunpy_dir='/Users/jessieduncan/sunpy/', 
+errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
+
 def dodem(time, bl, tr, 
           minT=5.8, maxT=7.5, dT=0.05, 
           xrt=True, aia=True, nustar=True, eis=False,
@@ -50,8 +54,8 @@ def dodem(time, bl, tr,
           #AIA-related
           real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
           input_aia_region=[], input_aia_region_dict=[], plot_aia=False,
-          sunpy_dir='/Users/jessieduncan/sunpy/', 
-          errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
+          sunpy_dir=sunpy_dir, 
+          errortab=errortab,
           #EIS-related
           eis_path='./', eisbox_bl=[0,0], eisbox_tr=[0,0], contrib_file='chiantipy_gfnt.pickle', 
           edens=1.e+9, eis_exclude=[], fiasco=False, fiascofile='',
@@ -1132,16 +1136,18 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT,
                           name='', return_inputs=False,save_inputs=False, plotMK=True,
                           use_prior_prep=False, special_pha='', mc_iter=100, dT=0.051, chi_thresh=0.95, 
                           default_err=0.2, use_highTprep=False,
+                          path_to_dodem='./', working_directory='./',
                           
-                          nuenergies=[2.5,7], pile_up_corr=False, adjacent_grades=False,
-                          combine_fpm=False, nustar_path='./', COM_nustar_region=False, nuclobber=False,
-                          edit_regfile=False, use_fit_regfile=False,
+                          nuenergies=[2.5,7], pile_up_corr=False, adjacent_grades=False, make_nustar=True, 
+                          combine_fpm=False, datapath='./', COM_nustar_region=False, nuclobber=False,
+                          edit_regfile=False, use_fit_regfile=False, gtifile='starter_gti.fits',
                           
                           aiamethod='Auto', aia_exclude=[], input_aia_region=[], input_aia_region_dict=[], 
-                          real_aia_err=False, aia_clobber=False, 
+                          real_aia_err=False, aia_clobber=False, sunpy_dir=sunpy_dir, errortab=errortab,
                           
-                          xrtmethod='Average', xrt_exposure_dict=[], xrt_factor=2,
-                          real_xrt_err=False, input_xrt_region=[],input_xrt_region_dict=[]):
+                          xrtmethod='Average', xrt_exposure_dict=[], xrt_factor=2, xrt_exclude=[],
+                          xrt_path='./', real_xrt_err=False, 
+                          input_xrt_region=[],input_xrt_region_dict=[]):
 
     """
     IDL wrapper - loads in the needed data and responses, then runs IDL procedure (using HISSW) 
@@ -1162,24 +1168,32 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT,
     
     #Run dodem with "just_prep=True", in order to prepare data+responses for DEM
     dn_in, edn_in, trmatrix, temps, chanax = dodem(time, bl, tr, minT=minT, maxT=maxT, xrt=xrt, aia=aia, nustar=nustar, 
-                                                   eis=eis, plot=False, just_prep=True, pile_up_corr=pile_up_corr,
+                                                   eis=eis, just_prep=True, path_to_dodem=path_to_dodem,
+                                                   working_directory=working_directory, name=name, 
+                                                   use_prior_prep=use_prior_prep, use_highTprep=use_highTprep,
+                                                   
+                                                   #nustar-related
+                                                   pile_up_corr=pile_up_corr,
                                                    adjacent_grades=adjacent_grades,
-                                                   nuenergies=nuenergies, #chu=chu, obsid=obsid, fpm=fpm, 
-                                                   nustar_path=nustar_path, COM_nustar_region=COM_nustar_region,
-                                                   nuclobber=nuclobber, name=name, special_pha=special_pha,
-                                                   #xrt_path=xrt_path, xrt_exclude=xrt_exclude,
-                                                   combine_fpm=combine_fpm, aiamethod=aiamethod, xrtmethod=xrtmethod,
-                                                   xrt_exposure_dict=xrt_exposure_dict,
-                                                   xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
-                                                   aia_exclude=aia_exclude,
+                                                   nuenergies=nuenergies, make_nustar=make_nustar,
+                                                   datapath=datapath, COM_nustar_region=COM_nustar_region,
+                                                   nuclobber=nuclobber, special_pha=special_pha, combine_fpm=combine_fpm, 
                                                    edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
-                                                  input_xrt_region=input_xrt_region,
-                                                  input_xrt_region_dict=input_xrt_region_dict,
-                                                  input_aia_region=input_aia_region, aia_clobber=aia_clobber,
-                                                  input_aia_region_dict=input_aia_region_dict,
-                                                  use_prior_prep=use_prior_prep,
-                                                  real_aia_err=real_aia_err, default_err=default_err,
-                                                  use_highTprep=use_highTprep)
+                                                   gtifile=gtifile,
+                                                   
+                                                   #xrt-related
+                                                   xrt_exclude=xrt_exclude,xrtmethod=xrtmethod,
+                                                   xrt_exposure_dict=xrt_exposure_dict, xrt_path=xrt_path,
+                                                   xrt_factor=xrt_factor, real_xrt_err=real_xrt_err,
+                                                   input_xrt_region=input_xrt_region,
+                                                   input_xrt_region_dict=input_xrt_region_dict,
+                                                   
+                                                   #aia-related
+                                                   aiamethod=aiamethod, sunpy_dir=sunpy_dir, errortab=errortab,
+                                                   aia_exclude=aia_exclude,
+                                                   input_aia_region=input_aia_region, aia_clobber=aia_clobber,
+                                                   input_aia_region_dict=input_aia_region_dict,
+                                                   real_aia_err=real_aia_err, default_err=default_err)
     
     
     if save_inputs==True:
@@ -1218,8 +1232,8 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT,
     inputs = {'obs_val': list(dn_in), 'obs_err': list(edn_in), 'temps': list(temps), 
          'obs_index': list(chanax), 'trmatrix': trmatrix.tolist(), 'mc_iter': mc_iter, 'dT': dT, 
           'Name': [timestring], 'min_T': minT, 'max_T': maxT}
-    ssw = hissw.Environment(ssw_packages=['hinode/xrt','sdo/aia'], ssw_paths=['xrt', 'aia'])
-    ssw_resp = ssw.run('/Users/jessieduncan/dems/calc_iterative.pro', args=inputs)
+    ssw = hissw.Environment(ssw_packages=['hinode/xrt','sdo/aia', 'hessi'], ssw_paths=['xrt', 'aia', 'hessi'])
+    ssw_resp = ssw.run(path_to_dodem+'/hissw_idl/calc_iterative.pro', args=inputs)
 
     #Fetch DEM results + other helpful values from hissw run
     dem_out=ssw_resp['dem_out']
@@ -1246,13 +1260,13 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT,
             'mc_iter': mc_iter
             }
     
-    data = read_iterative_outputs(data, chi_thresh=chi_thresh, name=name)
+    data = read_iterative_outputs(data, chi_thresh=chi_thresh, name=name, working_directory=working_directory)
     
     temp_interval=data['temp_interval']
     minT=temp_interval[0]
     maxT=temp_interval[1]
     
-    picklefile='./'+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_iterative_DEM_result.pickle'
+    picklefile=working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_iterative_DEM_result.pickle'
     with open(picklefile, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)   
@@ -1262,7 +1276,7 @@ def run_iterative_wrapper(time, bl, tr, minT, maxT,
 
         
 
-def read_iterative_outputs(data, chi_thresh=0.95, name=''):
+def read_iterative_outputs(data, chi_thresh=0.95, name='', working_directory='./'):
     
     import scipy
         
@@ -1324,14 +1338,15 @@ def read_iterative_outputs(data, chi_thresh=0.95, name=''):
     minT=temp_interval[0]
     maxT=temp_interval[1]
     
-    picklefile='./'+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_iterative_DEM_result.pickle'
+    picklefile=working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_iterative_DEM_result.pickle'
     
     with open(picklefile, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
         
     vdr.plot_DEM(data, fill_color='lightgreen',
-                          title='./'+timestring+'/'+timestring+'_'+str(temp_interval[0])+str(temp_interval[1])+'_iterative')
+                          title=working_directory+timestring+'/'+timestring+'_'+str(temp_interval[0])+\
+                                 str(temp_interval[1])+'_iterative')
         
     return data    
     
