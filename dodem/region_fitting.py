@@ -33,7 +33,7 @@ Various code related to NuSTAR data regions:
 """
 
 def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='hourangle',
-                   nofit=False, radius=150, working_dir='./'):
+                   nofit=False, radius=150, working_dir='./', efilter=False):
     """
     Takes in a file and auto-generates a region for making spectral data products. Returns the new region file name.
     
@@ -54,8 +54,14 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         evt_data = hdu[1].data
         hdr = hdu[1].header
         
-    #Make NuSTAR map and submap
-    nustar_map = nustar.map.make_sunpy(evt_data, hdr)
+    if efilter:
+        cleanevt = nustar.filter.event_filter(evt_data, energy_low=6., energy_high=10.,
+                                             no_bad_pix_filter=True, no_grade_filter=True)
+        print(len(cleanevt), len(evt_data))
+        nustar_map = nustar.map.make_sunpy(cleanevt, hdr)
+    else:    
+        #Make NuSTAR map and submap
+        nustar_map = nustar.map.make_sunpy(evt_data, hdr)
     bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
     tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
     submap = nustar_map.submap(bottom_left=bl, top_right=tr)
@@ -90,6 +96,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         regdata = get_region_data(nustar_map, region, 0)
         
         percent = np.sum(regdata)/np.sum(nustar_map.data)
+        print('Percent of emission in region:', percent)
         
         newregfile = write_regfile(regfile, midway, region, 
                              Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region')
@@ -137,19 +144,22 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     
     plt.legend()
     
-    #Add second plot panel showing detID of each event
-    det_map = make_det_map(evt_data, hdr)
-    det_submap = det_map.submap(bottom_left=bl, top_right=tr)
+    if efilter==False:
+        #Add second plot panel showing detID of each event
+        det_map = make_det_map(evt_data, hdr)
+        det_submap = det_map.submap(bottom_left=bl, top_right=tr)
 
-    ax = fig.add_subplot(122, projection=det_submap)
+        ax = fig.add_subplot(122, projection=det_submap)
 
-    det_submap.plot(axes=ax)
-    ax.set_xlim(com[1]-d/2, com[1]+d/2)
-    ax.set_ylim(com[0]-d/2, com[0]+d/2)    
+        det_submap.plot(axes=ax)
+        ax.set_xlim(com[1]-d/2, com[1]+d/2)
+        ax.set_ylim(com[0]-d/2, com[0]+d/2)    
     
     if nofit:
+        plt.close(fig)
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region.png')
     else:
+        plt.close(fig)
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_fit_region.png')
     
     debug=0

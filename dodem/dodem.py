@@ -261,7 +261,7 @@ def dodem(time, bl, tr,
     -----------
     xrt_path - if using XRT, path to location of prepped (level 1) XRT files. 
     
-    xrt_exclude - list of XRT filters to NOT use.
+    xrt_exclude - list of XRT filters to NOT use. FORMAT: ['Be-thin', 'Be-med', 'Al-poly'], etc.
     
     xrt_factor - multiply all xrt responses by the input factor (default 2).
     

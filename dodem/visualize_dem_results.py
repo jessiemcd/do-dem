@@ -127,7 +127,7 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
     ax.yaxis.set_minor_formatter(NullFormatter())
     ax.legend(fontsize = 15)
     
-
+    plt.close(fig)
     plt.savefig(title+'_DEM_plot.png')
     
     
@@ -338,6 +338,7 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         ax.legend(fontsize = 20)
         
         if tempcomp:
+            plt.close(fig)
             plt.savefig('./'+timestring1+'/DEM_comparison_'+title1+'_vs_'+title2+'temp_range_comp.png')
         else:
             plt.savefig('DEM_comparison_'+title1+'_vs_'+title2+'.png')

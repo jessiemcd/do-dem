@@ -90,6 +90,7 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
     
     """
     
+    
     timestring = time[0].strftime('%H-%M-%S')
     stopstring = time[1].strftime('%H-%M-%S')
     timestring=timestring+'_'+stopstring
@@ -193,6 +194,7 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
                 
                 #If the current filter has at least one file fitting our criteria, and we haven't decided to exclude it...
                 if thefilter not in xrt_exclude and bool(xdnspx_all):
+                    #print(thefilter, ' NOT excluded')
                     xdnspx = np.mean(xdnspx_all)
                     xdnspxs.append(xdnspx)
                     if real_xrt_err:
@@ -300,7 +302,7 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
         print('Response filters: ', list(filters_res))
         print("Going to make a nice new xrt response file using HISSW to run IDL code.")
         
-        ssw = hissw.Environment(ssw_packages=['hinode/xrt', 'hessi'], ssw_paths=['xrt', 'hessi'])
+        ssw = hissw.Environment(ssw_packages=['hinode/xrt', 'hessi'], ssw_paths=['xrt', 'aia', 'hessi'])
         agr_path = path_to_dodem+'/hissw_idl/xrt_tresp_hissw_wrapper_aiaspec.pro'
         inputs = {'filters': filters, 'time': [datestring], 'xrt_path': [xrt_path]}
         try:

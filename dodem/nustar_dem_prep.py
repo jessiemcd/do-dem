@@ -73,8 +73,8 @@ Preparing NuSTAR Data for DEM: IDL/other helpers + other needed prep
 
 
 def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=True,
-                        compare_fpm=False, nofit=False, pile_up_corr=False, clobber=False, nuradius=150,
-                        path_to_dodem='./'):
+                        compare_fpm=False, nofit=False, pile_up_corr=False, adjacent_grades=False,
+                         clobber=False, nuradius=150, path_to_dodem='./'):
     """
     See load_nustar() documentation.
     
@@ -121,7 +121,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
         #time interval and fpm selected, and run nuscreen to make a time-interval-specific event list.
         edit_gti(gtifile, time[0], time[1], nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
 
-        #Edit shell script to run nuscreen (component of NuSTAR pipeline). This makes both grade 0 and 21-24 .evt files.
+        #Edit shell script to run nuscreen (component of NuSTAR pipeline). This makes grade 0, 0-4 and 21-24 .evt files.
         edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath)
         f = open(nustar_path+timestring+'/'+fpm+"nuscreen_output.txt", "w")
         #screenprocess = subprocess.call(path_to_dodem+'run_nuscreen.sh', stdout=f)
@@ -144,21 +144,34 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     #======================================================
     #REGION SELECTION
  
-    #Now, let's convert the grade 0 .evt file to solar coordinates (if there isn't a solar coordinates 
+    #Now, let's convert the grade 0 (or grade 0-4) .evt file to solar coordinates (if there isn't a solar coordinates 
     #file already:)
-    sun_file_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
-    #If we don't already have the sunpos file...
-    if len(sun_file_0) != 1 or clobber==True:
-        convert_wrapper(evt_files_0[0], clobber=clobber)
-        sun_file_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
-        #If we still don't have the sunpos file:
-        if len(sun_file_0) !=1:
-            print('Failed to find or make grade 0 sunpos.evt file – not using NuSTAR.')
-            return
+    
+    if adjacent_grades:
+        sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl_sunpos.evt')
+        #If we don't already have the sunpos file...
+        if len(sun_file) != 1 or clobber==True:
+            evt_files_04 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
+            convert_wrapper(evt_files_04[0], clobber=clobber)
+            sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl_sunpos.evt')
+            #If we still don't have the sunpos file:
+            if len(sun_file) !=1:
+                print('Failed to find or make grade 0-4 sunpos.evt file – not using NuSTAR.')
+                return        
+    else:
+        sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
+        #If we don't already have the sunpos file...
+        if len(sun_file) != 1 or clobber==True:
+            convert_wrapper(evt_files_0[0], clobber=clobber)
+            sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
+            #If we still don't have the sunpos file:
+            if len(sun_file) !=1:
+                print('Failed to find or make grade 0 sunpos.evt file – not using NuSTAR.')
+                return
         
     if edit_regfile: 
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
-        newregfile, percent = rf.get_file_region(sun_file_0[0], time[0], time[1], regfile, nofit=nofit, 
+        newregfile, percent = rf.get_file_region(sun_file[0], time[0], time[1], regfile, nofit=nofit, 
                                                  radius=nuradius,working_dir=nustar_path)
     else:
         newregfile=regfile
@@ -208,7 +221,7 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
 def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapath='', regfile='', 
                 edit_regfile=True, actual_total_counts=False, nofit=False, use_fit_regfile=False,
                clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
-               nuradius=150, path_to_dodem='./'):
+               nuradius=150, path_to_dodem='./', countmin=10):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
     
@@ -233,7 +246,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
     
     if actual_total_counts:
         rate, erate, nutrs, nu_tresp, nu_logt, fpm, atc = res
-        if atc >=10:
+        if atc >=countmin:
             print(atc, ' counts just in FPM', fpm, '. Exiting.')
             return (atc, True)
     
@@ -253,7 +266,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
     if actual_total_counts:
         rate, erate, nutrs, nu_tresp, nu_logt, fpm, atc = res
         rate2, erate2, nutrs2, nu_tresp2, nu_logt2, fpm2, atc2 = res2
-        if atc+atc2 >= 10:
+        if atc+atc2 >= countmin:
             print(atc, ' counts in FPM', fpm, ' ', atc2, ' counts in FPM', fpm2,'. Total:', atc+atc2, ' Exiting.')
             return (atc+atc2, True)
         else:
@@ -387,7 +400,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     actual_total_counts - Set True to return the actual total number of counts in the highest NuSTAR energy range
                             (not livetime corrected, not a rate). This is added to be used when load_nustar() is
                             being used to optimize DEM time intervals (minimzing time interval duration while 
-                            retaining >10 actual NuSTAR counts in each in the highest energy bin). 
+                            retaining > a certain # actual NuSTAR counts in each in the highest energy bin). 
                             
                             For more info, see find_intervals().
     
@@ -494,7 +507,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             else:
                 print('Now we will make some spectral data products.')
             mn = make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, nuradius=nuradius)
+                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
+                                      adjacent_grades=adjacent_grades, nuradius=nuradius)
             if compare_fpm:
                 if fpm == 'A':
                     fpm2='B'
@@ -503,7 +517,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 print('Compare FPM is set – examining fpm', fpm2, 
                           ' also to see which has more emission in its optimal region.')
                 mn2 = make_nustar_products(time, fpm2, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, nuradius=nuradius)
+                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
+                                           adjacent_grades=adjacent_grades, nuradius=nuradius)
                 print('FPM', fpm, ' region has ', mn, '% of emission. FPM', fpm2, ' region has ', mn2, '% of emission.' )
                 if mn2>mn:
                     print('Switching to FPM', fpm2)
@@ -601,6 +616,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             plt.yscale('log')
             plt.xlim([0,20])
             plt.legend()
+            plt.close(fig)
             plt.savefig(nustar_path+timestring+'/'+timestring+fpm+'_adjacent_pile_up.png')   
             
             cnts_corr = cnts-(5./4)*cnts_u
@@ -611,6 +627,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             plt.yscale('log')
             plt.xlim([0,20])
             plt.legend()
+            plt.close(fig)
             plt.savefig(nustar_path+timestring+'/'+timestring+fpm+'pile_up.png')
         
             cnts_corr = cnts-0.25*cnts_u
@@ -796,7 +813,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         print('Removed rate in ', eng_tr[quitindex], fpm, ' for being negative after pile-up correction.')
         rate = rate[0:quitindex]
         erate = erate[0:quitindex]
-        tresp = tresp[:, 0:quitindex]        
+        tresp = tresp[:, 0:quitindex]   
+        atc = 0
     
     if actual_total_counts:
         return rate, erate, nutrs, tresp, logt, fpm, atc
@@ -913,166 +931,5 @@ def edit_gti(gti_file, newstart, newstop, newfile):
         #print(hdu[1].data)
         
     fits.writeto(newfile, d, header=hdr, overwrite=True)
-
-
-def find_intervals(macro_interval, nuenergies, datapath, filename, gtifile='', 
-                   regfile='', nofit=False, firstrun=False):
-    """
-    For a given uninterupted NuSTAR data interval (say, an orbit), find a list of time intervals for 
-    DEMs with duration ranging from 30s to however long is needed to contain 10 actual NuSTAR counts 
-    in a supplied energy range.
-    
-    Keywords
-    ---------
-    
-    macro_interval - full data interval (i.e. orbit) (tuple of astropy Time objects)
-                FORMAT LIKE, 
-                time=(astropy.time.Time('2018-05-29T19:08:00', scale='utc'), 
-                        astropy.time.Time('2018-05-29T19:14:00', scale='utc')
-    
-    nuenergies - energy range to check for sufficient statistics
-                  FORMAT LIKE,
-                  nuenergies = [6.,10.]
-                  
-    filename - component of name of picklefile where the optimized time intervals will be saved.
-                  
-    gtifile - template file, will be changed based on time range.
-    
-    datapath - path to NuSTAR data directory (top level, i.e. obsid-named directory)
-    
-    regfile - region file. Will be edited (optimal region found) if edit_regfile==True.
-    
-    nofit - Set nofit=True to use center of mass regions (not caring about chip gap), False
-    firstrun - Set firstrun=True to clobber existing spectral data products.
-    
-    """
-    
-    if gtifile=='':
-        print('We require a starter GTI file to edit (can be found in datapath+/event_cl).')
-        return
-    if regfile=='':
-        print('We require a starter circular region file to edit (can be made manually in ds9).')
-        return
-        
-              
-    nustar_path='./'
-    baseinterval = 30*u.s
-    time_intervals=[]
-    time1 = macro_interval[0]
-    time2 = macro_interval[0]+baseinterval
-    
-    
-    while time2 <= macro_interval[1]:
-        time_int = [time1, time2]
-        print(time_int)
-        res = combine_fpm(time_int, nuenergies, nustar_path, make_nustar=True,
-                                              gtifile=gtifile, datapath=datapath, regfile=regfile, 
-                                                edit_regfile=True, actual_total_counts=True,
-                                                nofit=nofit, clobber=firstrun)
-        if res[1]:
-            print('Enough Counts!')
-            time_intervals.append(time_int)
-            print(time_int)
-            time1=copy.deepcopy(time2)
-            time2+=baseinterval
-        else:
-            counts=res[0]
-            print('only', counts)
-            if counts > 5:
-                print('Extending 15s...')
-                time2+=baseinterval/2
-            else:
-                print('Extending 30s...')
-                time2+=baseinterval
-
-
-    #NOT DONE HANDLING FINAL INTERVAL
-    #Time2 has just increased, and crossed the end of the macro interval. This means either that we've 
-    #just sucessfully completed a full interval and are starting a new one, or that we've extended time2
-    #trying to complete an interval in=progress.
-
-    #New last interval: from time1 to the end
-    last_interval = [time1, macro_interval[1]]
-    lastres = combine_fpm(last_interval, nuenergies, nustar_path, make_nustar=True,
-                                                gtifile=gtifile, datapath=datapath, regfile=regfile,
-                                                edit_regfile=True, actual_total_counts=True,
-                                                nofit=nofit, clobber=firstrun)
-    #If the new last interval is complete, add it.
-    if lastres[1]:
-        time_intervals.append(last_interval)
-    #If not, edit the current last interval to extend its end to the end of the macro interval.
-    else:
-        time_intervals[-1][1] = macro_interval[1]
-
-
-    for t in time_intervals:
-        print(t[0].strftime('%H-%M-%S'), t[1].strftime('%H-%M-%S'))
-        
-    data = {'time_intervals': time_intervals}
-    
-    if nofit:
-        filename='noregionfit_'+filename
-
-    with open(filename, 'wb') as f:
-        # Pickle the 'data' dictionary using the highest protocol available.
-        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)       
-
-    return time_intervals
-
-
-
-
-def get_saved_intervals(nofit=False, basedir='./', custom_file=[]):
-    """
-    Reads in a file of the type made by find_intervals() above, containing DEM time intervals.
-    
-    Keywords
-    ---------
-    
-    nofit - If True, checks for filename of the type find_intervals() gives when NOT using region fitting.
-            If False, checks for filename of the type find_intervals() gives when using region fitting.
-            
-    basedir - path to where the file is located. 
-    
-    custom_file - Set to a specific file to use (still within the basedir).
-    
-    """
-    
-    
-    if nofit==True:
-        time_interval_files = glob.glob(basedir+'/noregionfit_time_intervals*.pickle')
-    else:
-        time_interval_files = glob.glob(basedir+'/time_intervals*.pickle')
-        
-    if bool(custom_file):
-        time_interval_files = glob.glob(basedir+custom_file)
-        
-    print(len(time_interval_files))
-    
-    #print(time_interval_files)
-    num=[]
-    for i in range(0,len(time_interval_files)):
-        filename = time_interval_files[i].split('/')[-1]
-        nunum = [int(s) for s in [*filename] if s.isdigit()]
-        if len(nunum) > 1:
-            print('Not set up to sort file names with more than one number!')
-            print('Culprit: ', filename)
-            return
-        num.extend(nunum)
-    sort_index = np.argsort(num)
-    time_interval_files = [time_interval_files[s] for s in sort_index] 
-                          
-    #print(time_interval_files)
-    time_intervals=[]
-    for tf in time_interval_files:
-        with open(tf, 'rb') as f:
-            data = pickle.load(f)
-            if type(data) == tuple:
-                time_intervals.extend(data[0]['time_intervals'])
-            if type(data) == dict:
-                time_intervals.extend(data['time_intervals'])
-            
-    return time_intervals
-
 
 
