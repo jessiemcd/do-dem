@@ -28,6 +28,9 @@ Procedure:
 - If desired, search for, download, and prep XRT data to level 1.
   - IDL procedure lets_get_this_xrt.pro (in other_idl) will allow you to do this via a search for XRT images at the same time and with an interesecting FOV with NuSTAR. Make sure to check the documentation for information about needed databases through SSWDB.
   - Or, do it your own way – information can be found in https://xrt.cfa.harvard.edu/resources/documents/XAG/XAG.pdf. You will need level 1 data, and the XRT grade maps as well as the data files.
-- Initial DEM process example notebook (examples with and without XRT, with and without NuSTAR pile-up correction) - getting_started.ipynb
-- Similar, but using xrt_dem_iterative2.pro instead of DEMREG - getting_started-xrt_iterative.ipynb
-- COMING SOON: examples of how to do... NuSTAR-statistics-motivated time interval selection, variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them to remove a non-thermal component...)
+ 
+Examples:
+- getting_started.ipynb: Initial DEM process example notebook (examples with and without XRT, with and without NuSTAR pile-up correction)
+- getting_started-xrt_iterative.ipynb: Similar, but using xrt_dem_iterative2.pro instead of DEMREG
+- time_interval_selection.ipynb: Example of how to select time intervals within a longer interval (or entire NuSTAR orbit) in order to do time-resolved DEM analysis while ensuring sufficient NuSTAR statistics in your highest energy range. 
+- COMING SOON: examples of how to do... variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them to remove a non-thermal component...), others - have a request? Contact Jessie.
