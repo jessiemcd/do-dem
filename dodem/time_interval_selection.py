@@ -276,7 +276,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     stopstring = timerange[1].strftime('%H-%M-%S')
     timestring=timestring+'_'+stopstring
     
-    filename = timestring+'_'+lctype+'_min'+str(countmin)+'time_intervals.pickle'
+    filename = timestring+'_'+lctype+'_'+str(erange[0])+'-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
     
     with open(filename, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
@@ -462,7 +462,7 @@ def prepare_nustar_grade_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2
     return times_convertedA, countratesA, lvtA, countsA_, times_convertedB, countratesB, lvtB, countsB_
 
 
-def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, custom_file=[]):
+def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, erange=[6.,10.], custom_file=[]):
     """
     Little wrapper, reads in a file of the type made by find_intervals() above, 
     containing DEM time intervals.
@@ -486,6 +486,8 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, c
     
     countmin - minimum real counts/interval used to make intervals
     
+    erange - energy range used to make intervals
+    
     custom_file - Set to a specific file to use (still within the basedir).
     
     """
@@ -497,7 +499,7 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, c
         timestring = timerange[0].strftime('%H-%M-%S')
         stopstring = timerange[1].strftime('%H-%M-%S')
         timestring=timestring+'_'+stopstring
-        filename = basedir+timestring+'_'+lctype+'_min'+str(countmin)+'time_intervals.pickle'
+        filename = timestring+'_'+lctype+'_'+str(erange[0])+'-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
         
     with open(filename, 'rb') as f:
             data = pickle.load(f)
