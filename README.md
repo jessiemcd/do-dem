@@ -20,7 +20,7 @@ Requirements:
 - To use the demreg method for DEM calculation (python version): demreg repository (https://github.com/ianan/demreg/tree/master) Note that this has its own requirements, which are described in https://github.com/ianan/demreg/tree/master/python 
 
 
-Procedure:
+Pre-DEM Procedure:
 
 - Download NuSTAR data from HEASARC https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl
   - Unpack files in data directories (bash: gunzip -r (path to OBSID-named directory))
