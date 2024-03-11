@@ -616,8 +616,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             plt.yscale('log')
             plt.xlim([0,20])
             plt.legend()
-            plt.close(fig)
             plt.savefig(nustar_path+timestring+'/'+timestring+fpm+'_adjacent_pile_up.png')   
+            plt.close(fig)
             
             cnts_corr = cnts-(5./4)*cnts_u
         else:
@@ -627,9 +627,9 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             plt.yscale('log')
             plt.xlim([0,20])
             plt.legend()
-            plt.close(fig)
             plt.savefig(nustar_path+timestring+'/'+timestring+fpm+'pile_up.png')
-        
+            plt.close(fig)
+            
             cnts_corr = cnts-0.25*cnts_u
     
     numax = enz[-1]

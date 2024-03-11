@@ -156,11 +156,11 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         ax.set_ylim(com[0]-d/2, com[0]+d/2)    
     
     if nofit:
-        plt.close(fig)
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region.png')
     else:
-        plt.close(fig)
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_fit_region.png')
+    
+    plt.close(fig)
     
     debug=0
     if debug==1:
