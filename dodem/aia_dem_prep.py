@@ -624,7 +624,7 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
         
     if bool(input_region):
         subm = copy.deepcopy(m)
-        
+                
         if input_region=='rectangle':
             region_data=input_aia_region_dict
             region = regions.RectangleSkyRegion(

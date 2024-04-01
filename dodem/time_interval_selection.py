@@ -181,6 +181,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     if minimum_seconds:
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
         minimum_steps = int(minimum_seconds/timestep)
+        if minimum_steps < 3:
+            print('Requiring at least 3 time bins...')
+            minimum_steps = 3
         #print(minimum_steps, type(minimum_steps))
     
     
@@ -242,11 +245,16 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                                     nofit=nofit,lctype=lctype, countmin=countmin)
 
         if check[1]:
-            print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
+            print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), 
+                  proposed_interval[1].strftime('%H-%M-%S'))
             print('Counts: ', check[0])
             #Append interval to our list, set a new start index for the next interval, and reset the fast method 
             #factor to the original factor (in case it's been changed).    
             new_intervals.append(proposed_interval)
+            if endex == (len(intervaltimes)-1):
+                stop_yet=True
+                continue
+                
             start_here = endex
             fast_min_factor=og_fast_min_factor
 

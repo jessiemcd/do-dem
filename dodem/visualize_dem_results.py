@@ -8,6 +8,16 @@ from matplotlib.ticker import NullFormatter, ScalarFormatter
 from astropy import units as u
 import os
 
+from scipy import optimize
+
+
+def make_timestring(time):
+    
+    timestring = time[0].strftime('%H-%M-%S')
+    stopstring = time[1].strftime('%H-%M-%S')
+    
+    return timestring+'_'+stopstring
+
 
 def load_DEM(time, filename):
     """
@@ -19,10 +29,7 @@ def load_DEM(time, filename):
                         names+locations assumed).
     """
     
-    timestring = time[0].strftime('%H-%M-%S')
-    stopstring = time[1].strftime('%H-%M-%S')
-    #print(timestring, stopstring)
-    timestring=timestring+'_'+stopstring 
+    timestring=make_timestring(time)
     
     file=filename
     
@@ -744,6 +751,397 @@ def comparison_instruments(data1, data2):
     
     return residuals1, indices1, residuals2, indices2, inst
         
+    
+
+
+def gaussian(x, amplitude, mean, stddev):
+    return amplitude * np.exp(-((x - mean) / 4 / stddev)**2)
+
+def DEMmax(ts, DEM, wind=3, plot=False):
+    """
+    Does a lil Gaussian fit to find the maximum of the DEM.
+    
+    Keywords
+    ---------
+    
+    ts, DEM - temperature and DEM arrays
+    
+    wind - Gaussian fit window: gives number of bins on each side of the 
+            max value to use for the gaussian fit.
+            
+    """
+    maxval=np.max(DEM)
+    #Index of DEM maximum - first case if multiple temperature bins have same max value.
+    pind = np.where(DEM == maxval)[0][0]
+    maxtemp=ts[pind]
+    dt = ts[pind]-ts[pind-1]
+    fitrange = DEM[pind-wind:pind+wind+2]
+    fitts = ts[pind-wind:pind+wind+2]
+    popt, _ = optimize.curve_fit(gaussian, fitts, fitrange/maxval, p0=[1, maxtemp, dt])
+    
+    if plot:
+        fig = plt.figure(figsize=(5, 5), tight_layout = {'pad': 1})
+        plt.plot(ts, DEM/maxval)
+        plt.plot(fitts,fitrange/maxval)
+        plt.axvline(maxtemp, color='Red', linestyle='dashed', label='DEM Max')
+        plt.axvline(popt[1], color='Red', label='Fit Peak')
+        plt.plot(fitts, gaussian(fitts, *popt))
+        plt.legend()
+    
+    return popt[1]
+
+    
+
+def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
+    """
+    Take in temperature and dem arrays and calculate the approximate total emission predicted 
+    above a certain threshold temperature (in log10(T)).
+    
+    """
+    #Make a resampled temperature array with finer-spaced values
+    newts = np.arange(ts[0], ts[-1], 0.01)
+    newdem = np.interp(newts,ts,dem)
+    
+    if lowtemp_EM:
+        lowT = np.where(newts < thresh)
+        nTs = newts[lowT[0]]
+        nDEM = newdem[lowT[0]]
+    else:
+        highT = np.where(newts > thresh)
+        nTs = newts[highT[0]]
+        nDEM = newdem[highT[0]]
+    #print('Actual Threshold: logT =', round(nTs[0], 2), 'or', round(10**nTs[0]), 'K')
+    
+    
+    res = np.trapz(nDEM, x=nTs)
+    
+    if extract_vals:
+        return res, nTs
+    else:
+        return 'EM Above LogT='+str(round(nTs[0], 2))+f': {res:.2e}'+' cm^(-5)'
+
+def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=False):
+    """
+    For given DEM solution, find upper and lower power law slopes of rise./decay around peak. 
+    
+    Lower Power Law Fit Bounds:
+    ============================
+    fixlowerbound=True: upper boundary is temp. closest to logT=6.35
+    fixlowerbound=False: upper boundary is index of DEM max + 1
+    
+    """
+
+    #Index of DEM maximum - first case if multiple temperature bins have same max value.
+    maxdex = np.where(DEM == np.max(DEM))[0][0]
+    
+    
+    if plot:
+        fig = plt.figure(figsize=(5, 5), tight_layout = {'pad': 1})
+        plt.semilogy(ts, DEM)
+        plt.semilogy(ts[maxdex:], DEM[maxdex:])
+    
+    powerlaws = []
+
+    if lower==True:
+        
+        #Find temp bin closest to 1 MK (minus 2 bins)
+        from1mk = abs(ts-6)
+        lowind = np.where(from1mk == np.min(from1mk))[0][0]-2
+        
+        
+        from635 = abs(ts-6.35)
+        upind = np.where(from635 == np.min(from635))[0][0]
+        #print(ts[lowind])
+        
+        if fixlowerbound==False:
+            upind=maxdex+1
+        
+        
+        #Fit DEM from ~1MK to peak
+        
+        #Get into log-log space for linear fit
+        ydata = np.log10(DEM[lowind:upind])
+        xdata = ts[lowind:upind]
+        res, cov = np.polyfit(xdata, ydata, 1, cov=True)
+        m, b = res
+        me = np.sqrt(np.diag(cov))[0]
+        #print('Powerlaw: ', m)
+        #print('Error: ', me)
+        powerlaws.append((m, me, b))
+        
+        if plot:
+            plt.semilogy(xdata, 10**(xdata*m+b))
+
+    
+    
+    if upper==True:
+        #Fit DEM from peak to max temp
+        
+        #Get into log-log space for linear fit
+        ydata = np.log10(DEM[(maxdex+1):])
+        xdata = ts[(maxdex+1):]
+        res, cov = np.polyfit(xdata, ydata, 1, cov=True)
+        m, b = res
+        me = np.sqrt(np.diag(cov))[0]
+        #print('Powerlaw: ', m)
+        #print('Error: ', me)
+        powerlaws.append((m, me, b))
+        if plot:
+            plt.semilogy(xdata, 10**(xdata*m+b))
+    
+        
+    return powerlaws    
+    
+      
+def get_DEM_params(time, file):
+    
+    """
+    For a given time interval (pair of astropy time objects), fetch assorted DEM result parameters 
+    (written to work with output files named in the style used by dodem.high_temp_analysis(), where 
+    the maximum temperature (maxT) is an optional input - default logT=7.2). 
+    
+    Keywords:
+    -----------
+    methodstring - 'iterative' - looks for outputs from xrt_dem_iterative2.pro wrapper
+                '' - looks for outputs from DEMREG wrapper
+                'MC' - looks for outputs from DEMREG wrapper (MCMC runs)
+    
+    
+    Returns:
+    -----------
+    
+    -m1: location of DEM peak (full temperature interval) 
+    -max1: value of peak
+    -above(i): DEM-estimated total emission measure above each temperature (in log(T)=x)
+                i.e. above7 gives DEM-estimated EM above 10 MK.
+
+    -DEM inputs (value, error, label) (dn_in, edn_in, chanax)
+
+    -powerlaws: fit power law index+uncertainty both above and below the DEM peak
+    
+    """
+    
+
+    data, timestring = load_DEM(time, file)
+    
+    
+    #MAIN DEM
+    lowdem = (data['DEM']-np.array(data['edem'])[0,:])
+    hidem = (data['DEM']+np.array(data['edem'])[1,:])
+    dem = data['DEM']
+    ts = data['ts']
+    
+    m1 = DEMmax(data['ts'], dem, wind=3, plot=False)
+    #print('DEM is a maximum at: log(T)=', m1, 'OR, ', 10**m1/1e6, ' MK')
+    max1 = np.max(dem)
+    
+    above_peak, nTs = hightemp_EM(dem, ts, m1, extract_vals=True)
+    below_peak, nTs = hightemp_EM(dem, ts, m1, extract_vals=True, lowtemp_EM=True)
+    
+    above_635, nTs = hightemp_EM(dem, ts, 6.35, extract_vals=True)
+    below_635, nTs = hightemp_EM(dem, ts, 6.35, extract_vals=True, lowtemp_EM=True)
+
+    
+    
+    above5, nTs = hightemp_EM(dem, ts, 6.7, extract_vals=True)
+    above7, nTs = hightemp_EM(dem, ts, 6.84, extract_vals=True)
+    above10, nTs = hightemp_EM(dem, ts, 7.0, extract_vals=True)
+    
+    above5l, nTs = hightemp_EM(lowdem, ts, 6.7, extract_vals=True)
+    above7l, nTs = hightemp_EM(lowdem, ts, 6.84, extract_vals=True)
+    above10l, nTs = hightemp_EM(lowdem, ts, 7.0, extract_vals=True)
+    
+    above5h, nTs = hightemp_EM(hidem, ts, 6.7, extract_vals=True)
+    above7h, nTs = hightemp_EM(hidem, ts, 6.84, extract_vals=True)
+    above10h, nTs = hightemp_EM(hidem, ts, 7.0, extract_vals=True)
+    
+    above5_ = [above5, above5l, above5h]
+    above7_ = [above7, above7l, above7h]
+    above10_ = [above10, above10l, above10h]
+    
+    
+    powerlaws = both_powerlaws(ts, dem, plot=False, fixlowerbound=True)
+    
+    EMT_all = sum(dem*(10**ts))/sum(dem)/1e6
+    index=14
+    #print('Calculating EM-weighted T above:', data1['ts'][index])
+    #thresh=5
+    logthresh=6.7
+    above_product, nTs = hightemp_EM(dem*(10**ts), ts, logthresh, extract_vals=True)    
+    EMT_thresh= above_product/above5/1e6
+
+    
+    res = (m1, max1, above5_, above7_, above10_, 
+           above_peak, below_peak, above_635, below_635,
+           data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh)
+    
+    
+    return res      
+    
+
+    
+def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
+    
+    """
+    For a list of time intervals (and other characteristic parameters, allowing us to find your existing DEM output 
+    pickle files), get the DEM output parameters for every file and compile into
+    lists which are then saved to a nice output dictionary.
+    
+    """
+    
+    peaks=[]
+    maxes=[]
+    above5s=[]
+    above7s=[]
+    above10s=[]
+    chanaxs=[]
+    dn_ins=[]
+    edn_ins=[]
+    chanax_his=[]
+    dn_in_his=[]
+    edn_in_his=[]
+    low_powers=[]
+    hi_powers=[]
+    above_peaks=[]
+    below_peaks=[]
+    above_635s=[]
+    below_635s=[]    
+    EMT_alls=[]
+    EMT_threshs=[]
+
+
+    for t in time_intervals:
+        timestring=make_timestring(t)
+        file=working_dir+\
+            timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
+        params=get_DEM_params(t, file)
+        m1, max1, above5, above7, above10, \
+               above_peak, below_peak, above_635, below_635,\
+               chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
+        
+        peaks.append(m1)
+        maxes.append(max1)
+        above5s.append(above5)
+        above7s.append(above7)
+        above10s.append(above10)
+        chanaxs.append(chanax)
+        dn_ins.append(dn_in)
+        edn_ins.append(edn_in)
+        low_powers.append(np.array(powerlaws[0][0]))
+        hi_powers.append(np.array(powerlaws[1][0]))
+        above_peaks.append(above_peak)
+        below_peaks.append(below_peak)
+        above_635s.append(above_635)
+        below_635s.append(below_635)        
+        EMT_alls.append(EMT_all)
+        EMT_threshs.append(EMT_thresh)  
+
+
+    vals = {'peaks': peaks,
+        'maxes': maxes,
+        'above5s': above5s,
+        'above7s': above7s,
+        'above10s': above10s,
+        'chanaxs': chanaxs,
+        'dn_ins': dn_ins,
+        'edn_ins': edn_ins,
+        'low_powers': low_powers,
+        'hi_powers': hi_powers,
+        'below_peaks': below_peaks,
+        'above_peaks': above_peaks,
+        'below_635s': below_635s,
+        'above_635s': above_635s,                            
+        'EMT_alls': EMT_alls,
+        'EMT_threshs': EMT_threshs}
+    
+    return vals
+
+    
+    
+def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, color, backcolors,
+                           error=False, quantity_low=[], quantity_high=[], errorcolor='gray',
+                           comparisonbar=False, ylog=False,
+                           comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)']): 
+    
+    
+    lw=2
+    
+    times = [t[0].datetime for t in time_intervals]
+    midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in time_intervals]
+
+    starttime = (time_intervals[0][0]-120*u.s).datetime
+    stoptime = (time_intervals[-1][1]+120*u.s).datetime
+
+    times_ = copy.deepcopy(times)
+    times_.append(time_intervals[-1][1].datetime)
+
+    times2 = [t[1].datetime for t in time_intervals]
+    
+    fig, ax = plt.subplots(figsize=(15,4), tight_layout = {'pad': 1})
+
+    flip=1
+    for t in range(0, len(times)):
+        if flip==1:
+            ax.axvspan(times[t], times2[t], alpha=.5, color=backcolors[0])
+        else:
+            ax.axvspan(times[t], times2[t], alpha=.5, color=backcolors[1])
+        flip*=-1
+        
+        
+    if error:
+        try:
+            lp = np.hstack([quantity_low, quantity_low[-1]])
+            hp = np.hstack([quantity_high, quantity_high[-1]])
+
+            fill = ax.fill_between(times_, lp, hp, step="post", 
+                                 color=color, alpha=0.1) 
+        except ValueError:
+            print('To plot error range, you need to define low/high bounds through the')
+            print('quanity_low and quanity_high keywords.')
+        
+    ax.stairs(np.array(quantity), times_, linewidth=lw, color=color, 
+              label=label,
+             baseline=None)
+    ax.set_ylabel(quantitylabel, fontsize=15, color=color)
+    ax.tick_params(axis='y', labelcolor=color)
+    ax.set_xlim([starttime, stoptime])
+    ax.set_xlabel('Time', fontsize=15)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    
+    if comparisonbar:
+        ax.axhspan(comp_band[0], comp_band[1], color='brown', alpha=0.5, label=comp_band[2])   
+        ax.legend()
+    if error:
+        if comparisonbar:
+            themax = np.max([1.1*np.max(np.array(quantity_high)), 2*comp_band[1]])
+            themin = np.min([0.5*np.min(np.array(quantity_low)), 0.5*comp_band[0]])
+        else:
+            themax = 1.1*np.max(np.array(quantity_high))
+            themin = 0.5*np.min(np.array(quantity_low))
+        
+    else:
+        if comparisonbar:
+            themax = np.max([1.05*np.max(np.array(quantity)), 1.1*comp_band[1]])
+            themin = np.min([0.95*np.min(np.array(quantity)), 0.5*comp_band[0]])    
+        else:
+            themax = 1.1*np.max(np.array(quantity))
+            themin = 0.95*np.min(np.array(quantity))            
+
+        
+    ax.set_ylim([themin, themax])
+    ax.set_title(label, fontsize=20, color=color)     
+    
+    if ylog:
+        ax.set_yscale('log')
+          
+        
+            
+    
+    
+    
+    
+    
     
     
     
