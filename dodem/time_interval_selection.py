@@ -256,7 +256,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #Append interval to our list, set a new start index for the next interval, and reset the fast method 
             #factor to the original factor (in case it's been changed).    
             new_intervals.append(proposed_interval)
-            if endex == (len(intervaltimes)-1):
+            if endex == interval[-1]:
                 stop_yet=True
                 continue
                 
