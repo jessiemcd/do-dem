@@ -177,11 +177,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     #Limit to time range of interest (trim time and count arrays)
     interval = np.where(np.logical_and(times_convertedA >= timerange[0], times_convertedA <= timerange[1]))
     intervaltimes = times_convertedA[interval]
-    print('Intervaltimes:', intervaltimes)
-    print('All times:', times_convertedA)
     print('')
-    print(len(times_convertedA))
-    print(times_convertedA.shape)
+    print(len(interval))
+    print(interval.shape)
     intervalcounts = count_lc[interval]
     if minimum_seconds:
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
@@ -263,6 +261,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #factor to the original factor (in case it's been changed).    
             new_intervals.append(proposed_interval)
             print(endex)
+            print(intervaltimes[endex])
             print(interval)
             print(interval[-1])
             if endex == interval[-1]:
