@@ -222,7 +222,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 print('')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
                 
-                NEED TO UPDATE START/ENDEX HERE POSSIBLY, AS THEY ARE RELIED ON LATER!
+                #NEED TO UPDATE START/ENDEX HERE POSSIBLY, AS THEY ARE RELIED ON LATER!
             
         else:
             #Indicates we have NOT reached the end of the interval of interest yet
