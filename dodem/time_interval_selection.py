@@ -209,17 +209,19 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
         if not res_:
             #Indicates that we've reached the end of the interval of interest.
             print('Let us combine this last bit with the prior interval')
-            proposed_interval = new_intervals[-1]
-            proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
+            if new_intervals:                
+                proposed_interval = new_intervals[-1]
+                proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
+            else:
+                print('There is no prior interval! Trying the full time range as an interval.')
+                proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
             stop_yet=True
             continue
             
         else:
+            #Indicates we have NOT reached the end of the interval of interest yet
             int_counts, startdex, endex = res_
             print('Fast Method Counts: ', int_counts)
-            #Make proposed interval longer by an amount equivalent to the assumption that (region_factor)% of
-            #events will be in the region.
-            #adjust_endex = startdex + round((endex-startdex)/region_factor)
             
             if minimum_seconds:
                 dur_s = (intervaltimes[endex]-intervaltimes[startdex]).total_seconds()
@@ -227,6 +229,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                     print('Time interval shorter than chosen minimum of ', minimum_seconds, ' seconds.')
                     print('Extending to a ', minimum_seconds, ' second-long interval.')
                     endex = startdex+minimum_steps
+                    #If the NEW ending index (after extending to a minimum-length interval) is greater than
+                    #the ending index of the FULL interval, combine with the prior interval and exit the 
+                    #while loop.
                     if endex > (len(intervaltimes)-1):
                         print('Remainder of orbit < ', minimum_seconds,' seconds from current start.')
                         print('Combining this last bit with prior interval.')
