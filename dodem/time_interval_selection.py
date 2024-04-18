@@ -216,6 +216,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 continue
             else:
                 print('There is no prior interval! Trying the full time range as an interval.')
+                print('')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
             
         else:
@@ -244,7 +245,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             
             proposed_interval = astropy.time.Time([intervaltimes[startdex], intervaltimes[endex]], scale='utc')
             
-        print(proposed_interval)
+        #print(proposed_interval)
 
         check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
                                     nofit=nofit,lctype=lctype, countmin=countmin)
@@ -256,6 +257,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #Append interval to our list, set a new start index for the next interval, and reset the fast method 
             #factor to the original factor (in case it's been changed).    
             new_intervals.append(proposed_interval)
+            print(endex)
+            print(interval)
+            print(interval[-1])
             if endex == interval[-1]:
                 stop_yet=True
                 continue
