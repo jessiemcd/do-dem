@@ -270,7 +270,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             fast_min_factor=og_fast_min_factor
 
         else:
-            print('Not Enough', proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
+            print('Not Enough counts in: ', 
+                  proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
             print('Counts: ', check[0])
             #Make a note that we didn't get enough counts in the interval we tried.
             times_failed+=1
