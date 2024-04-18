@@ -212,11 +212,11 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             if new_intervals:                
                 proposed_interval = new_intervals[-1]
                 proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
+                stop_yet=True
+                continue
             else:
                 print('There is no prior interval! Trying the full time range as an interval.')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
-            stop_yet=True
-            continue
             
         else:
             #Indicates we have NOT reached the end of the interval of interest yet
