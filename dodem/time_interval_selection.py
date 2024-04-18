@@ -179,7 +179,6 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     intervaltimes = times_convertedA[interval]
     print('')
     print(len(interval))
-    print(interval.shape)
     intervalcounts = count_lc[interval]
     if minimum_seconds:
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
