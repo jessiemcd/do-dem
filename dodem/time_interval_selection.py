@@ -177,8 +177,6 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     #Limit to time range of interest (trim time and count arrays)
     interval = np.where(np.logical_and(times_convertedA >= timerange[0], times_convertedA <= timerange[1]))
     intervaltimes = times_convertedA[interval]
-    print('')
-    print(len(interval))
     intervalcounts = count_lc[interval]
     if minimum_seconds:
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
@@ -209,17 +207,22 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
         res_ = find_interval_fast(intervalcounts, start_here, countmin*fast_min_factor)
         
         if not res_:
-            #Indicates that we've reached the end of the interval of interest.
+            #Indicates that the fast method reached the end of the full time interval without
+            #finding sufficient counts (starting at index start_here). 
             print('Let us combine this last bit with the prior interval')
-            if new_intervals:                
+            if new_intervals:
+                #If we've already found good time intervals:
                 proposed_interval = new_intervals[-1]
                 proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
                 stop_yet=True
                 continue
             else:
+                #If we haven't:
                 print('There is no prior interval! Trying the full time range as an interval.')
                 print('')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
+                
+                NEED TO UPDATE START/ENDEX HERE POSSIBLY, AS THEY ARE RELIED ON LATER!
             
         else:
             #Indicates we have NOT reached the end of the interval of interest yet
@@ -261,9 +264,10 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             new_intervals.append(proposed_interval)
             print(endex)
             print(intervaltimes[endex])
-            print(interval)
-            print(interval[-1])
-            if endex == interval[-1]:
+            print(proposed_interval[1])
+            print(intervaltimes[-1])
+            if proposed_interval[1] == intervaltimes[-1]:
+                print('got here')
                 stop_yet=True
                 continue
                 
