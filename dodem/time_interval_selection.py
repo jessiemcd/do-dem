@@ -196,11 +196,11 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     stop_yet=False
     
     times_failed=0
+    tries=0
     failed_intervals=[]
     
     #Defining 
     og_fast_min_factor=fast_min_factor
-
     while stop_yet == False:
         print('')
         #Make proposed interval
@@ -262,6 +262,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #Append interval to our list, set a new start index for the next interval, and reset the fast method 
             #factor to the original factor (in case it's been changed).    
             new_intervals.append(proposed_interval)
+            #reset TRIES marker
+            tries=0
             if proposed_interval[1] == intervaltimes[-1]:
                 stop_yet=True
                 continue
@@ -276,16 +278,18 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #Make a note that we didn't get enough counts in the interval we tried.
             times_failed+=1
             failed_intervals.append(proposed_interval)
+            tries+=1
             #If it's the first time we've failed with this starting index, double the factor used for the fast
             #method count target (i.e. if we were looking for 1.5x our target counts, now looking for 3x our 
             #target counts with the initial fast method). 
-            if fast_min_factor==og_fast_min_factor:
+            if tries==1:
                 print('Starting over with requirement for twice the counts in fast interval')
                 fast_min_factor=og_fast_min_factor*2
-            if fast_min_factor==og_fast_min_factor*2:
+                
+            if tries==2:
                 print('Starting over with requirement for FOUR TIMES the counts in fast interval')
                 fast_min_factor=og_fast_min_factor*4
-            else:
+            if tries > 2:
                 print('It STILL did not work - weird! Quitting.')
                 return
             
