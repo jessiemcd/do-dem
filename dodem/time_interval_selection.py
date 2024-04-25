@@ -282,6 +282,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             if fast_min_factor==og_fast_min_factor:
                 print('Starting over with requirement for twice the counts in fast interval')
                 fast_min_factor=og_fast_min_factor*2
+            if fast_min_factor==og_fast_min_factor*2:
+                print('Starting over with requirement for FOUR TIMES the counts in fast interval')
+                fast_min_factor=og_fast_min_factor*4
             else:
                 print('It STILL did not work - weird! Quitting.')
                 return
