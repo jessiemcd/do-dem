@@ -348,6 +348,7 @@ def find_interval_fast(counts, startindex, countmin):
     """
     Find indices (startindex, end) for interval with countmin counts. 
     """
+    print(len(counts))
     
     t=0+startindex
     int_counts=0
@@ -358,7 +359,8 @@ def find_interval_fast(counts, startindex, countmin):
             print('We have reached the end of the full time range, with still only ',int_counts,' counts in this interval')
             return []
         t+=1    
-        
+    
+    print(t)
     return int_counts, startindex, t
     
 

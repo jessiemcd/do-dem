@@ -1136,8 +1136,8 @@ def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, colo
         ax.set_yscale('log')
           
         
-            
-    
+    starttime = make_timestring(time_intervals[0])        
+    plt.savefig('./'+quantitylabel+'_startat_'+starttime+'.png')
     
     
     
