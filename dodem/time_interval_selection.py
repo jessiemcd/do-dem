@@ -303,7 +303,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     stopstring = timerange[1].strftime('%H-%M-%S')
     timestring=timestring+'_'+stopstring
     
-    filename = timestring+'_'+lctype+'_'+str(erange[0])+'-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
+    filename = working_dir+'/'+timestring+'_'+lctype+'_'+str(erange[0])+\
+                    '-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
     
     with open(filename, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
