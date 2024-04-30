@@ -532,7 +532,8 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, e
         timestring = timerange[0].strftime('%H-%M-%S')
         stopstring = timerange[1].strftime('%H-%M-%S')
         timestring=timestring+'_'+stopstring
-        filename = timestring+'_'+lctype+'_'+str(erange[0])+'-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
+        filename = basedir+timestring+'_'+lctype+'_'+str(erange[0])+\
+                        '-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
         
     with open(filename, 'rb') as f:
             data = pickle.load(f)
