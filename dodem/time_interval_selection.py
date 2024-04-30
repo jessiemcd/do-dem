@@ -349,8 +349,7 @@ def find_interval_fast(counts, startindex, countmin):
     """
     Find indices (startindex, end) for interval with countmin counts. 
     """
-    print(len(counts))
-    
+
     #starting index: first bin to add
     t=startindex
     #add counts in starting index bin
@@ -366,7 +365,6 @@ def find_interval_fast(counts, startindex, countmin):
             return []
         #t+=1    
     
-    print(t)
     return int_counts, startindex, t
     
 
