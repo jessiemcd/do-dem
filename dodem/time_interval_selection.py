@@ -350,15 +350,20 @@ def find_interval_fast(counts, startindex, countmin):
     """
     print(len(counts))
     
-    t=0+startindex
-    int_counts=0
+    #starting index: first bin to add
+    t=startindex
+    #add counts in starting index bin
+    int_counts=counts[startindex]
     while int_counts < countmin:
+        #Move one bin up, try to add counts in that bin. Continue until there are countmin counts total.
+        t+=1 
         try:
+            #add counts in a bin
             int_counts+=counts[t]
         except IndexError:
             print('We have reached the end of the full time range, with still only ',int_counts,' counts in this interval')
             return []
-        t+=1    
+        #t+=1    
     
     print(t)
     return int_counts, startindex, t
