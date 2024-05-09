@@ -1060,7 +1060,7 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
     
 def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, color, backcolors,
                            error=False, quantity_low=[], quantity_high=[], errorcolor='gray',
-                           comparisonbar=False, ylog=False,
+                           comparisonbar=False, ylog=False, working_dir='./',
                            comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)']): 
     
     
@@ -1135,9 +1135,10 @@ def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, colo
     if ylog:
         ax.set_yscale('log')
           
+    savelabel= "-".join(label.split())        
         
     starttime = make_timestring(time_intervals[0])        
-    plt.savefig('./'+label+'_startat_'+starttime+'.png')
+    plt.savefig(working_dir+'/'+savelabel+'_startat_'+starttime+'.png')
     
     
     
