@@ -1143,7 +1143,131 @@ def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, colo
     
     
     
+def multi_orbit_summary(all_time_intervals, working_dir, name, minT=5.6, maxT=7.2):
+
+    """
+    Make a comparison plot for several DEM parameters over several orbits. 
+    """
     
+    #Plot inputs: edit here to add a new parameter
+    valstrings = ['peaks','above10s','above7s','above5s', 'low_powers', 'hi_powers']
+    backcolors = [['pink', 'lavenderblush'], ['powderblue', 'aliceblue'], ['powderblue', 'aliceblue'],
+                 ['powderblue', 'aliceblue'], ['khaki', 'lemonchiffon'],['khaki', 'lemonchiffon']]
+    colors = ['Red', 'Blue', 'Green', 'Purple', 'Orange', 'Red']
+    factor = [1,1,1,1,1,-1]
+    error = [False, True, True, True, False, False]
+    theylabels=['T (MK)','EM (cm^-5)', 'EM (cm^-5)','EM (cm^-5)','Index', 'Index']
+    thetitles=['DEM Peak Temperature', 'Total EM >10 MK', 'Total EM >7 MK', 'Total EM >5 MK',
+              'Lower Power Law', 'Upper Power Law']    
+    
+ 
+    #list of dictionaries of DEM output values
+    all_vals=[]
+    #list of start of all time intervals for each orbit (datetime format)
+    all_time_lists_nostep=[]
+    #list of start of all time intervals + end of last one for each orbit (datetime format)
+    all_time_lists = []
+    #list of middle of all time intervals for each orbit (datetime format)
+    all_midtimes = []
+    #all start times (big list)
+    alltimes = []
+   
+    #start, end for each orbit
+    orbitstarts_ = []
+    orbitstops_ =[]
+   
+    
+    
+    for ti in all_time_intervals:
+       
+        vals = get_DEM_timeseries(ti, working_dir, minT, maxT, name) 
+        all_vals.append(vals)
+       
+        #different types of time list:
+        #datetimes (start time of each interval)
+        times = [t[0].datetime for t in ti]
+        all_time_lists_nostep.append(times)
+        alltimes.extend(times)
+        #datetimes (same but with the end of the last interval added for plt.stairs use)
+        times_ = copy.deepcopy(times)
+        times_.append(ti[-1][1].datetime)
+        all_time_lists.append(times_)
+        #middle of each time interval
+        midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in ti]
+        all_midtimes.append(midtimes)
+       
+        orbitstarts_.append(ti[0][0])
+        orbitstops_.append(ti[-1][1])
+       
+    orbitstarts = [o.datetime for o in orbitstarts_]
+    orbitstops = [o.datetime for o in orbitstops_]
+ 
+ 
+ 
+    #MAKE BIG FIGURE
+   
+    lw=2.5
+    tickfont=12
+   
+    fig, axes = plt.subplots(6, 1, figsize=(18,18), tight_layout = {'pad': 1}, sharex=True)
+    fig.subplots_adjust(hspace=0.07)
+   
+
+    num=0
+    while num < len(valstrings):
+        ax=axes[num]
+       
+        for t in range(0, len(timeranges)):
+            ax.axvspan(orbitstarts[t], orbitstops[t], alpha=.5, color=backcolors[num][0])
+            if t > 0:
+                ax.axvspan(orbitstops[t-1], orbitstarts[t], alpha=.5, color=backcolors[num][1])
+       
+        for t in range(0,len(timeranges)):
+            plotvals = all_vals[t][valstrings[num]]
+            plotvals = [factor[num]*v for v in plotvals]
+           
+            if error[num]:
+                theval=np.array(plotvals)[:,0]
+                quantity_low=np.array(plotvals)[:,1]
+                quantity_high=np.array(plotvals)[:,2]
+               
+                ax.stairs(theval, all_time_lists[t], linewidth=lw, color=colors[num], baseline=None)
+               
+                try:               
+                    lp = np.hstack([quantity_low, quantity_low[-1]])
+                    hp = np.hstack([quantity_high, quantity_high[-1]])
+   
+                    
+                    fill = ax.fill_between(all_time_lists[t], lp, hp, step="post",
+                                    color=colors[num], alpha=0.1)
+                except ValueError:
+                    print('To plot error range, this needs to be a quantity with three values per timestep:')
+                    print('(value, low, high)')
+               
+            else:
+                ax.stairs(np.array(plotvals), all_time_lists[t], linewidth=lw, color=colors[num], baseline=None)
+   
+            if valstrings[num] == 'above10s':
+                comp_band=[1.8e22, 1.5e23, 'Ishikawa et al. (2017)']
+                ax.axhspan(comp_band[0], comp_band[1], color='brown', alpha=0.25, label=comp_band[2])
+               
+        ax.set_yscale('log')
+        ax.set_title(thetitles[num], fontsize=20)
+        ax.set_ylabel(theylabels[num], fontsize=15, color=colors[num])
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+   
+        num+=1
+   
+    
+    ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+    ax.set_xlim([(np.min(orbitstarts_)-120*u.s).datetime, (np.max(orbitstops_)+120*u.s).datetime])
+    ax.tick_params(axis='x', labelsize=tickfont)
+    ax.tick_params(axis='y', labelsize=tickfont)
+   
+    
+    wholestart=make_timestring([np.min(orbitstarts_).datetime, np.max(orbitstops_).datetime])
+   
+    plt.savefig(working_dir+'/'+wholestart+'_summary_plot.png')    
     
     
     
