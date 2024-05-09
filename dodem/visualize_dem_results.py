@@ -1217,12 +1217,12 @@ def multi_orbit_summary(all_time_intervals, working_dir, name, minT=5.6, maxT=7.
     while num < len(valstrings):
         ax=axes[num]
        
-        for t in range(0, len(timeranges)):
+        for t in range(0, len(all_vals)):
             ax.axvspan(orbitstarts[t], orbitstops[t], alpha=.5, color=backcolors[num][0])
             if t > 0:
                 ax.axvspan(orbitstops[t-1], orbitstarts[t], alpha=.5, color=backcolors[num][1])
        
-        for t in range(0,len(timeranges)):
+        for t in range(0,len(all_vals)):
             plotvals = all_vals[t][valstrings[num]]
             plotvals = [factor[num]*v for v in plotvals]
            
