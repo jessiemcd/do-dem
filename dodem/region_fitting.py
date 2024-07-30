@@ -187,7 +187,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     
     regfile - existing circular region file (to be used as a template for our new one).
     region - expects circular region object
-    time - data time interval
+    time - data time
     newfile - name of new region file to save
 
     """
