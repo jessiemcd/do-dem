@@ -46,7 +46,11 @@ Preparing AIA Data for DEM: IDL/other helpers
                                          correctly-named file containing its output (the aia temperature responses)
                                          is not found in the current directory. 
                                          
-        NOTE: getting aia uncertainties via aiapy.calibrate.estimate_error was failing on an issue downloading the
+                                         Note 1: we apply a time-dependent correction to the aia response using the
+                                         degradation correction, so the response file only needs to be made once on
+                                         a given system and can be used for any time interval.
+                                         
+        Note 2: getting aia uncertainties via aiapy.calibrate.estimate_error was failing on an issue downloading the
         error tables at the time this was written. There is a line here that hard-codes to a specific 
         existing error table file on Jessie's UMN machine; edit if that is not where you are using this code. 
         
@@ -162,23 +166,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         
         wavs = [m.meta['wavelnth'] for m in aprep]
         channels = wavs * u.angstrom
-        nc=len(channels)
-
-        try:
-            with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'rb') as f:
-                data = pickle.load(f)
-                degs = data['Degradation']
-        except FileNotFoundError: 
-            degs=np.empty(nc)
-            for i in np.arange(nc):
-                #degradation is from aiapy.calibrate
-                degs[i]=degradation(channels[i],time[0])#,calibration_version=10)
-
-            data = {'Degradation': degs, 'Time': time[0]}
-
-            with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'wb') as f:
-                # Pickle the 'data' dictionary using the highest protocol available.
-                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+        deg_dict = get_degs(aia_path, timestring, channels, time)
                 
         #=========================
         
@@ -190,7 +178,11 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         aia_err_dn_s_px=[]
         for i in range(0,len(aprep)):
             m = aprep[i]
-            deg = degs[i]
+            wav = wavs[i]
+            wstring=str(wav)
+            if wav == 94:
+                wstring=str(0)+str(wav)
+            deg = deg_dict[wstring]
             if real_aia_err:
                 aia_dn_s_px_, err = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
                                                   input_aia_region_dict=input_aia_region_dict, plot=plot,
@@ -218,25 +210,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         
         waves=[94, 131, 171, 193, 211, 335]
         channels = waves * u.angstrom
-        nc=len(channels)
-        
-        
-        try:
-            with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'rb') as f:
-                data = pickle.load(f)
-                degs = data['Degradation']
-                #print('AIA Degredation Factors:', degs)
-        except FileNotFoundError: 
-            degs=np.empty(nc)
-            for i in np.arange(nc):
-                #degradation is from aiapy.calibrate
-                degs[i]=degradation(channels[i],time[0])#,calibration_version=10)
-
-            data = {'Degradation': degs, 'Time': time[0]}
-
-            with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'wb') as f:
-                # Pickle the 'data' dictionary using the highest protocol available.
-                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+        deg_dict = get_degs(aia_path, timestring, channels, time)
         
         #=========================
         
@@ -275,6 +249,9 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
 
             #Maps of all files
             aprep=sunpy.map.Map(ffp)
+            
+            #degradation for this wavelength
+            deg = deg_dict[wstring]
 
             
             #Get data from each map
@@ -286,7 +263,6 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
                     print('File with no exposure time found - excluding.')
                     print('File was:', ffp[i])
                     continue
-                deg = degs[w]
                 if real_aia_err:
                     wav_dn_s_px_, err = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
                                                       input_aia_region_dict=input_aia_region_dict, plot=plot,
@@ -366,8 +342,37 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         return aia_dn_s_px, newerr, chans, aia_tr, tresp_logt
     else:
         return aia_dn_s_px, chans, aia_tr, tresp_logt
+    
+    
 
-
+def get_degs(aia_path, timestring, channels, time):
+    """
+    Wrapper to look for saved aia degradation factors, or if not extract them using
+    aiapy.calibrate. Returns list of degradation factors (by channel).
+    """
+ 
+    #print(channels)
+    nc=len(channels)
+   
+    try:
+        with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'rb') as f:
+            deg_dict = pickle.load(f)
+    except FileNotFoundError:    
+ 
+        deg_dict = {'Time': time[0]}
+        for i in np.arange(nc):
+            wave = int(channels[i].value)
+            wstring=str(wave)
+            if wave == 94:
+                wstring=str(0)+str(wave)
+            #degradation is from aiapy.calibrate
+            deg_dict[wstring]=degradation(channels[i],time[0])#,calibration_version=10)
+ 
+        with open(aia_path+timestring+'/'+timestring+'degradation.pickle', 'wb') as f:
+            # Pickle the 'data' dictionary using the highest protocol available.
+            pickle.dump(deg_dict, f, pickle.HIGHEST_PROTOCOL)
+ 
+    return deg_dict
 
 
 def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle', clobber=False,
