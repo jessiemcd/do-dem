@@ -175,7 +175,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     
     Read in a region file + change the region specified.
     
-    Times 0,1 (astropy.time.Time objects) for coordinate conversion needed. (Defining window, we use midtime).
+    Time (astropy.time.Time object) for coordinate conversion needed. (Use midtime of whatever interval you care about).
     
     Expects region file made in ds9 GUI, circular region, in fk5 coordinates, like:
         (RA, DEC, RAD) in (hourangle, degrees, arcsec).
@@ -187,7 +187,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     
     regfile - existing circular region file (to be used as a template for our new one).
     region - expects circular region object
-    time - data time interval
+    time - data time
     newfile - name of new region file to save
 
     """

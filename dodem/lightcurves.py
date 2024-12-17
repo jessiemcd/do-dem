@@ -18,6 +18,8 @@ import matplotlib.dates as mdates
 
 
 
+
+
 default_kwargs = {
         'linestyle': 'dashed',
         'linewidth': 1,
@@ -404,6 +406,8 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
         timerange= [ times_convertedA[0], times_convertedA[-1]]
     print('Using time limits:')
     print(timerange)
+
+    range3 = [0, 2*np.max(lvtA[np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))])]
     
     #ax1.set_ylim(range1[0], range1[1])
     ax1.set_xlim(timerange[0], timerange[1])
@@ -420,7 +424,7 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
     ax2.set_yscale('log')
 
-    #ax3.set_ylim(range3[0],range3[1])
+    ax3.set_ylim(range3[0],range3[1])
     ax3.set_xlim(timerange[0], timerange[1])
     ax3.set_title('Livetimes')
     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
