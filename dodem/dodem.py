@@ -2,7 +2,7 @@
 from sys import path as sys_path
 
 # Change to your local copy's location...
-sys_path.append('/Users/jessieduncan/demreg/python/')
+sys_path.append('/Users/jmdunca2/demreg/python/')
 from dn2dem_pos import dn2dem_pos
 import dn2dem_pos
 
@@ -54,7 +54,7 @@ def dodem(time, bl, tr,
           #AIA-related
           real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
           input_aia_region=[], input_aia_region_dict=[], plot_aia=False,
-          sunpy_dir=sunpy_dir, 
+          sunpy_dir=sunpy_dir, load_prepped_aia=[],
           errortab=errortab,
           #EIS-related
           eis_path='./', eisbox_bl=[0,0], eisbox_tr=[0,0], contrib_file='chiantipy_gfnt.pickle', 
@@ -290,6 +290,9 @@ def dodem(time, bl, tr,
     
     aia-related
     -----------
+
+    load_prepped_aia - Set to dictionary with AIA DEM inputs (for use when making
+                    the AIA inputs on the NCCS or similar). 
     
     real_aia_err - set True to use aiapy estimate_error to extract channel-specific estimated 
                     uncertainties (rather than using flat default_err % value). Note you must point to valid aia 
@@ -485,44 +488,62 @@ def dodem(time, bl, tr,
 
 
         #data list and instrument name list (to be updated)
-        dn_in=[]
-        chanax=[]
+        dn_in, chanax = [], []
         #Number of instruments (to be updated)
         nf=0
 
         if aia:
             #Load in AIA data, uncertainty(if set), labels, temperature response, and corresponding temperatures
-            
-            if aia_exclude:
-                if type(aia_exclude[0]) != int:
-                    print('AIA exclude option takes a list of integers – if other input is used, it will not work!')
-                    print('You do not seem to be using a list of integers.')
-                    print('')
 
-            if aiamethod=='Auto':
-                dur = (time[1]-time[0]).to(u.s).value
-                if dur > 60:
-                    aiamethod='Average'
-                else:
-                    aiamethod='Middle'
+            if load_prepped_aia:
 
-            res = aia_dem_prep.load_aia(time, bl, tr, plot=plot_aia, aia_exclude=aia_exclude, aia_path=working_directory, 
-                                        method=aiamethod, input_region=input_aia_region, aia_clobber=aia_clobber,
-                                        input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
-                                       sunpy_dir=sunpy_dir,errortab=errortab,path_to_dodem=path_to_dodem)
-            if res is None:
-                print('Something is wrong; Not using AIA.')
-                print('')
-                aia=False
-            if aia:
-                if real_aia_err:
-                    aia_dn_s_px, aia_err_dn_s_px, chans, aia_tr, aia_logt = res
-                else:
-                    aia_dn_s_px, chans, aia_tr, aia_logt = res
+                #with open(load_prepped_aia, 'rb') as f:
+                #    dict = pickle.load(f)
+                dict=load_prepped_aia
+                
+                aia_dn_s_px = dict['aia_dn_s_px']
+                aia_err_dn_s_px = dict['newerr']
+                chans = dict['chans']
+                aia_tr = dict['aia_tr']
+                aia_logt = dict['tresp_logt']
+
                 nf+=len(chans)
                 for i in range(0, len(chans)):
                     dn_in.append(aia_dn_s_px[i])
                     chanax.append(chans[i])
+
+            else:
+            
+                if aia_exclude:
+                    if type(aia_exclude[0]) != int:
+                        print('AIA exclude option takes a list of integers – if other input is used, it will not work!')
+                        print('You do not seem to be using a list of integers.')
+                        print('')
+    
+                if aiamethod=='Auto':
+                    dur = (time[1]-time[0]).to(u.s).value
+                    if dur > 60:
+                        aiamethod='Average'
+                    else:
+                        aiamethod='Middle'
+                
+                res = aia_dem_prep.load_aia(time, bl, tr, plot=plot_aia, aia_exclude=aia_exclude, aia_path=working_directory, 
+                                            method=aiamethod, input_region=input_aia_region, aia_clobber=aia_clobber,
+                                            input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
+                                           sunpy_dir=sunpy_dir,errortab=errortab,path_to_dodem=path_to_dodem)
+                if res is None:
+                    print('Something is wrong; Not using AIA.')
+                    print('')
+                    aia=False
+                if aia:
+                    if real_aia_err:
+                        aia_dn_s_px, aia_err_dn_s_px, chans, aia_tr, aia_logt = res
+                    else:
+                        aia_dn_s_px, chans, aia_tr, aia_logt = res
+                    nf+=len(chans)
+                    for i in range(0, len(chans)):
+                        dn_in.append(aia_dn_s_px[i])
+                        chanax.append(chans[i])
                     
         if xrt:
             print('')

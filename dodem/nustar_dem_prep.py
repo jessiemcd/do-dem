@@ -72,9 +72,13 @@ Preparing NuSTAR Data for DEM: IDL/other helpers + other needed prep
 """
 
 
-def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=True,
-                        compare_fpm=False, nofit=False, pile_up_corr=False, adjacent_grades=False,
-                         clobber=False, nuradius=150, path_to_dodem='./'):
+def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
+                         #region related inputs:
+                         edit_regfile=True, nofit=False, nuradius=150,
+                         twogauss=False, direction='', guess=[],
+                         #general method related:
+                        compare_fpm=False, pile_up_corr=False, adjacent_grades=False,
+                         clobber=False, path_to_dodem='./', dip_before_products=False):
     """
     See load_nustar() documentation.
     
@@ -140,6 +144,12 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
             return
     
     #======================================================
+
+    #If we only wanted the time- and grade- specific evt files, get out now.
+
+    if dip_before_products:
+        print('dip_before_products is set True, so we will return after making only the time- and grade-specific evt files.')
+        return
     
     #======================================================
     #REGION SELECTION
@@ -172,7 +182,8 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     if edit_regfile: 
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
         newregfile, percent = rf.get_file_region(sun_file[0], time[0], time[1], regfile, nofit=nofit, 
-                                                 radius=nuradius,working_dir=nustar_path)
+                                                 radius=nuradius,working_dir=nustar_path, efilter=True, 
+                                                twogauss=twogauss, direction=direction, guess=guess)
     else:
         newregfile=regfile
         
@@ -197,7 +208,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edi
     else:
         return newregfile
     
-def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
+def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shush=False):
     """
     Looks at nustar_path + timestring directory for nustar spectral products for a given grade+fpm.
     Wrapper since we do this a few times.
@@ -211,9 +222,10 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
             print("Note expected format: timestring+'*'+fpm+'*.pha' where timestring is of the form 'hh-mm-ss_hh-mm-ss'")
     else:
         pha_files = glob.glob(nustar_path+timestring+'/*'+fpm+'06_'+grade+'_p_sr.pha')
-    print('ARF File: ', arf_files)
-    print('RMF File: ', rmf_files)
-    print('PHA File: ', pha_files)
+    if not shush:
+        print('ARF File: ', arf_files)
+        print('RMF File: ', rmf_files)
+        print('PHA File: ', pha_files)
     
     return arf_files, rmf_files, pha_files
 
@@ -221,7 +233,8 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0'):
 def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapath='', regfile='', 
                 edit_regfile=True, actual_total_counts=False, nofit=False, use_fit_regfile=False,
                clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
-               nuradius=150, path_to_dodem='./', countmin=10):
+               nuradius=150, path_to_dodem='./', countmin=10, force_both_fpm=False, shush=False,
+                twogauss=False, direction='', guess=[]):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
     
@@ -238,7 +251,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                              default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
-                                             nuradius=nuradius, path_to_dodem=path_to_dodem)
+                                             nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
+                                             twogauss=twogauss, direction=direction, guess=guess)
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -247,8 +261,12 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
     if actual_total_counts:
         rate, erate, nutrs, nu_tresp, nu_logt, fpm, atc = res
         if atc >=countmin:
-            print(atc, ' counts just in FPM', fpm, '. Exiting.')
-            return (atc, True)
+            print(atc, ' counts just in FPM', fpm)
+            if force_both_fpm==True:
+                print('Making products for FPM', fpm2, ' as well, as you set force_both_fpm==True.')
+            else:
+                print('Exiting.')
+                return (atc, True)
     
     res2 = load_nustar(time, eng_tr, nustar_path, fpm2, make_nustar=make_nustar,
                                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
@@ -257,7 +275,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                               default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
-                                             nuradius=nuradius, path_to_dodem=path_to_dodem)
+                                             nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
+                                             twogauss=twogauss, direction=direction, guess=guess)
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -330,7 +349,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
 def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', datapath='', regfile='', 
                 edit_regfile=True, compare_fpm=False, combine_fpm=False, actual_total_counts=False, nofit=False,
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
-                   adjacent_grades=False, nuradius=150,path_to_dodem='./'):
+                   adjacent_grades=False, nuradius=150,path_to_dodem='./', shush=False,
+                   twogauss=False, direction='', guess=[], return_for_pile_up_figure=False):
     """
     Load in NuSTAR data and response, return DEM inputs.
     
@@ -440,16 +460,19 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     #======================================================
     # Load in the pha, arf and rmf (NuSTAR RESPONSE)
     
-    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, special_pha=special_pha, grade='0')
+    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, special_pha=special_pha, grade='0',
+                                                     shush=shush)
     
     if adjacent_grades:
             print('Using grades 0-4 NuSTAR events.')
             arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm,
-                                                                               special_pha=special_pha, grade='0_4')
+                                                            special_pha=special_pha, grade='0_4',
+                                                             shush=shush)
     
     if pile_up_corr:
         arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(nustar_path, timestring, fpm,
-                                                                               special_pha=special_pha, grade='21_24')
+                                                                                special_pha=special_pha, grade='21_24',
+                                                                                 shush=shush)
        
     #Will be switched to True if any spectral data products are missing, or clobber is True.    
     remake_0=False
@@ -484,19 +507,20 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     #Note: if pile_up_corr=True and there are not all the needed unphysical grade files, the grade 0 files will also be 
     #remade (and vice versa). However, if pile_up_corr=False, we will not make unphysical grade files.
     if remake_0 or remake_u:
-        
-        print('There are ', len(arf_files), ' Auxiliary Response Files (.arf) for this FPM (', fpm, ') in nustar path.')
-        print('There are ', len(rmf_files), ' Response Matrix Files (.rmf) for this FPM (', fpm, ') in nustar path.')
-        print('There are ', len(pha_files), ' PHA files (.pha) for this FPM (', fpm, ') in nustar path.')
-        print('We require 1 of each.')
-        if pile_up_corr:
-            print('There are ', len(arf_files_unphys), ' Unphysical Grade Auxiliary Response Files (.arf) for this FPM (', 
-                  fpm, ') in nustar path.')
-            print('There are ', len(rmf_files_unphys), ' Unphysical Grade Response Matrix Files (.rmf) for this FPM (', 
-                  fpm, ') in nustar path.')
-            print('There are ', len(pha_files_unphys), ' Unphysical Grade PHA files (.pha) for this FPM (', 
-                  fpm, ') in nustar path.')
-            print('We require 1 of each.')        
+
+        if not shush:
+            print('There are ', len(arf_files), ' Auxiliary Response Files (.arf) for this FPM (', fpm, ') in nustar path.')
+            print('There are ', len(rmf_files), ' Response Matrix Files (.rmf) for this FPM (', fpm, ') in nustar path.')
+            print('There are ', len(pha_files), ' PHA files (.pha) for this FPM (', fpm, ') in nustar path.')
+            print('We require 1 of each.')
+            if pile_up_corr:
+                print('There are ', len(arf_files_unphys), ' Unphysical Grade Auxiliary Response Files (.arf) for this FPM (', 
+                      fpm, ') in nustar path.')
+                print('There are ', len(rmf_files_unphys), ' Unphysical Grade Response Matrix Files (.rmf) for this FPM (', 
+                      fpm, ') in nustar path.')
+                print('There are ', len(pha_files_unphys), ' Unphysical Grade PHA files (.pha) for this FPM (', 
+                      fpm, ') in nustar path.')
+                print('We require 1 of each.')        
         
         if make_nustar:
             if compare_fpm:
@@ -508,7 +532,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 print('Now we will make some spectral data products.')
             mn = make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
                                       nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
-                                      adjacent_grades=adjacent_grades, nuradius=nuradius)
+                                      adjacent_grades=adjacent_grades, nuradius=nuradius,
+                                     twogauss=twogauss, direction=direction, guess=guess)
             if compare_fpm:
                 if fpm == 'A':
                     fpm2='B'
@@ -518,7 +543,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                           ' also to see which has more emission in its optimal region.')
                 mn2 = make_nustar_products(time, fpm2, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
                                       nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
-                                           adjacent_grades=adjacent_grades, nuradius=nuradius)
+                                           adjacent_grades=adjacent_grades, nuradius=nuradius,
+                                         twogauss=twogauss, direction=direction, guess=guess)
                 print('FPM', fpm, ' region has ', mn, '% of emission. FPM', fpm2, ' region has ', mn2, '% of emission.' )
                 if mn2>mn:
                     print('Switching to FPM', fpm2)
@@ -551,7 +577,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     print('')
     
     #Get area of NuSTAR region
-    if nofit:
+    if nofit or twogauss:
         area = nuradius**2*np.pi*7.25e7*7.25e7  
     else:
         if bool(newregfile)==False:
@@ -631,6 +657,9 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             plt.close(fig)
             
             cnts_corr = cnts-0.25*cnts_u
+
+        if return_for_pile_up_figure:
+            return engs, cnts, cnts_u
     
     numax = enz[-1]
     
@@ -885,7 +914,7 @@ def convert_wrapper(infile, clobber=False):
     if clobber==False:
         # If we already have one of the sunpos files, don't re-do that one too.
         if isfile(outfile):
-            print(outfile, 'exists! Not re-making it.')
+            #print(outfile, 'exists! Not re-making it.')
             return
 
     hdulist = fits.open(infile)

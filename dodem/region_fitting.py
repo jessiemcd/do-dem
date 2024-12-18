@@ -1,5 +1,6 @@
 
 import nustar_utilities as nuutil
+import gauss2D as g2d
 
 import numpy as np
 import astropy.units as u
@@ -24,6 +25,7 @@ import sunpy.map
 import glob
 
 
+
 """
 Various code related to NuSTAR data regions:
 -Options for fitting the NuSTAR data regions to avoid the chip gap, where instrument response is less well-known. 
@@ -33,7 +35,8 @@ Various code related to NuSTAR data regions:
 """
 
 def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='hourangle',
-                   nofit=False, radius=150, working_dir='./', efilter=False):
+                   nofit=False, radius=150, working_dir='./', efilter=False,
+                   twogauss=False, direction='', guess=[]):
     """
     Takes in a file and auto-generates a region for making spectral data products. Returns the new region file name.
     
@@ -53,15 +56,18 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     with fits.open(evt_file) as hdu:
         evt_data = hdu[1].data
         hdr = hdu[1].header
+
+        #print(evt_data['
         
     if efilter:
-        cleanevt = nustar.filter.event_filter(evt_data, energy_low=6., energy_high=10.,
+        cleanevt = nustar.filter.event_filter(evt_data, energy_low=2.5, energy_high=10.,
                                              no_bad_pix_filter=True, no_grade_filter=True)
         print(len(cleanevt), len(evt_data))
         nustar_map = nustar.map.make_sunpy(cleanevt, hdr)
     else:    
         #Make NuSTAR map and submap
         nustar_map = nustar.map.make_sunpy(evt_data, hdr)
+        
     bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
     tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
     submap = nustar_map.submap(bottom_left=bl, top_right=tr)
@@ -100,6 +106,61 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         
         newregfile = write_regfile(regfile, midway, region, 
                              Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region')
+
+    elif twogauss:
+
+        print('Doing two gaussian fitting, and selecting the center of the one to the ', direction)
+
+        res = g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, guess=guess)
+        worldcens = res[1]
+
+        sep = g2d.abs_dif_cord(worldcens)
+        sep_ratio = sep/(2*radius)
+        if (sep_ratio < 0.8) or (sep_ratio > 1.2):
+            print('Center separation is: ', sep, ', expected: ,', radius*2, ', ratio: ', sep_ratio)
+            print('Re-doing with a plot so you can check if everything is okay – maybe tweak your guess?')
+            g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=True, plotmoments=False, guess=guess)
+            return
+            
+            
+
+        if direction == 'east':
+            center_cord = worldcens[np.argmin([worldcens[0].Tx.value, worldcens[1].Tx.value])]            
+        if direction == 'west':
+            center_cord = worldcens[np.argmax([worldcens[0].Tx.value, worldcens[1].Tx.value])]
+        if direction == 'south':
+            center_cord = worldcens[np.argmin([worldcens[0].Ty.value, worldcens[1].Ty.value])]            
+        if direction == 'north':
+            center_cord = worldcens[np.argmax([worldcens[0].Ty.value, worldcens[1].Ty.value])]
+
+        try:
+            region = CircleSkyRegion(
+                center = center_cord,
+                radius = radius * u.arcsec
+            )
+        except UnboundLocalError:
+            print('Are you sure you used an actual direction? Choose from "east", "west", "north", "south".')
+
+        fig = plt.figure(figsize=(16,10))
+        ax = fig.add_subplot(121, projection=submap)
+        submap.plot(axes=ax, norm=norm, cmap=cmap)
+        
+        #Diameter of plot window (pixels) - to make things easier to read
+        d=300
+        ax.set_xlim(com[1]-d/2, com[1]+d/2)
+        ax.set_ylim(com[0]-d/2, com[0]+d/2)
+        
+        og_region = region.to_pixel(submap.wcs)
+        og_region.plot(axes=ax, color='green', ls='--', lw=3, label='gauss fit '+direction)
+        
+        regdata = get_region_data(nustar_map, region, 0)
+        
+        percent = np.sum(regdata)/np.sum(nustar_map.data)
+        print('Percent of emission in region:', percent)
+        
+        newregfile = write_regfile(regfile, midway, region, 
+                             Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_'+direction+'_region')
+
         
     else:
         #Default region: 100", centered at COM
@@ -157,6 +218,8 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     
     if nofit:
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region.png')
+    if twogauss:
+        plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_'+direction+'_region.png')
     else:
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_fit_region.png')
     
@@ -169,13 +232,15 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     return newregfile, percent 
 
 
+
+
 def write_regfile(regfile, time, region, newfile='sample'):
     
     """
     
     Read in a region file + change the region specified.
     
-    Time (astropy.time.Time object) for coordinate conversion needed. (Use midtime of whatever interval you care about).
+    Time (astropy.time.Time object) for coordinate conversion needed.
     
     Expects region file made in ds9 GUI, circular region, in fk5 coordinates, like:
         (RA, DEC, RAD) in (hourangle, degrees, arcsec).
@@ -187,7 +252,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     
     regfile - existing circular region file (to be used as a template for our new one).
     region - expects circular region object
-    time - data time
+    time - data time interval
     newfile - name of new region file to save
 
     """
@@ -331,7 +396,7 @@ def just_plot_region(nufile, time0, time1, regRAunit='hourangle', file=''):
     
 
 def check_region(nufile, time0, time1, regfile=True, file='', regobj=False, region='', 
-                 regRAunit='hourangle', shush=True):
+                 regRAunit='hourangle', shush=True, get_percent=False, efilter=[]):
     """
     For a given NuSTAR file (in solar coordinates), time interval, and region file, 
     make a nice plot that compares the data to the region in the region file. 
@@ -364,7 +429,29 @@ def check_region(nufile, time0, time1, regfile=True, file='', regobj=False, regi
     hdr = hdulist[1].header
     hdulist.close()
 
-    nustar_map = nustar.map.make_sunpy(evtdata, hdr, norm_map=True)
+    if efilter:
+        cleanevt = nustar.filter.event_filter(evtdata, energy_low=efilter[0], energy_high=efilter[1],
+                                             no_bad_pix_filter=True, no_grade_filter=True)
+        #print(len(cleanevt), len(evt_data))
+        nustar_map = nustar.map.make_sunpy(cleanevt, hdr)
+    else:  
+        nustar_map = nustar.map.make_sunpy(evtdata, hdr)#, norm_map=True)
+
+
+    if get_percent:
+        region = CircleSkyRegion(
+                center = coord.SkyCoord(offset[0], offset[1], frame=nustar_map.coordinate_frame),
+                radius = rad
+            )
+        
+        regdata = get_region_data(nustar_map, region, 0)
+        
+        percent = np.sum(regdata)/np.sum(nustar_map.data)
+        if shush==False:
+            print('Percent of emission in region:', percent)
+        return percent
+
+
     #Smoothing the data; change sigma to smooth more or less
     dd=ndimage.gaussian_filter(nustar_map.data, sigma=2, mode='nearest')
     nustar_map=sunpy.map.Map(dd, nustar_map.meta)
@@ -466,10 +553,6 @@ def get_region_data(map_obj, region, fill_value):
         The bounding region.
     fill_value : float
         The default null value in indices outside the region.
-    b_full_size : bool
-        Specifies whether the returned array, region_data,
-        is the same shape as the input array, data.
-        The default is False since it is wasteful in memory.
     Returns
     -------
     region_data : np.ndarray

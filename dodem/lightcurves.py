@@ -10,12 +10,16 @@ import sunpy.map
 from sunpy.net import attrs as a
 from sunpy.net import Fido
 from sunpy import timeseries as ts
+from datetime import timezone
 import datetime
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+import regions
+from astropy.coordinates import SkyCoord
 
+import region_fitting as rf
 
 
 
@@ -48,9 +52,13 @@ def gather_aia_files(
     files = []
     dir_files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
     for f in dir_files:
+        #print(f)
         try:
             with fits.open(f'{in_dir}/{f}') as hdu:
-                hdr = hdu[1].header
+                if len(hdu) == 1:
+                    hdr = hdu[0].header
+                else:
+                    hdr = hdu[1].header
                 obs_time = astropy.time.Time(hdr['T_OBS'], format='isot')
                 if obs_time >= time_range[0] and obs_time <= time_range[1]:
                     if hdr['WAVELNTH'] == wave:
@@ -60,18 +68,17 @@ def gather_aia_files(
                             times.append(obs_time)
                             files.append(f)
         except OSError as e: # Catch empty or corrupted fits files
-            print(f'OSError with file {f}: {e}')
+            #print(f'OSError with file {f}: {e}')
+            print(f'OSError with file {f}')
 
     files = [f for _, f in sorted(zip(times, files))]
 
     return files
 
-def make_channel_lightcurve(
-    in_dir: str,
-    time_range: tuple[astropy.time.Time], 
-    wave: int,
-    fulldisk: bool,
-) -> list[str]:
+def make_channel_lightcurve(in_dir, time_range, wave, fulldisk=False, aiaregion=[]):
+    """
+    time range should be: tuple[astropy.time.Time]
+    """
     
     files = gather_aia_files(
         in_dir,
@@ -81,7 +88,10 @@ def make_channel_lightcurve(
         )
     #print(files)
     paths = [in_dir+ff for ff in files]
-    amaps=sunpy.map.Map(paths)
+    amaps_=sunpy.map.Map(paths)
+
+    amaps = [m/m.exposure_time for m in amaps_]
+    
     
     data_mean = []
     data_total = []
@@ -89,10 +99,22 @@ def make_channel_lightcurve(
     exp_time = []
     for i in range(0,len(amaps)):
         m=amaps[i]
-        data_mean.append(np.mean(m.data))
-        data_total.append(np.sum(m.data))
+
+        if aiaregion:
+            region_data=aiaregion
+            regionobj = regions.CircleSkyRegion(
+                        SkyCoord(*region_data['center'], frame=m.coordinate_frame ),
+                        region_data['radius']
+                    )    
+            data = rf.get_region_data(m, regionobj, b_full_size=True)
+            data_mean.append(np.mean(data[np.where(data > 0)]))
+            data_total.append(np.sum(data[np.where(data > 0)]))
+        else:
+            data_mean.append(np.mean(m.data))
+            data_total.append(np.sum(m.data))
         data_time.append(m.date)
         exp_time.append(m.exposure_time)
+        #exp_time.append(m.meta['exptime'])
         
     times_converted = [t.datetime for t in data_time]
         
@@ -103,7 +125,8 @@ exposure_dict={'Be_thin': [],
               'Al_poly': []}
 
 def prepare_lightcurves(in_dir, channels, time_range, instrument, fulldisk=False,
-                        plot=True, exposure_dict=exposure_dict, save_dir='./'):
+                        plot=True, exposure_dict=exposure_dict, save_dir='./', 
+                        aiaregion=[]):
     """
     
     Makes lightcurves from AIA or XRT data files in in_dir from the time range (and with
@@ -155,17 +178,20 @@ def prepare_lightcurves(in_dir, channels, time_range, instrument, fulldisk=False
 
     """
     
-    if plot:
-        fig, ax = plt.subplots(figsize=(15, 5))
 
 
     for w in channels:
+
+        if plot:
+            fig, ax = plt.subplots(figsize=(15, 5))
+        
         if instrument == 'AIA':
             data_total, times_converted, exp_time = make_channel_lightcurve(
                 in_dir,
                 astropy.time.Time(time_range),
                 w,
-                fulldisk
+                fulldisk=fulldisk,
+                aiaregion=aiaregion
             )
 
             chanlabel='AIA'+str(w)
@@ -180,7 +206,12 @@ def prepare_lightcurves(in_dir, channels, time_range, instrument, fulldisk=False
             chanlabel='XRT_'+w
 
         if plot:
-            plt.plot(times_converted, data_total/max(data_total), label=chanlabel, **default_kwargs)
+            exp_time_vals = np.array([e.value for e in exp_time])     
+            #exp_time_vals = np.array(exp_time)   
+            #print(exp_time)
+            #print('')
+            #plt.plot(times_converted, np.array(data_total)/exp_time_vals, label=chanlabel, **default_kwargs)
+            plt.plot(times_converted, np.array(data_total), label=chanlabel, **default_kwargs)
 
         data = {
             'times_'+chanlabel: times_converted,
@@ -195,15 +226,15 @@ def prepare_lightcurves(in_dir, channels, time_range, instrument, fulldisk=False
 
 
 
-    if plot:
-        #ax.set_ylim(880000, 900000)   
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
-        plt.legend()
+        if plot:
+            #ax.set_ylim(880000, 900000)   
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+            ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+            plt.legend()
         
     return 
 
-def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexviii=True, lc_dir='./'):
+def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexviii=False, lc_dir='./'):
     """
     Assuming you've already run prepare_lightcurves for your chosen instrument, 
     loads in the pickled results, which should be in files named after each 
@@ -398,9 +429,13 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     ax3.plot(times_convertedA, lvtA, 
                  label='NuSTAR FPMA Livetime',
                  **default_kwargs, color='Black')
+
+    #print('times A, B: ', len(times_convertedA), len(times_convertedB)) 
+    #print('lvt A, B: ', len(lvtA), len(lvtB))
     ax3.plot(times_convertedB, lvtB, 
                  label='NuSTAR FPMA Livetime',
                  **default_kwargs, color='Red')
+
     
     if bool(timerange)==False:
         timerange= [ times_convertedA[0], times_convertedA[-1]]
@@ -408,7 +443,8 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     print(timerange)
 
     range3 = [0, 2*np.max(lvtA[np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))])]
-    
+
+
     #ax1.set_ylim(range1[0], range1[1])
     ax1.set_xlim(timerange[0], timerange[1])
     ax1.legend(ncol=2)
@@ -433,147 +469,249 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     
     plt.savefig(save_dir+'NuSTAR_lightcurves.png')
 
-def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES=True,
-                           wavelengths=wavelengths, filters=filters,
-                          range1=[0.97,1.01], range2=[0.,1.], range3=[0.,1.], range4=[5e-9,1e-7],
+
+
+
+
+
+
+def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOESA=True, plotGOESB=True, 
+                           plotnustar_stats=False, plotnustar_nonnorm=True, 
+                           wavelengths=wavelengths, filters=filters, fexviii=True, aianorm=True,
+                           nccs_aia=False, nccs_aia_dir='',
+                           nustar_file_list=[],
+                          rangeaia=[0.,1.], rangenustar=[0.,1.], rangenustar_s=[0.01,1.],
+                           rangegA=[5e-9,1e-7], rangegB=[5e-9,1e-7], #GOES RANGES
                           eranges = [[2.,4.],[4.,6.],[6.,8.],[8.,10.]],
-                          timerange=[datetime.datetime(2018, 5, 29, 18, 45), datetime.datetime(2018, 5, 29, 19, 45)]):
+                          timerange=[datetime.datetime(2018, 5, 29, 18, 45), datetime.datetime(2018, 5, 29, 19, 45)],
+                          plotname='', neupert=False):
     """
     Plot wrapper.
     
-    ax1: All instruments, normalized
-    ax2: All instruments, unnormalized
-    ax3: FeXVIII, unnormalized
+    Note that you need to be plotting NuSTAR data for NuSTAR stats (accepted event % vs. rejected) to also be plotted.
+    (Set both plotnustar=True, plotnustar_stats=True). rangenustar_s is the y-range for the event statistic ratio. 
     
     """
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(15, 10))
+    if plotaia==False and fexviii==True:
+        print('Not set up to do fexviii without other AIA, not doing it.')
+        fexviii=False
+
+    instruments = (plotaia, plotnustar, plotnustar_nonnorm, plotnustar_stats, fexviii, plotGOESA, plotGOESB)
+    panels = len(np.nonzero(instruments)[0])
+
+    #print(panels)
+    #print(instruments)
+
+    fig, axes = plt.subplots(panels, 1, figsize=(9, panels*2))
+    count=0
+    ranges=[]
+
     
-    
-    
-    if plotGOES:
-        clrs=['red', 'cornflowerblue']
+    if plotGOESA:
+        goaxA=axes[count]
+        count+=1
+        ranges.append(rangegA)
+        clr='cornflowerblue'
         instrument='GOES'
         data = load_lightcurves(instrument)
-        
         ylabel = data['GOES flux label']
         goestimes = data['GOES Times']
         xrsacounts = data['XRSA counts']
-        xrsbcounts = data['XRSB counts']
         xrsalabel = data['XRSA label']
-        xrsblabel = data['XRSB label']
-        
+
         gts = [t.datetime for t in goestimes]
-        
-        xrsaclr=0
-        xrsbclr=1
-        
-        
         maxA = max(xrsacounts[np.isfinite(xrsacounts)])
-        maxB = max(xrsbcounts[np.isfinite(xrsbcounts)])
-        
-#         ax4.plot(gts, xrsacounts/maxA, 
-#                      label=xrsalabel,
-#                      **default_kwargs, color=clrs[xrsaclr])
-#         ax4.plot(gts, xrsbcounts/maxB, 
-#                      label=xrsblabel, 
-#                      **default_kwargs, color=clrs[xrsbclr])
-        
-        ax4.semilogy(gts, xrsacounts, 
+        goaxA.semilogy(gts, xrsacounts, 
                      label=xrsalabel,
-                     **default_kwargs, color=clrs[xrsaclr])
-        ax4.semilogy(gts, xrsbcounts, 
-                     label=xrsblabel, 
-                     **default_kwargs, color=clrs[xrsbclr])
+                     **default_kwargs, color=clr)
 
-
-        
-#         n_bx = 10
-#         arr_lc = np.array(xrsacounts/maxA)
-#         avg_lc = boxcar_average(arr_lc, n_bx)
-#         avg_lc[0:3]=arr_lc[0:3]
-#         avg_lc[-3:]=arr_lc[-3:]
-
-#         ax4.plot(gts, avg_lc, color=clrs[xrsaclr])
-
-#         arr_lc = np.array(xrsbcounts/maxB)
-#         avg_lc = boxcar_average(arr_lc, n_bx)
-#         avg_lc[0:3]=arr_lc[0:3]
-#         avg_lc[-3:]=arr_lc[-3:]
-
-#         ax4.plot(gts, avg_lc, color=clrs[xrsbclr])
-
-        
         n_bx = 10
         arr_lc = np.array(xrsacounts)
         avg_lc = boxcar_average(arr_lc, n_bx)
         avg_lc[0:3]=arr_lc[0:3]
         avg_lc[-3:]=arr_lc[-3:]
 
-        ax4.semilogy(gts, avg_lc, color=clrs[xrsaclr])
+        goaxA.semilogy(gts, avg_lc, color=clr)
+        
+    if plotGOESB:
+        goaxB=axes[count]
+        count+=1
+        ranges.append(rangegB)
+        clr='red'
+        instrument='GOES'
+        data = load_lightcurves(instrument)
+        
+        ylabel = data['GOES flux label']
+        goestimes = data['GOES Times']
+        xrsbcounts = data['XRSB counts']
+        xrsblabel = data['XRSB label']
+        
+        gts = [t.datetime for t in goestimes]
+        
 
+        goaxB.semilogy(gts, xrsbcounts, 
+                     label=xrsblabel, 
+                     **default_kwargs, color=clr)
+
+        n_bx = 10
         arr_lc = np.array(xrsbcounts)
         avg_lc = boxcar_average(arr_lc, n_bx)
         avg_lc[0:3]=arr_lc[0:3]
         avg_lc[-3:]=arr_lc[-3:]
 
-        ax4.semilogy(gts, avg_lc, color=clrs[xrsbclr])
+        goaxB.semilogy(gts, avg_lc, color=clr)
+        goaxB.set_yticks([1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9], labels=['X','M','C','B','A','A0.1'])
         
     
-    if plotnustar==True:
+    if plotnustar:
+        nuax=axes[count]
+        #nuax.set_title('Normalized Lightcurves')
+        count+=1
+        ranges.append(rangenustar)
+        if plotnustar_stats:
+            nuax_s=axes[count]
+            #nuax.set_title('Normalized Lightcurves')
+            count+=1
+            ranges.append(rangenustar_s)
+
+        if plotnustar_nonnorm:
+            nuax_n=axes[count]
+            count+=1
+
+            minset=[]
+            maxset=[]
+            
+            
         instrument='NuSTAR'
         clrs=make_colors(26)
         ind=8
-        for er in eranges:
-            erange=er
-            
-            data = load_lightcurves(instrument, erange=erange)
-        
-            times_convertedA = data['FPMA_times']
-            countrateA = data['FPMA_countrate']
-            lvtA = data['FPMA_livetime']
-            times_convertedB = data['FPMB_times']
-            countrateB = data['FPMB_countrate']
-            lvtB = data['FPMB_livetime']
+        enum=len(eranges)
 
-            maxA = max(countrateA[np.isfinite(countrateA)])
-            maxB = max(countrateB[np.isfinite(countrateB)])
+        if nustar_file_list:
+            num = len(nustar_file_list)
+            dn_ins = np.zeros((enum, num))
+            times = []
+            for i in range(0, num):
+                f_ = nustar_file_list[i]
+                with open(f_, 'rb') as f:
+                    data = pickle.load(f)
 
-            ax2.plot(times_convertedA, countrateA/maxA, 
-                     label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)',
+                dn_ins[:,i] = np.array(data['dn_in'][-1*enum:])
+                times.append(data['time_interval'][0])
+                
+            times_converted=[t.datetime for t in times]
+
+        for er in range(0, len(eranges)):
+            erange=eranges[er]
+
+            if nustar_file_list:
+                countrate = dn_ins[er,:]
+                max_ = max(countrate[np.isfinite(countrate)])
+                nuax.plot(times_converted, countrate/max_, 
+                         label='NuSTAR Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm, FPM sum)',
+                         **default_kwargs, color=clrs[ind])
+
+                n_bx = 3
+                arr_lc = np.array(countrate/max_)
+                avg_lc = boxcar_average(arr_lc, n_bx)
+                avg_lc[0:3]=arr_lc[0:3]
+                avg_lc[-3:]=arr_lc[-3:]
+    
+                nuax.plot(times_converted, avg_lc, color=clrs[ind])
+
+            else:
+                
+                data = load_lightcurves(instrument, erange=erange)
+    
+                times_convertedA = data['FPMA_times']
+                countrateA = data['FPMA_countrate']
+                lvtA = data['FPMA_livetime']
+                times_convertedB = data['FPMB_times']
+                countrateB = data['FPMB_countrate']
+                lvtB = data['FPMB_livetime']
+
+                maxA = max(countrateA[np.isfinite(countrateA)])
+                maxB = max(countrateB[np.isfinite(countrateB)])
+    
+                nuax.plot(times_convertedA, countrateA/maxA, 
+                         label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)',
+                         **default_kwargs, color=clrs[ind])
+                nuax.plot(times_convertedB, countrateB/maxB, 
+                         label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)', 
+                         **default_kwargs, color=clrs[ind+1])
+                
+                n_bx = 5
+                arr_lc = np.array(countrateA/maxA)
+                avg_lc = boxcar_average(arr_lc, n_bx)
+                avg_lc[0:3]=arr_lc[0:3]
+                avg_lc[-3:]=arr_lc[-3:]
+    
+                nuax.plot(times_convertedA, avg_lc, color=clrs[ind])
+                
+                arr_lc = np.array(countrateB/maxB)
+                avg_lc = boxcar_average(arr_lc, n_bx)
+                avg_lc[0:3]=arr_lc[0:3]
+                avg_lc[-3:]=arr_lc[-3:]
+    
+                nuax.plot(times_convertedB, avg_lc, color=clrs[ind+1])
+                #ind+=2
+
+            if plotnustar_nonnorm:
+
+                if nustar_file_list:
+                    nuax_n.plot(times_converted, countrate, 
+                     label='NuSTAR Counts '+str(erange[0])+' to '+str(erange[1])+' keV (FPM sum)',
                      **default_kwargs, color=clrs[ind])
-            ax2.plot(times_convertedB, countrateB/maxB, 
-                     label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)', 
-                     **default_kwargs, color=clrs[ind+1])
-            
-            n_bx = 5
-            arr_lc = np.array(countrateA/maxA)
-            avg_lc = boxcar_average(arr_lc, n_bx)
-            avg_lc[0:3]=arr_lc[0:3]
-            avg_lc[-3:]=arr_lc[-3:]
 
-            ax2.plot(times_convertedA, avg_lc, color=clrs[ind])
-            
-            arr_lc = np.array(countrateB/maxB)
-            avg_lc = boxcar_average(arr_lc, n_bx)
-            avg_lc[0:3]=arr_lc[0:3]
-            avg_lc[-3:]=arr_lc[-3:]
+                    minset.append(np.nanmin(countrate)*0.8)
+                    maxset.append(np.nanmax(countrate)*1.2)
+                else:
+                    
+                    nuax_n.plot(times_convertedA, countrateA, 
+                         label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV',
+                         **default_kwargs, color=clrs[ind])
+                    nuax_n.plot(times_convertedB, countrateB, 
+                         label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV', 
+                         **default_kwargs, color=clrs[ind+1])
 
-            ax2.plot(times_convertedB, avg_lc, color=clrs[ind+1])
+                    minset.append(np.nanmin(countrateA)*0.8)
+                    maxset.append(np.nanmax(countrateA)*1.2)
+
             ind+=2
+
+        if plotnustar_nonnorm:
+            ranges.append([np.min(minset), np.max(maxset)])
+                
+
+
+        if plotnustar_stats:
+            if nustar_file_list:
+                data = load_lightcurves(instrument, erange=erange)
+                times_convertedA = data['FPMA_times']
+                times_convertedB = data['FPMB_times']
+            
+            acc_A=data['FPMA_accepted']
+            acc_B=data['FPMB_accepted']
+            rej_A=data['FPMA_rejected']
+            rej_B=data['FPMB_rejected']  
+
+            nuax_s.plot(times_convertedA, acc_A/(acc_A+rej_A), 
+                     label='NuSTAR FPMA % Events Accepted',
+                     **default_kwargs, color=clrs[ind+1])
+            nuax_s.plot(times_convertedB, acc_B/(acc_B+rej_B), 
+                     label='NuSTAR FPMB % Events Accepted',
+                     **default_kwargs, color=clrs[ind+2])
+            nuax_s.set_yscale('log')
 
 #             ax2.plot(times_convertedA, countrateA, 
 #                      label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV', **default_kwargs)
 #             ax2.plot(times_convertedB, countrateB, 
 #                      label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV', **default_kwargs)
 
-            if plotaia==False and markxrt==False:
-                return
 
-        
-        
     
     
-    if markxrt==True:
+    if markxrt:
         instrument='XRT'
         all_xrt = load_lightcurves(instrument, wavelengths=filters)
 
@@ -584,48 +722,86 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
             v=0
             for t in all_xrt['times_'+chanlabel]:
                 if v==0:
-                    ax1.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
-                    ax2.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
-                    ax3.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
-                    if plotGOES:
-                        ax4.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
+                    for ax in axes:
+                        ax.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
+                    #ax2.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
+                    #ax3.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
+                    #if plotGOES:
+                    #    ax4.axvline(t, color=xrtshades[ind], label=chanlabel+' times')
                 else:
-                    ax1.axvline(t, color=xrtshades[ind])
-                    ax2.axvline(t, color=xrtshades[ind])
-                    ax3.axvline(t, color=xrtshades[ind])
-                    if plotGOES:
-                        ax4.axvline(t, color=xrtshades[ind])
+                    for ax in axes:
+                        ax.axvline(t, color=xrtshades[ind])
+                    #ax2.axvline(t, color=xrtshades[ind])
+                    #ax3.axvline(t, color=xrtshades[ind])
+                    #if plotGOES:
+                    #    ax4.axvline(t, color=xrtshades[ind])
                 v+=1
             ind+=1
 
     
     
     
-    if plotaia==True:
+    if plotaia:
+        aiaax=axes[count]
+        count+=1
+        #aiaax.set_title('Normalized Lightcurves')
+        ranges.append(rangeaia)
+        if fexviii:
+            dzax=axes[count]
+            #dzax.set_title('Normalized Lightcurves')
+            count+=1
         clrs=make_colors(len(wavelengths)+1)
         instrument='AIA'
-        all_aia = load_lightcurves(instrument, wavelengths=wavelengths, fexviii=True)
+        if nccs_aia:
+            import glob
+            files = glob.glob(nccs_aia_dir+'/*')
+            files.sort()
+            aia_dn_s_pxs=[]
+            times=[]
+            for f_ in files:
+                with open(f_, 'rb') as f:
+                    data = pickle.load(f)
+            
+                aia_dn_s_pxs.append(np.array(data['aia_dn_s_px']))
+                times.append(data['time_interval'][0])
+            wavelengths = [int(ww[1:]) for ww in data['chans']]
+            ts=[t.datetime for t in times]
+            aia_dn_s_pxs = np.array(aia_dn_s_pxs)
+            
+        else:
+            all_aia = load_lightcurves(instrument, wavelengths=wavelengths, fexviii=fexviii)
         
         ind=0
         for w in wavelengths:
             chanlabel='AIA'+str(w)
+            if nccs_aia:
+                times_converted=ts
+                corr_totals=aia_dn_s_pxs[:,ind]
+                
+            else:
+                times_converted = all_aia['times_'+chanlabel]
+                data_total = all_aia['data_total_'+chanlabel]
+                exp_time = all_aia['exp_time_'+chanlabel]
 
-            times_converted = all_aia['times_'+chanlabel]
-            data_total = all_aia['data_total_'+chanlabel]
-            exp_time = all_aia['exp_time_'+chanlabel]
+                exp_times = np.array([e.value for e in exp_time])
 
-            exp_times = np.array([e.value for e in exp_time])
-
-            corr_totals= data_total/(exp_times)
+                corr_totals= data_total/(exp_times)
 
             n_bx = 5
-            arr_lc = np.array(corr_totals/max(corr_totals))
+            if aianorm:
+                arr_lc = np.array(corr_totals/max(corr_totals))
+                corrplot=corr_totals/max(corr_totals)
+            else:
+                arr_lc = np.array(corr_totals)
+                corrplot=corr_totals
             avg_lc = boxcar_average(arr_lc, n_bx)
             avg_lc[0:3]=arr_lc[0:3]
             avg_lc[-3:]=arr_lc[-3:]
 
-            ax1.plot(times_converted, avg_lc, label=chanlabel+' boxcar', color=clrs[ind])
-            ax1.plot(times_converted, corr_totals/max(corr_totals), label=chanlabel, **default_kwargs, color=clrs[ind])
+            #print(max(corr_totals))
+
+            aiaax.plot(times_converted, avg_lc, color=clrs[ind])
+            aiaax.plot(times_converted, corrplot, label=chanlabel, **default_kwargs, color=clrs[ind])
             
             #if w == 94 or w==171 or w==211:
                 #ax3.plot(times_converted, data_total/max(data_total), label=chanlabel, **default_kwargs, color=clrs[ind])
@@ -640,76 +816,164 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
 #                  **default_kwargs, color=clrs[ind], 
 #                  label='Del Zanna Fe18')
 
-        max18 = max(all_aia['data_total_fexviii'][np.isfinite(all_aia['data_total_fexviii'])])
-        ax3.plot(all_aia['times_AIA94'], all_aia['data_total_fexviii']/max18, 
-                 **default_kwargs, color=clrs[ind], 
-                 label='Del Zanna Fe18')
+        if fexviii:
+            if nccs_aia:
+                fexviii = np.array(aia_dn_s_pxs[:,0] - aia_dn_s_pxs[:,2]/450. - aia_dn_s_pxs[:,4]/120.)
+                max18 = np.max(fexviii)
+                dzax.plot(times_converted, fexviii, #/max18, 
+                     **default_kwargs, color=clrs[ind], 
+                     label='Del Zanna Fe18')
+                #print(fexviii)
+                #print(max18)
+
+                ranges.append([np.nanmin(fexviii), np.nanmax(fexviii)])
+                
+            else:
+                max18 = max(all_aia['data_total_fexviii'][np.isfinite(all_aia['data_total_fexviii'])])
+                dzax.plot(all_aia['times_AIA94'], all_aia['data_total_fexviii']/max18, 
+                     **default_kwargs, color=clrs[ind], 
+                     label='Del Zanna Fe18')
+
+            if neupert and nccs_aia:
+                neuax = dzax.twinx()
+                neuax.plot(times_converted, np.gradient(fexviii),
+                           **default_kwargs, #color=clrs[ind+1], 
+                             label='Del Zanna Fe18 - derivative')
+                neuax.legend(fontsize=10, loc='lower right')
+                
 
 
     #Formatting:
     
     #print(type(timerange[0]), type(timerange[1]))
 
-    ax1.set_ylim(range1[0], range1[1])
-    ax1.set_xlim(timerange[0], timerange[1])
-    ax1.legend(ncol=3)
-    ax1.set_title('Normalized Lightcurves')
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-    ax1.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
 
-    ax2.legend(ncol=3)
-    ax2.set_ylim(range2[0], range2[1])
-    ax2.set_xlim(timerange[0], timerange[1])
-    ax2.set_title('Lightcurves')
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-    ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    for i in range(0,len(axes)):
+        ax=axes[i]
+        range_=ranges[i]
+        ax.set_ylim(range_[0], range_[1])
+        ax.set_xlim(timerange[0], timerange[1])
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+        ax.legend(fontsize=10, loc='upper right')
+        #2024 AGU figure neupert effect peak
+        #ax.axvline(datetime.datetime(2024, 7, 17, 5, 7), linestyle='dotted')
+        
+        
 
-    ax3.set_ylim(range3[0],range3[1])
-    ax3.set_xlim(timerange[0], timerange[1])
-    ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-    ax3.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
-    ax3.legend()
+    # ax1.set_ylim(range1[0], range1[1])
+    # ax1.set_xlim(timerange[0], timerange[1])
+    # ax1.legend(ncol=3)
+    # ax1.set_title('Normalized Lightcurves')
+    # ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    # ax1.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+
+    # ax2.legend(ncol=3)
+    # ax2.set_ylim(range2[0], range2[1])
+    # ax2.set_xlim(timerange[0], timerange[1])
+    # ax2.set_title('Lightcurves')
+    # ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    # ax2.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+
+    # ax3.set_ylim(range3[0],range3[1])
+    # ax3.set_xlim(timerange[0], timerange[1])
+    # ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    # ax3.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    # ax3.legend()
     
-    if plotGOES:
-        ax4.set_ylim(range4[0],range4[1])
-        ax4.set_xlim(timerange[0], timerange[1])
-        ax4.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-        ax4.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
-        ax4.legend(ncol=2)
+    # if plotGOES:
+    #     ax4.set_ylim(range4[0],range4[1])
+    #     ax4.set_xlim(timerange[0], timerange[1])
+    #     ax4.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    #     ax4.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
+    #     ax4.legend(ncol=2)
     
-    plt.savefig('multi_lightcurves.png')
+    plt.savefig(plotname+'multi_lightcurves.png', transparent=True)
 
     return
 
 
-def get_goes(time_range, satellite=14):
+def get_goes(time_range, satellite=14, peek=False):
     """
     Download GOES file from the correct day, select interval of interest, and save data.
     
     """
-    
-    result_goes = Fido.search(a.Time(time_range[0], time_range[1]), a.Instrument("XRS"), a.goes.SatelliteNumber(satellite))
-    print(result_goes)
+
+    if satellite >= 16:
+        print('Using 1s GOES flux ("flx1s")')
+        result_goes = Fido.search(a.Time(time_range[0], time_range[1]), a.Instrument("XRS"), a.goes.SatelliteNumber(satellite),
+                             a.Resolution("flx1s"))
+    else:
+        result_goes = Fido.search(a.Time(time_range[0], time_range[1]), a.Instrument("XRS"), a.goes.SatelliteNumber(satellite))
+        
+    # print(result_goes)
+    # print(dir(result_goes))
+    # print(result_goes.all_colnames)
+    # print(type(result_goes))
+    # print(result_goes['Resolution'])
+    # print('')
     file_goes = Fido.fetch(result_goes)
     goes_ = ts.TimeSeries(file_goes)
-    print(type(goes_))
-    print(goes_)
-    goes_.peek()
-    
-    goes_interval = goes_.truncate(time_range[0],  time_range[1])
-    
-    
-    data = {'GOES flux label': "Flux (Wm$^{-2}$$s^{-1}$)",
-            'XRSA label': " 0.5-4 $\AA$",
-            'XRSB label': " 1-8 $\AA$",
-            'GOES Times': goes_interval.time,
-            'XRSA counts': goes_interval.quantity("xrsa"),
-            'XRSB counts': goes_interval.quantity("xrsb")
-            }
-    
-    with open('GOES_lightcurve.pickle', 'wb') as f:
-            # Pickle the 'data' dictionary using the highest protocol available.
-            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+    # print(type(goes_))
+    # print(goes_.header)
+    # print(dir(goes_[0]))
+    if peek:
+        goes_.peek()
+
+    if not isinstance(goes_, list):
+
+        goes_interval = goes_.truncate(time_range[0],  time_range[1])   
+        
+        data = {'GOES flux label': "Flux (Wm$^{-2}$$s^{-1}$)",
+                'XRSA label': " 0.5-4 $\AA$",
+                'XRSB label': " 1-8 $\AA$",
+                'GOES Times': goes_interval.time,
+                'XRSA counts': goes_interval.quantity("xrsa"),
+                'XRSB counts': goes_interval.quantity("xrsb")
+                }
+        
+        with open('GOES_lightcurve.pickle', 'wb') as f:
+                # Pickle the 'data' dictionary using the highest protocol available.
+                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        #IF the time range extends over multiple days, append together data from 
+        #the different GOES files.
+        #print(goes_)
+        times=[]
+        xrsa=[]
+        xrsb=[]
+        for g in goes_:
+            if g == goes_[0]:
+                tr2 = g.time_range.end.datetime
+                goes_interval = g.truncate(time_range[0],  tr2)
+            elif g == goes_[-1]:
+                tr1 = g.time_range.start.datetime
+                goes_interval = g.truncate(tr1,  time_range[1])
+            else:
+                tr1 = g.time_range.start.datetime
+                tr2 = g.time_range.end.datetime
+                goes_interval = g.truncate(tr1, tr2)
+
+            times.extend(goes_interval.time)
+            xrsa.extend(goes_interval.quantity("xrsa").value)
+            xrsb.extend(goes_interval.quantity("xrsb").value)
+
+        times = astropy.time.Time(times)
+        xrsa = xrsa*goes_interval.quantity("xrsa")[0].unit
+        xrsb = xrsb*goes_interval.quantity("xrsb")[0].unit
+
+        
+        data = {'GOES flux label': "Flux (Wm$^{-2}$$s^{-1}$)",
+                'XRSA label': " 0.5-4 $\AA$",
+                'XRSB label': " 1-8 $\AA$",
+                'GOES Times': times,
+                'XRSA counts': xrsa,
+                'XRSB counts': xrsb
+                }
+        print(times[0], times[-1])
+        with open('GOES_lightcurve.pickle', 'wb') as f:
+                # Pickle the 'data' dictionary using the highest protocol available.
+                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
             
     return
 
@@ -725,7 +989,8 @@ def load_nufiles(f):
         
     return dat, hdr
 
-def get_a_nustar_lightcurve(evtdata, hdr, lvdata, lvhdr, timebin=10, livetime_corr=True):
+def get_a_nustar_lightcurve(evtdata, hdr, lvdata, lvhdr, timebin=10, livetime_corr=True, 
+                            event_stats=False):
     """
     
     """
@@ -750,24 +1015,47 @@ def get_a_nustar_lightcurve(evtdata, hdr, lvdata, lvhdr, timebin=10, livetime_co
     
     # Use histogram to bin events to get number per 1s time bins
     counts, bed=np.histogram(td, bins=tdedgs)
+
+    # #helpful for debugging issues with the livetime and time arrays not ending up the same size
+    # print('firstlast: ', lvdata['time'][0], lvdata['time'][-1])
+    # print('length: ', len(lvdata['livetime'])) #2
+    # print(timebin)
+    # print('length lvt: ', len(lvdata['livetime'][0::timebin]))
+    # print('length livetime tbins: ', len(livetime_tbins)) #2
+    
     lvt=lvdata['livetime'][0::timebin]
     if livetime_corr:
         countrate=counts/lvt[:-1]
     else:
         countrate=counts
-    
-    times_converted = [t.datetime for t in livetime_tbins[:-1]]
+
+    #Previously we got rid of the last entry here, but that makes this fail for obsid 21012007001
+    #(magixs 2 observation, day 2). So switched off for now.
+    #times_converted = [t.datetime for t in livetime_tbins[:-1]]
+    times_converted = [t.datetime for t in livetime_tbins]
+    times_converted = [t.replace(tzinfo=timezone.utc) for t in times_converted]
+    #print('length times_converted: ', len(times_converted)) #1
     times_converted = np.array(times_converted)[0::timebin]
-    
+
+    #print('length times_converted (resample): ', len(times_converted))
+    #print('')
     if abs(len(times_converted)-len(countrate)) == 1:
         times_converted=times_converted[:-1]
         lvt=lvt[:-1]
-    
-    return times_converted, countrate, lvt, counts
+
+    if event_stats:
+        acc_sample = lvdata['NACCEPT'][0::timebin]
+        rej_sample = lvdata['NREJECT'][0::timebin]
+        all_sample = lvdata['NEV'][0::timebin]
+
+        return times_converted, countrate, lvt, counts, acc_sample[:-1], rej_sample[:-1], all_sample[:-1] 
+        
+    else:
+        return times_converted, countrate, lvt, counts
 
 
 def prepare_nustar_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2.,10.], livetime_corr=True, 
-                               return_lightcurves=False, save_dir='./'):
+                               return_lightcurves=False, save_dir='./', event_stats=False):
     """
     Returns FPMA + B lightcurves. Wrapper for get_a_nustar_lightcurve() which does just one.
     
@@ -783,32 +1071,60 @@ def prepare_nustar_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2.,10.]
     lvdataA, lvhdrA = load_nufiles(hkA[0])
     evtdataB, hdrB = load_nufiles(evtB[0])
     lvdataB, lvhdrB = load_nufiles(hkB[0])
+
+    # lvtAtimes = np.array(lvdataA['time'])
+    # lvtBtimes = np.array(lvdataB['time'])
+    # mjd_ref_time=astropy.time.Time(hdrA['mjdrefi'],format='mjd')
+    # print(mjd_ref_time)
+    # mjd_ref_time=astropy.time.Time(hdrB['mjdrefi'],format='mjd')
+    # print(mjd_ref_time)
+    
+    # adjust=0
+    # for i in range(0, len(lvtAtimes)): 
+    #     test = lvtAtimes[i]-lvtBtimes[i]-adjust
+    #     if np.abs(test) > 0:
+    #         timeA = astropy.time.Time(mjd_ref_time+lvtAtimes[i]*u.s,format='mjd')
+    #         timeB = astropy.time.Time(mjd_ref_time+lvtBtimes[i]*u.s,format='mjd')
+    #         print(i, test, lvtAtimes[i], lvtBtimes[i])
+    #         print(timeA.datetime)
+    #         adjust+=test
+
     
     kevA = evtdataA['PI']*0.04+1.6
     erange_evtdataA = evtdataA[np.where(np.logical_and(kevA > erange[0],kevA < erange[1]))]
     kevB = evtdataB['PI']*0.04+1.6
     erange_evtdataB = evtdataB[np.where(np.logical_and(kevB > erange[0],kevB < erange[1]))]
     
-    
-    times_convertedA, countrateA, lvtA, countsA = get_a_nustar_lightcurve(erange_evtdataA, hdrA, lvdataA, lvhdrA, 
-                                                                 timebin=timebin, livetime_corr=livetime_corr)
-    times_convertedB, countrateB, lvtB, countsB = get_a_nustar_lightcurve(erange_evtdataB, hdrB, lvdataB, lvhdrB, 
-                                                                 timebin=timebin, livetime_corr=livetime_corr)
-    
+    #print('A')
+    resA = get_a_nustar_lightcurve(erange_evtdataA, hdrA, lvdataA, lvhdrA, 
+                                    timebin=timebin, livetime_corr=livetime_corr,
+                                  event_stats=event_stats)
+    #print('B')
+    resB = get_a_nustar_lightcurve(erange_evtdataB, hdrB, lvdataB, lvhdrB, 
+                                    timebin=timebin, livetime_corr=livetime_corr,
+                                   event_stats=event_stats)
+
     data = {'Livetime-Corrected?': livetime_corr,
             'Time Bin (s)': timebin,
             'Energy Range': erange,
             'file paths': [evtA, evtB, hkA, hkB],
-            'FPMA_countrate': countrateA,
-            'FPMB_countrate': countrateB,
-            'FPMA_counts': countsA,
-            'FPMB_counts': countsB,
-            'FPMA_times': times_convertedA,
-            'FPMB_times': times_convertedB,
-            'FPMA_livetime': lvtA,
-            'FPMB_livetime': lvtB,
+            'FPMA_countrate': resA[1],
+            'FPMB_countrate': resB[1],
+            'FPMA_counts': resA[3],
+            'FPMB_counts': resB[3],
+            'FPMA_times': resA[0],
+            'FPMB_times': resB[0],
+            'FPMA_livetime': resA[2],
+            'FPMB_livetime': resB[2]
             }
 
+    if event_stats:
+        data['FPMA_accepted']=resA[4]
+        data['FPMB_accepted']=resB[4]
+        data['FPMA_rejected']=resA[5]
+        data['FPMB_rejected']=resB[5]  
+        data['FPMA_all_ev']=resA[6]
+        data['FPMB_all_ev']=resB[6]
 
     with open(save_dir+'NuSTAR_lightcurve_'+str(erange[0])+'_to_'+str(erange[1])+'_keV.pickle', 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.

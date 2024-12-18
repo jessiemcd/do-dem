@@ -664,6 +664,8 @@ def comparison_colors(data):
     -Pull from the same pool of three for the colors for each XRT filter
     -Pull from the same pool of four for the colors for each NuSTAR energy range
     -Colors in the correct order.
+
+    EXPECTS channels to be labeled as is output from dodem.
     """
     aia_colors = ['darkgreen', 'darkcyan', 'gold', 'sienna', 'indianred', 'darkorange']
     xrt_colors = ['darkslateblue', 'dodgerblue', 'cornflowerblue']
@@ -767,7 +769,7 @@ def DEMmax(ts, DEM, wind=3, plot=False):
     ts, DEM - temperature and DEM arrays
     
     wind - Gaussian fit window: gives number of bins on each side of the 
-            max value to use for the gaussian fit.
+            max value to use for the fit.
             
     """
     maxval=np.max(DEM)

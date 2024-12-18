@@ -58,6 +58,10 @@ def real_count_lightcurves(datapath, timerange, working_dir, erange):
         ax1.stairs(np.array(countsA_)[g,0:-1], times_convertedA, label='FPMA')
         ax1.stairs(np.array(countsB_)[g,0:-1], times_convertedA, label='FPMB')
         ax1.stairs(total_counts[0:-1], times_convertedA, label='Sum')
+
+        #sample = times_convertedA[0]
+        #print(sample.tzinfo)
+        #print(sample.tzinfo.utcoffset(sample))
         
         rangeinds = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))[0]
         ax1.set_ylim(0, np.max(total_counts[rangeinds])*1.5)
@@ -94,7 +98,9 @@ def real_count_lightcurves(datapath, timerange, working_dir, erange):
 
 
 def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, erange=[6.,10], lctype='corr54',
-                            nofit=True, fast_min_factor=1, minimum_seconds=[]):    
+                            nofit=True, fast_min_factor=1, minimum_seconds=[],
+                            force_both_fpm_always=False, shush=False,
+                            twogauss=False, direction='', guess=[], nuradius=150):    
     """
     
     Component Methods:
@@ -152,7 +158,11 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             'corr14' - return grade 0 - (1/4)*grades 21-24 (FPMA, B sum)
             'corr54' - return grade 0-4 - (5/4)*grades 21-24 (FPMA, B sum)
     
-    
+
+    force_both_fpm – insists on making data products for both FPM for sucessful intervals, even if there are enough counts in
+                    just one FPM to satisfy requirements. This obviously slows down the time interval selection process, but
+                    is useful when you know you're going to need to make those products anyway and would prefer to do it at this
+                    step. 
     """
     
     
@@ -179,6 +189,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     intervaltimes = times_convertedA[interval]
     intervalcounts = count_lc[interval]
     if minimum_seconds:
+        print(intervaltimes)
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
         minimum_steps = int(minimum_seconds/timestep)
         if minimum_steps < 3:
@@ -189,7 +200,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     
     #BEGINNING OF BIG LOOP
     
-    
+    already_full=False
     new_intervals = []
 
     start_here=0
@@ -214,6 +225,14 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 #If we've already found good time intervals:
                 proposed_interval = new_intervals[-1]
                 proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
+
+                if force_both_fpm_always:
+                    check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
+                                                nofit=nofit,lctype=lctype, countmin=countmin, 
+                                                force_both_fpm=True, shush=shush,
+                                                twogauss=twogauss, direction=direction, guess=guess,
+                                                   nuradius=nuradius)
+                
                 stop_yet=True
                 continue
             else:
@@ -221,13 +240,15 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 print('There is no prior interval! Trying the full time range as an interval.')
                 print('')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
-                
+                already_full=True
                 #NEED TO UPDATE START/ENDEX HERE POSSIBLY, AS THEY ARE RELIED ON LATER!
             
         else:
             #Indicates we have NOT reached the end of the interval of interest yet
             int_counts, startdex, endex = res_
             print('Fast Method Counts: ', int_counts)
+            print(intervaltimes[startdex])
+            print(intervaltimes[endex])
             
             if minimum_seconds:
                 dur_s = (intervaltimes[endex]-intervaltimes[startdex]).total_seconds()
@@ -243,6 +264,12 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                         print('Combining this last bit with prior interval.')
                         proposed_interval = new_intervals[-1]
                         proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
+                        if force_both_fpm_always:
+                            check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
+                                                        nofit=nofit,lctype=lctype, countmin=countmin, 
+                                                        force_both_fpm=True, shush=shush,
+                                                        twogauss=twogauss, direction=direction, guess=guess,
+                                                        nuradius=nuradius)                       
                         stop_yet=True
                         continue
                         
@@ -251,9 +278,19 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             proposed_interval = astropy.time.Time([intervaltimes[startdex], intervaltimes[endex]], scale='utc')
             
         #print(proposed_interval)
-
-        check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                    nofit=nofit,lctype=lctype, countmin=countmin)
+        if not new_intervals or force_both_fpm_always:
+            #For the first interval in the orbit/sub-orbit, or if set to always do so,
+            #force making both FPM data products regardless of statistics.
+            check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
+                                    nofit=nofit,lctype=lctype, countmin=countmin, 
+                                        force_both_fpm=True, shush=shush,
+                                        twogauss=twogauss, direction=direction, guess=guess,
+                                       nuradius=nuradius)
+        else:
+            check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
+                                        nofit=nofit,lctype=lctype, countmin=countmin, shush=shush,
+                                        twogauss=twogauss, direction=direction, guess=guess,
+                                       nuradius=nuradius)
 
         if check[1]:
             print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), 
@@ -275,6 +312,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             print('Not Enough counts in: ', 
                   proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
             print('Counts: ', check[0])
+            if already_full:
+                print('Since that was already the full interval, quitting.')
+                return False, timerange
             #Make a note that we didn't get enough counts in the interval we tried.
             times_failed+=1
             failed_intervals.append(proposed_interval)
@@ -291,7 +331,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 fast_min_factor=og_fast_min_factor*4
             if tries > 2:
                 print('It STILL did not work - weird! Quitting.')
-                return
+                #print('in tis:', timerange)
+                return False, timerange
             
     print('Finishing with ', len(new_intervals), ' new intervals, and ', times_failed, ' failed intervals.' )
     print('Failure %: ', times_failed/len(new_intervals))
@@ -305,6 +346,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     
     filename = working_dir+'/'+timestring+'_'+lctype+'_'+str(erange[0])+\
                     '-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
+    print('saving file at:', filename)
     
     with open(filename, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
@@ -313,7 +355,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     return new_intervals, failed_intervals
     
 def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, nofit=True,
-                       lctype='corr14', countmin=10):
+                       lctype='corr14', countmin=10, force_both_fpm=False, shush=False,
+                        twogauss=False, direction='', guess=[], nuradius=150):
     
     if lctype=='grade0':
         pile_up_corr=False
@@ -336,9 +379,12 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, nofit=Tr
     gtifile=datapath+'event_cl/nu'+obsid+'A06_gti.fits'
     res = nu.combine_fpm(time_int, [erange], nustar_path, make_nustar=True,
                          pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
-                                              gtifile=gtifile, datapath=datapath, regfile=regfile, 
-                                                edit_regfile=True, actual_total_counts=True,
-                                                nofit=nofit, clobber=False, countmin=countmin)
+                          gtifile=gtifile, datapath=datapath, regfile=regfile, 
+                            edit_regfile=True, actual_total_counts=True,
+                            nofit=nofit, nuradius=nuradius,
+                             clobber=False, countmin=countmin,
+                            force_both_fpm=force_both_fpm, shush=shush,
+                             twogauss=twogauss, direction=direction, guess=guess)
    
     return res
 
@@ -361,7 +407,8 @@ def find_interval_fast(counts, startindex, countmin):
             #add counts in a bin
             int_counts+=counts[t]
         except IndexError:
-            print('We have reached the end of the full time range, with still only ',int_counts,' counts in this interval')
+            print('We have reached the end of the full time range, and fast method only finds ',int_counts)
+            print('vs. target of ', countmin, ' counts via fast method.')
             return []
         #t+=1    
     
