@@ -78,7 +78,8 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
                          twogauss=False, direction='', guess=[],
                          #general method related:
                         compare_fpm=False, pile_up_corr=False, adjacent_grades=False,
-                         clobber=False, path_to_dodem='./', dip_before_products=False):
+                         clobber=False, path_to_dodem='./', dip_before_products=False,
+                        energy_percents=False):
     """
     See load_nustar() documentation.
     
@@ -186,6 +187,10 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
                                                 twogauss=twogauss, direction=direction, guess=guess)
     else:
         newregfile=regfile
+
+
+    if energy_percents:
+        percents(sun_file[0], newregfile, time, nustar_path+timestring+'/'+timestring+'_epercents.pickle')
         
     #======================================================
     
@@ -234,7 +239,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                 edit_regfile=True, actual_total_counts=False, nofit=False, use_fit_regfile=False,
                clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
                nuradius=150, path_to_dodem='./', countmin=10, force_both_fpm=False, shush=False,
-                twogauss=False, direction='', guess=[]):
+                twogauss=False, direction='', guess=[],
+                   energy_percents=False):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
     
@@ -252,7 +258,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
-                                             twogauss=twogauss, direction=direction, guess=guess)
+                                             twogauss=twogauss, direction=direction, guess=guess,
+                                             energy_percents=energy_percents)
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -276,7 +283,8 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                               default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
-                                             twogauss=twogauss, direction=direction, guess=guess)
+                                             twogauss=twogauss, direction=direction, guess=guess,
+                                              energy_percents=energy_percents)
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -350,7 +358,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 edit_regfile=True, compare_fpm=False, combine_fpm=False, actual_total_counts=False, nofit=False,
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
                    adjacent_grades=False, nuradius=150,path_to_dodem='./', shush=False,
-                   twogauss=False, direction='', guess=[], return_for_pile_up_figure=False):
+                   twogauss=False, direction='', guess=[], return_for_pile_up_figure=False,
+                   energy_percents=False):
     """
     Load in NuSTAR data and response, return DEM inputs.
     
@@ -533,7 +542,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             mn = make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
                                       nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
                                       adjacent_grades=adjacent_grades, nuradius=nuradius,
-                                     twogauss=twogauss, direction=direction, guess=guess)
+                                     twogauss=twogauss, direction=direction, guess=guess,
+                                     energy_percents=energy_percents)
             if compare_fpm:
                 if fpm == 'A':
                     fpm2='B'
@@ -544,7 +554,8 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 mn2 = make_nustar_products(time, fpm2, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
                                       nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
                                            adjacent_grades=adjacent_grades, nuradius=nuradius,
-                                         twogauss=twogauss, direction=direction, guess=guess)
+                                         twogauss=twogauss, direction=direction, guess=guess,
+                                          energy_percents=energy_percents)
                 print('FPM', fpm, ' region has ', mn, '% of emission. FPM', fpm2, ' region has ', mn2, '% of emission.' )
                 if mn2>mn:
                     print('Switching to FPM', fpm2)
@@ -849,6 +860,56 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         return rate, erate, nutrs, tresp, logt, fpm, atc
     else:
         return rate, erate, nutrs, tresp, logt, fpm
+
+
+def percents(evt_file, regfile, time_interval, savefile):
+
+    import nustar_pysolar as nustar
+    from regions import CircleSkyRegion
+
+    print(evt_file)
+    
+    with fits.open(evt_file) as hdu:
+        evt_data = hdu[1].data
+        hdr = hdu[1].header
+    
+    bounds=[[0.,20.],[2.5,20.],[2.5, 3.5], [3.5,6.], [6.,10.], [10.,20.]]#,10.]
+
+    percentdict = {'evt_file': evt_file,
+                  'reg_file': regfile}
+    
+    
+    for b in bounds:
+        perstring = str(b[0])+'-'+str(b[1])+' keV'
+        
+        cleanevt = nustar.filter.event_filter(evt_data, energy_low=b[0], energy_high=b[1],
+                                             no_bad_pix_filter=True, no_grade_filter=True)
+        #print(len(cleanevt), len(evt_data))
+        try:
+            nustar_map = nustar.map.make_sunpy(cleanevt, hdr)
+        except ValueError:
+            print('Failed on range ', b, ' keV - no info')
+            percentdict[perstring] = float("nan")
+            continue
+    
+    
+        offset, rad = rf.read_regfile(regfile, time_interval[0], time_interval[1], 'hourangle')
+        region = CircleSkyRegion(
+                        center = coord.SkyCoord(offset[0], offset[1], frame=nustar_map.coordinate_frame),
+                        radius = rad
+                    )
+        
+        regdata = rf.get_region_data(nustar_map, region, 0)
+        percent = np.sum(regdata)/np.sum(nustar_map.data)
+        print('Percent of emission between '+str(b[0])+', '+str(b[1])+' keV in region:', round(percent*100,1))
+
+        percentdict[perstring] = percent
+
+
+    with open(savefile, 'wb') as f:
+        # Pickle the 'data' dictionary using the highest protocol available.
+        pickle.dump(percentdict, f, pickle.HIGHEST_PROTOCOL) 
+
 
 
 def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath):
