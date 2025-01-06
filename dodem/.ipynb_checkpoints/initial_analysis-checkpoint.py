@@ -36,6 +36,7 @@ def return_submap(datapath='./', fpm='A', specific_evt=[],
     if specific_evt:
         evt_file=specific_evt
     else:
+        #print(datapath)
         evt_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl.evt')[0]
 
     #print(evt_file)

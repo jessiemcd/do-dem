@@ -35,8 +35,8 @@ Various code related to NuSTAR data regions:
 """
 
 def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='hourangle',
-                   nofit=False, radius=150, working_dir='./', efilter=False,
-                   twogauss=False, direction='', guess=[]):
+                   centroid_region=False, radius=150, working_dir='./', efilter=False,
+                   twogauss=False, onegauss=False, direction='', guess=[], guess2=[]):
     """
     Takes in a file and auto-generates a region for making spectral data products. Returns the new region file name.
     
@@ -81,7 +81,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     com = ndimage.measurements.center_of_mass(submap.data)
     com_world = submap.pixel_to_world(com[1]*u.pix, com[0]*u.pix)
     
-    if nofit:
+    if centroid_region:
         
         print("No region fitting: using "+str(radius)+" arcsec circle around COM")
         #Default region: 100", centered at COM
@@ -113,19 +113,22 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
 
         print('Doing two gaussian fitting, and selecting the center of the one to the ', direction)
 
-        res = g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, guess=guess)
+        res = g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, guess=guess, guess2=guess2)
         worldcens = res[1]
+        params = res[0]
+        print('Cen1: ', worldcens[0].Tx, worldcens[0].Ty)
+        print('Cen2: ', worldcens[1].Tx, worldcens[1].Ty)
+        print('widthx1: ', params[3], 'widthy1: ', params[4])
+        print('widthx2: ', params[8], 'widthy2: ', params[9])
 
         sep = g2d.abs_dif_cord(worldcens)
         sep_ratio = sep/(2*radius)
         if (sep_ratio < 0.8) or (sep_ratio > 1.2):
             print('Center separation is: ', sep, ', expected: ,', radius*2, ', ratio: ', sep_ratio)
-            print('Re-doing with a plot so you can check if everything is okay – maybe tweak your guess?')
-            g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=True, plotmoments=False, guess=guess,
+            print('Re-doing with a plot so you can check if everything is okay – maybe tweak your guess(es)?')
+            g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=True, plotmoments=False, guess=guess, guess2=guess2,
                             plotfile=Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_twogauss_problem_plot.png')
             #return
-            
-            
 
         if direction == 'east':
             center_cord = worldcens[np.argmin([worldcens[0].Tx.value, worldcens[1].Tx.value])]            
@@ -174,6 +177,48 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         percent = np.sum(regdata)/np.sum(nustar_map.data)
         print('Percent of emission in region:', percent)
 
+    elif onegauss:
+
+        print('Doing single gaussian fitting.')
+        res = g2d.nu_fit_gauss(evt_file, twogaussians=False, boxsize=200, plot=False, plotmoments=False, guess=guess)
+        worldcen = res[1]
+        params = res[0]
+        print('Center: ', worldcen.Tx, worldcen.Ty)
+        print('widthx: ', params[3], 'widthy: ', params[4])
+
+        region = CircleSkyRegion(
+                center = worldcen,
+                radius = radius * u.arcsec
+            )
+
+        fig = plt.figure(figsize=(16,10))
+        ax = fig.add_subplot(121, projection=submap)
+        submap.plot(axes=ax, norm=norm, cmap=cmap)
+        
+        #Diameter of plot window (pixels) - to make things easier to read
+        d=300
+        ax.set_xlim(com[1]-d/2, com[1]+d/2)
+        ax.set_ylim(com[0]-d/2, com[0]+d/2)
+        
+        og_region = region.to_pixel(submap.wcs)
+        og_region.plot(axes=ax, color='green', ls='--', lw=3, label='gauss fit '+direction)
+
+        newregfile = write_regfile(regfile, midway, region, 
+                             Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_'+direction+'_region')
+
+
+        import pickle
+        data = {'numap': nustar_map,
+                'region': region}
+        with open('debug_region.pickle', 'wb') as f:
+            # Pickle the 'data' dictionary using the highest protocol available.
+            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
+        
+        regdata = get_region_data(nustar_map, region, 0)
+        
+        percent = np.sum(regdata)/np.sum(nustar_map.data)
+        print('Percent of emission in region:', percent)
+    
         
     else:
         #Default region: 100", centered at COM
@@ -229,10 +274,12 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
         ax.set_xlim(com[1]-d/2, com[1]+d/2)
         ax.set_ylim(com[0]-d/2, com[0]+d/2)    
     
-    if nofit:
+    if centroid_region:
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_COM_region.png')
     if twogauss:
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_'+direction+'_region.png')
+    if onegauss:
+        plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_gauss_fit_region.png')
     else:
         plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_fit_region.png')
     
@@ -273,10 +320,12 @@ def write_regfile(regfile, time, region, newfile='sample'):
     #Open the old file, put contents into string
     f = open(regfile, "r")
     regstring = f.read()
+    #print(regstring)
     cs = regstring.split('\n')[-2]
     cs = cs.split('(')[-1]
     cs = cs.split(')')[0]
     cs = cs.split(',')
+    #print(cs)
     
     newcs = copy.deepcopy(cs)
     newcs[2]=str(region.radius.value)+'"'
@@ -288,8 +337,16 @@ def write_regfile(regfile, time, region, newfile='sample'):
     #print(RA,DEC)
     RA = coord.Angle(RA, u.deg)
     DEC = coord.Angle(DEC, u.deg)
+    #print(DEC)
     newcs[0] = RA.to_string(unit=u.hour, sep=':')[0:-4]
-    newcs[1] = '+'+DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    decstring=DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    if decstring[0] == '-':
+        newcs[1] = DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    else:
+        newcs[1] = '+'+DEC.to_string(unit=u.deg, sep=':')[0:-5]
+        
+    #print(newcs[1])
+    
 
     #Edit copy of region file contents string
     newcs_string = 'circle('+newcs[0]+','+newcs[1]+','+newcs[2]+')'
@@ -328,7 +385,7 @@ def read_regfile(regfile, time0, time1, regRAunit):
     Returns coordinates of circle center + radius in arcseconds from center of solar disk.
 
     """
-    
+    #print(regfile)
     f = open(regfile, "r")
     regstring = f.read()
     #print(regstring)
@@ -747,7 +804,7 @@ def get_region_data(map_obj: sunpy.map.Map,
     return region_data  
     
     
-def get_region_percentage(time_interval, fpm, nustar_path='./', nofit=False):
+def get_region_percentage(time_interval, fpm, nustar_path='./', centroid_region=False):
     """
     Find percentage of total NuSTAR emission which is contained in the saved optimized region
     for a given time interval + fpm. 
@@ -759,7 +816,7 @@ def get_region_percentage(time_interval, fpm, nustar_path='./', nofit=False):
     timestring=timestring+'_'+stopstring
     
     sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_cl_sunpos.evt')[0]
-    if nofit:
+    if centroid_region:
         file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_cl_sunpos_COM_region.reg')[0]
     else:
         file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_cl_sunpos_fit_region.reg')[0]

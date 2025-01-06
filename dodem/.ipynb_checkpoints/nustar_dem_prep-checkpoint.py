@@ -74,8 +74,8 @@ Preparing NuSTAR Data for DEM: IDL/other helpers + other needed prep
 
 def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
                          #region related inputs:
-                         edit_regfile=True, nofit=False, nuradius=150,
-                         twogauss=False, direction='', guess=[],
+                         edit_regfile=True, centroid_region=False, nuradius=150,
+                         twogauss=False, onegauss=False, direction='', guess=[], guess2=[],
                          #general method related:
                         compare_fpm=False, pile_up_corr=False, adjacent_grades=False,
                          clobber=False, path_to_dodem='./', dip_before_products=False,
@@ -184,9 +184,9 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     if edit_regfile: 
         #print('Twogauss set to: ', twogauss)
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
-        newregfile, percent = rf.get_file_region(sun_file[0], time[0], time[1], regfile, nofit=nofit, 
+        newregfile, percent = rf.get_file_region(sun_file[0], time[0], time[1], regfile, centroid_region=centroid_region, 
                                                  radius=nuradius,working_dir=nustar_path, efilter=False, 
-                                                twogauss=twogauss, direction=direction, guess=guess)
+                                                twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2)
     else:
         newregfile=regfile
 
@@ -222,6 +222,7 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shu
     """
     arf_files = glob.glob(nustar_path+timestring+'/*'+fpm+'*'+grade+'_p_sr.arf')
     rmf_files = glob.glob(nustar_path+timestring+'/*'+fpm+'*'+grade+'_p_sr.rmf')
+    print(rmf_files)
     if bool(special_pha):
         pha_files = glob.glob(special_pha+timestring+'*'+fpm+'*.pha')
         if pha_files == []:
@@ -238,10 +239,10 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shu
 
 
 def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapath='', regfile='', 
-                edit_regfile=True, actual_total_counts=False, nofit=False, use_fit_regfile=False,
+                edit_regfile=True, actual_total_counts=False, centroid_region=False, use_fit_regfile=False,
                clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
                nuradius=150, path_to_dodem='./', countmin=10, force_both_fpm=False, shush=False,
-                twogauss=False, direction='', guess=[],
+                twogauss=False, onegauss=False, direction='', guess=[], guess2=[],
                    energy_percents=False):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
@@ -256,11 +257,11 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
                                           edit_regfile=edit_regfile, compare_fpm=False,
                                              combine_fpm=True, actual_total_counts=actual_total_counts,
-                                             nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
+                                             centroid_region=centroid_region, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                              default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
-                                             twogauss=twogauss, direction=direction, guess=guess,
+                                             twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                              energy_percents=energy_percents)
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
@@ -281,11 +282,11 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
                                           edit_regfile=edit_regfile, compare_fpm=False,
                                              combine_fpm=True, actual_total_counts=actual_total_counts,
-                                             nofit=nofit, use_fit_regfile=use_fit_regfile, clobber=clobber,
+                                             centroid_region=centroid_region, use_fit_regfile=use_fit_regfile, clobber=clobber,
                                               default_err=default_err, special_pha=special_pha,
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
-                                             twogauss=twogauss, direction=direction, guess=guess,
+                                             twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                               energy_percents=energy_percents)
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
@@ -357,10 +358,10 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
 
 
 def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', datapath='', regfile='', 
-                edit_regfile=True, compare_fpm=False, combine_fpm=False, actual_total_counts=False, nofit=False,
+                edit_regfile=True, compare_fpm=False, combine_fpm=False, actual_total_counts=False, centroid_region=False,
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
                    adjacent_grades=False, nuradius=150,path_to_dodem='./', shush=False,
-                   twogauss=False, direction='', guess=[], return_for_pile_up_figure=False,
+                   twogauss=False, onegauss=False, direction='', guess=[], guess2=[], return_for_pile_up_figure=False,
                    energy_percents=False):
     """
     Load in NuSTAR data and response, return DEM inputs.
@@ -415,7 +416,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     
     edit_regfile - See above
     
-    nofit - set True to find optimal region via data center of mass (ignoring chip gap). If False, region will be found 
+    centroid_region - set True to find optimal region via data center of mass (ignoring chip gap). If False, region will be found 
                 via optimizing location to include the maximum amount of emission. 
     
     compare_fpm - Make both fpma, fpmb products, use whichever has more NuSTAR emission in its optimal region. 
@@ -542,9 +543,9 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             else:
                 print('Now we will make some spectral data products.')
             mn = make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
+                                      centroid_region=centroid_region, clobber=True, pile_up_corr=pile_up_corr, 
                                       adjacent_grades=adjacent_grades, nuradius=nuradius,
-                                     twogauss=twogauss, direction=direction, guess=guess,
+                                     twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                      energy_percents=energy_percents)
             if compare_fpm:
                 if fpm == 'A':
@@ -554,9 +555,9 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 print('Compare FPM is set – examining fpm', fpm2, 
                           ' also to see which has more emission in its optimal region.')
                 mn2 = make_nustar_products(time, fpm2, gtifile, datapath, regfile, nustar_path, edit_regfile=edit_regfile, 
-                                      nofit=nofit, clobber=True, pile_up_corr=pile_up_corr, 
+                                      centroid_region=centroid_region, clobber=True, pile_up_corr=pile_up_corr, 
                                            adjacent_grades=adjacent_grades, nuradius=nuradius,
-                                         twogauss=twogauss, direction=direction, guess=guess,
+                                         twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                           energy_percents=energy_percents)
                 print('FPM', fpm, ' region has ', mn, '% of emission. FPM', fpm2, ' region has ', mn2, '% of emission.' )
                 if mn2>mn:
@@ -578,6 +579,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                 if pile_up_corr:
                     arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(nustar_path, timestring, fpm,
                                                                                special_pha=special_pha, grade='21_24')
+                    print(rmf_files_unphys)
                     e_lo1, e_hi1, eff_area_u = nuutil.read_arf(arf_files_unphys[0])
                     e_lo2, e_hi2, rmf_mat_u = nuutil.read_rmf(rmf_files_unphys[0])
                     engs,cnts_u,lvtm,ontim=nuutil.read_pha(pha_files_unphys[0]) 
@@ -590,7 +592,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     print('')
     
     #Get area of NuSTAR region
-    if nofit or twogauss:
+    if centroid_region or twogauss or onegauss:
         area = nuradius**2*np.pi*7.25e7*7.25e7  
     else:
         if bool(newregfile)==False:

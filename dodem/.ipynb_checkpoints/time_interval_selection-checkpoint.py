@@ -98,8 +98,9 @@ def real_count_lightcurves(datapath, timerange, working_dir, erange):
 
 
 def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
-                  guess=[], erange=[6.,10], lctype='corr54', fast_min_factors=[2,2],
-                  countmin=10, minimum_seconds=30, shush=False):
+                  guess=[], guess2=[], erange=[6.,10], lctype='corr54', fast_min_factors=[2,2],
+                  countmin=10, minimum_seconds=30, shush=False,
+                  force_both_fpm_always=False):
 
     """
     Two-source time interval selection. Makes separate working directories and does everything twice.
@@ -109,11 +110,11 @@ def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
 
     if sep_axis=='EW':
         directions = ['east', 'west']
-    elif sep_axis=='NS':
-        directions = ['north', 'south']
+    elif sep_axis=='SN':
+        directions = ['south', 'north']
     else:
         print('Axis entered: ', sep_axis)
-        print("Please chose either east/west ('EW') or north/south ('NS') orientation for your two regions!")
+        print("Please chose either east/west ('EW') or south/north ('SN') orientation for your two regions!")
         return
 
     for i in [0,1]:
@@ -127,14 +128,15 @@ def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
         res = find_time_intervals_plus(in_dir, timerange, working_dir, erange=erange, 
                            lctype=lctype, fast_min_factor=fmf, countmin=countmin,
                           minimum_seconds=minimum_seconds, shush=True,
-                            twogauss=True, direction=dir, guess=guess,
-                                  nuradius=nuradius, energy_percents=True)
+                            twogauss=True, direction=dir, guess=guess, guess2=guess2, 
+                                  nuradius=nuradius, energy_percents=True,
+                                      force_both_fpm_always=force_both_fpm_always)
 
 
 def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, erange=[6.,10], lctype='corr54',
-                            nofit=True, fast_min_factor=1, minimum_seconds=[],
+                            centroid_region=True, fast_min_factor=1, minimum_seconds=[],
                             force_both_fpm_always=False, shush=False,
-                            twogauss=False, direction='', guess=[], nuradius=150,
+                            twogauss=False, onegauss=False, direction='', guess=[], guess2=[], nuradius=150,
                             energy_percents=False):    
     """
     
@@ -265,9 +267,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
 
                 if force_both_fpm_always:
                     check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                                nofit=nofit,lctype=lctype, countmin=countmin, 
+                                                centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
                                                 force_both_fpm=True, shush=shush,
-                                                twogauss=twogauss, direction=direction, guess=guess,
+                                                twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                                    nuradius=nuradius, energy_percents=energy_percents)
                 
                 stop_yet=True
@@ -303,9 +305,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                         proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
                         if force_both_fpm_always:
                             check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                                        nofit=nofit,lctype=lctype, countmin=countmin, 
+                                                        centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
                                                         force_both_fpm=True, shush=shush,
-                                                        twogauss=twogauss, direction=direction, guess=guess,
+                                                        twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                                         nuradius=nuradius, energy_percents=energy_percents)                       
                         stop_yet=True
                         continue
@@ -319,28 +321,29 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #For the first interval in the orbit/sub-orbit, or if set to always do so,
             #force making both FPM data products regardless of statistics.
             check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                    nofit=nofit,lctype=lctype, countmin=countmin, 
+                                    centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
                                         force_both_fpm=True, shush=shush,
-                                        twogauss=twogauss, direction=direction, guess=guess,
+                                        twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                        nuradius=nuradius, energy_percents=energy_percents)
         else:
             check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                        nofit=nofit,lctype=lctype, countmin=countmin, shush=shush,
-                                        twogauss=twogauss, direction=direction, guess=guess,
+                                        centroid_region=centroid_region,lctype=lctype, countmin=countmin, shush=shush,
+                                        twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                        nuradius=nuradius, energy_percents=energy_percents)
 
-        if check[1]:
-            print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), 
-                  proposed_interval[1].strftime('%H-%M-%S'))
-            print('Counts: ', check[0])
-            #Append interval to our list, set a new start index for the next interval, and reset the fast method 
-            #factor to the original factor (in case it's been changed).    
-            new_intervals.append(proposed_interval)
-            #reset TRIES marker
-            tries=0
-            if proposed_interval[1] == intervaltimes[-1]:
-                stop_yet=True
-                continue
+        if check:
+            if check[1]:
+                print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), 
+                      proposed_interval[1].strftime('%H-%M-%S'))
+                print('Counts: ', check[0])
+                #Append interval to our list, set a new start index for the next interval, and reset the fast method 
+                #factor to the original factor (in case it's been changed).    
+                new_intervals.append(proposed_interval)
+                #reset TRIES marker
+                tries=0
+                if proposed_interval[1] == intervaltimes[-1]:
+                    stop_yet=True
+                    continue
                 
             start_here = endex
             fast_min_factor=og_fast_min_factor
@@ -366,7 +369,12 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             if tries==2:
                 print('Starting over with requirement for FOUR TIMES the counts in fast interval')
                 fast_min_factor=og_fast_min_factor*4
-            if tries > 2:
+                
+            if tries==3:
+                print('Starting over with requirement for SIXTEEN TIMES the counts in fast interval')
+                fast_min_factor=og_fast_min_factor*16
+                
+            if tries > 3:
                 print('It STILL did not work - weird! Quitting.')
                 #print('in tis:', timerange)
                 return False, timerange
@@ -391,9 +399,9 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     
     return new_intervals, failed_intervals
     
-def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, nofit=True,
+def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, centroid_region=True,
                        lctype='corr14', countmin=10, force_both_fpm=False, shush=False,
-                        twogauss=False, direction='', guess=[], nuradius=150,
+                        twogauss=False, onegauss=False, direction='', guess=[], guess2=[], nuradius=150,
                        energy_percents=False):
     
     if lctype=='grade0':
@@ -413,8 +421,12 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, nofit=Tr
         pile_up_corr=True
         adjacent_grades=True
 
-    if twogauss:
-        nofit=False
+    if twogauss or onegauss:
+        centroid_region=False
+
+    if twogauss and onegauss:
+        print("Make a choice about # of gaussians, you can't have two and one!")
+        return
     
     regfile='starter_region.reg' 
     gtifile=datapath+'event_cl/nu'+obsid+'A06_gti.fits'
@@ -422,10 +434,10 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, nofit=Tr
                          pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
                             edit_regfile=True, actual_total_counts=True,
-                            nofit=nofit, nuradius=nuradius,
+                            centroid_region=centroid_region, nuradius=nuradius,
                              clobber=False, countmin=countmin,
                             force_both_fpm=force_both_fpm, shush=shush,
-                             twogauss=twogauss, direction=direction, guess=guess,
+                             twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                             energy_percents=energy_percents)
    
     return res
