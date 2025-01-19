@@ -2,12 +2,13 @@
 # usage: run_nuproducts.sh
 # Variables below must correspond to names of files
 
-interval=22-22-00_22-32-00
-region=initial_dem/22-22-00_22-32-00/nu80410205001B06_0_p_cl_sunpos_COM_region.reg
-fpm=B
-INDIR=/Users/jessieduncan/nustar/may-2018/5_29pixpos/80410205001/
-unphys_products=0
-working_dir=./initial_dem/
+interval=18-41-20_18-42-25
+region=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/18-41-20_18-42-25/nu20615003001A06_0_4_p_cl_sunpos__region.reg
+fpm=A
+INDIR=/Users/jmdunca2/nustar/apr-2021/20615003001/
+unphys_products=1
+working_dir=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/
+adjacent_grades=1
 
 type="STATUS==b0000xx00xx0xx000"
 
@@ -15,33 +16,44 @@ type="STATUS==b0000xx00xx0xx000"
 STEMINPUTS=nu`basename ${INDIR}`
 
 
-nuproducts indir=$INDIR/event_cl/ \
-instrument=FPM$fpm \
-steminputs=$STEMINPUTS \
-outdir=$working_dir/$interval \
-extended=no \
-runmkarf=yes \
-runmkrmf=yes \
-infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_p_cl.evt" \
-bkgextract=no \
-srcregionfile=$region \
-attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
-hkfile=$INDIR/event_cl/$STEMINPUTS$fpm"_fpm.hk" \
-clobber=yes
+if [ $adjacent_grades == 0 ] ; then
+    echo Making spectral data products for grade 0
 
-nuproducts indir=$INDIR/event_cl/ \
-instrument=FPM$fpm \
-steminputs=$STEMINPUTS \
-outdir=$working_dir/$interval \
-extended=no \
-runmkarf=yes \
-runmkrmf=yes \
-infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_4_p_cl.evt" \
-bkgextract=no \
-srcregionfile=$region \
-attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
-hkfile=$INDIR/event_cl/$STEMINPUTS$fpm"_fpm.hk" \
-clobber=yes
+    nuproducts indir=$INDIR/event_cl/ \
+    instrument=FPM$fpm \
+    steminputs=$STEMINPUTS \
+    outdir=$working_dir/$interval \
+    extended=no \
+    runmkarf=yes \
+    runmkrmf=yes \
+    infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_p_cl.evt" \
+    bkgextract=no \
+    srcregionfile=$region \
+    attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
+    hkfile=$INDIR/event_cl/$STEMINPUTS$fpm"_fpm.hk" \
+    clobber=yes
+
+fi
+
+
+if [ $adjacent_grades == 1 ] ; then
+    echo Making spectral data products for grades 0-4
+
+    nuproducts indir=$INDIR/event_cl/ \
+    instrument=FPM$fpm \
+    steminputs=$STEMINPUTS \
+    outdir=$working_dir/$interval \
+    extended=no \
+    runmkarf=yes \
+    runmkrmf=yes \
+    infile=$working_dir/$interval/$STEMINPUTS$fpm"06_0_4_p_cl.evt" \
+    bkgextract=no \
+    srcregionfile=$region \
+    attfile=$INDIR/event_cl/$STEMINPUTS"_att.fits" \
+    hkfile=$INDIR/event_cl/$STEMINPUTS$fpm"_fpm.hk" \
+    clobber=yes
+
+fi
 
 if [ $unphys_products != 1 ] ; then
     echo Not making spectral products for unphysical grades

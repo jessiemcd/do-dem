@@ -200,7 +200,7 @@ def get_suborbits(id_dir, t_corr, min_step, plot=False):
 
 def get_suborbit_intervals(both_grouptimes, id_dir, working_dir, erange=[6.,10],
                           lctype='corr54',fast_min_factor=2, countmin=10,
-                          minimum_seconds=30, nofit=True, 
+                          minimum_seconds=30, centroid_region=True, 
                         twogauss=False, direction='', guess=[],
                           force_both_fpm_always=False, shush=False,
                           nuradius=150):
@@ -237,7 +237,7 @@ def get_suborbit_intervals(both_grouptimes, id_dir, working_dir, erange=[6.,10],
         timerange=g
         res = tis.find_time_intervals_plus(datapath, timerange, working_dir, erange=erange, 
                                    lctype=lctype, fast_min_factor=fast_min_factor, countmin=countmin,
-                                  minimum_seconds=minimum_seconds, nofit=nofit,
+                                  minimum_seconds=minimum_seconds, centroid_region=centroid_region,
                                            force_both_fpm_always=force_both_fpm_always, shush=shush,
                                            twogauss=twogauss, direction=direction, guess=guess,
                                           nuradius=nuradius)
@@ -670,7 +670,8 @@ def make_interval_dicts(time_intervals, regiondict, where='./'):
             pickle.dump(dict, f, pickle.HIGHEST_PROTOCOL)
     
 
-def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_aia_prep'):
+def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_aia_prep',
+                       xrt_region_input=True):
 
     """
     Takes a time interval for which you have made a 
@@ -706,7 +707,13 @@ def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_a
         bl=[(xx-600)*u.arcsec, (yy-600)*u.arcsec]
         tr=[(xx+800)*u.arcsec,(yy+800)*u.arcsec]
 
-        return data, bl, tr
+        if xrt_region_input:
+            region_input = {'center': offset,
+                  'radius': rad}
+
+            return data, bl, tr, region_input
+        else:
+            return data, bl, tr
 
     #print(data.keys())
     return data

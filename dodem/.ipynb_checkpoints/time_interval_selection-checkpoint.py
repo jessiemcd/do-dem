@@ -11,6 +11,72 @@ import glob
 
 
 
+def tis_wrapper(key, all_targets, method='singlegauss'):
+
+
+    #Path to top-level do-dem directory - edit for your system.
+    path_to_dodem = '/Users/jmdunca2/do-dem/'
+    from sys import path as sys_path
+    sys_path.append(path_to_dodem+'/dodem/')
+    
+    import initial_analysis as ia
+    import nustar_utilities as nuutil
+    import time_interval_selection as tis
+
+    import pathlib
+    
+
+    #energy range in which we want good statistics (time interval selection based around this):
+    erange=[6.,10]
+    #Grades 0-4, pile-up corrected via subtraction of 5/4 of the unphysical grades.
+    lctype='corr54'
+    #minimum counts per time interval in above energy range
+    countmin=10
+    #Minimum duration of time interval (at e.g. flare times with plenty of statistics)
+    minimum_seconds=30
+    #Radius of circular NuSTAR region (COM-centered)
+    nuradius=150
+
+
+    ARDict = all_targets[key]
+
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    working_dir = ARDict['working_dir']
+    gauss_stats = ARDict['gauss_stats']
+
+    print(working_dir)
+
+    #Make a new working directory for prepped data/etc if it doesn't yet exist
+    save_path = pathlib.Path(working_dir)
+    if not save_path.exists():
+        save_path.mkdir()
+
+    if method=='singlegauss':
+
+        all_intervals, all_failed_intervals = [], []
+        for i in range(1, len(id_dirs)):
+            id = id_dirs[i]
+            guess, fast_min_factor = gauss_stats[i]
+            
+            evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+            time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+            timerange = [time0, time1]
+            print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+            res = find_time_intervals_plus(id, timerange, working_dir, erange=erange, 
+                                   lctype=lctype, fast_min_factor=fast_min_factor, countmin=countmin,
+                                  minimum_seconds=minimum_seconds, shush=False, force_both_fpm_always=True,
+                                          nuradius=nuradius, energy_percents=True, guess=guess, onegauss=True)
+        
+    
+
+    
+
+    
+
+
+
+
 def real_count_lightcurves(datapath, timerange, working_dir, erange):
     
     """
@@ -227,6 +293,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     interval = np.where(np.logical_and(times_convertedA >= timerange[0], times_convertedA <= timerange[1]))
     intervaltimes = times_convertedA[interval]
     intervalcounts = count_lc[interval]
+    #print(intervalcounts)
     if minimum_seconds:
         #print('hi', intervaltimes)
         timestep=(intervaltimes[1]-intervaltimes[0]).total_seconds()
@@ -638,6 +705,8 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, e
         
     with open(filename, 'rb') as f:
             data = pickle.load(f)
+
+    print(type(data['time_intervals'][0]))
             
     return data['time_intervals']
     

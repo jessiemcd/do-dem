@@ -95,31 +95,81 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     save_path = pathlib.Path(nustar_path) / timestring
     if not save_path.exists():
         save_path.mkdir()
-        
-    grade_prep=0    
-    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0')
-    if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
-        grade_prep+=1
-    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0_4')
-    if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
-        grade_prep+=1
-    
-    if pile_up_corr==False:
-        if grade_prep==2 and clobber==False:
-            print('We have both grade 0 and grades 0-4 products already, and clobber is not set - exiting.')
-            return
-    if pile_up_corr==True:
-        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
+
+    grade_prep=0  
+    if adjacent_grades:
+        #USING GRADES 0-4
+        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0_4')
         if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
             grade_prep+=1
-        if grade_prep==3 and clobber==False:
-            print('We have, grade 0, grades 0-4, and grades 21-24 products already, and clobber is not set - exiting.')
-            return
+        if pile_up_corr:
+            arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
+            if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+                grade_prep+=1
+            if grade_prep == 2:
+                print('We have both grades 21-24 and grades 0-4 products already, and clobber is not set - exiting.')
+                return
+        else:
+            if grade_prep == 1:
+                print('We have grades 0-4 products already, and clobber is not set - exiting.')
+                return
+            
+    else:
+        #USING GRADE 0
+        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0')
+        if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+            grade_prep+=1
+        
+        if pile_up_corr:
+            arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
+            if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+                grade_prep+=1
+            if grade_prep == 2:
+                print('We have both grades 21-24 and grade 0 products already, and clobber is not set - exiting.')
+                return
+        else:
+            if grade_prep == 1:
+                print('We have grade 0 products already, and clobber is not set - exiting.')
+                return        
+            
+        
+        
+    # grade_prep=0    
+    # arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0')
+    # if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+    #     grade_prep+=1
+    # arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0_4')
+    # if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+    #     grade_prep+=1
+    
+    # if pile_up_corr==False:
+    #     if grade_prep==2 and clobber==False:
+    #         print('We have both grade 0 and grades 0-4 products already, and clobber is not set - exiting.')
+    #         return
+    # if pile_up_corr==True:
+    #     arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='21_24')
+    #     if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+    #         grade_prep+=1
+    #     if grade_prep==3 and clobber==False:
+    #         print('We have, grade 0, grades 0-4, and grades 21-24 products already, and clobber is not set - exiting.')
+    #         return
     
     #======================================================
     #TIME INTERVAL SCREENING
-    
-    evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
+
+    unphys_products=0
+    if pile_up_corr:
+        unphys_products=1
+
+    if adjacent_grades:
+        adj_value=1
+    else:
+        adj_value=0
+
+    if adjacent_grades:
+        evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
+    else:
+        evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
     
     if len(evt_files_0) != 1 or clobber==True:
         #If there is not an .evt files already for this FPM, (or clobber set), make a gti file for the 
@@ -127,15 +177,20 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         edit_gti(gtifile, time[0], time[1], nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
 
         #Edit shell script to run nuscreen (component of NuSTAR pipeline). This makes grade 0, 0-4 and 21-24 .evt files.
-        edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath)
+        edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath, adjacent_grades=adj_value, 
+                      unphys_products=unphys_products)
         f = open(nustar_path+timestring+'/'+fpm+"nuscreen_output.txt", "w")
         #screenprocess = subprocess.call(path_to_dodem+'run_nuscreen.sh', stdout=f)
         screenprocess = subprocess.run(path_to_dodem+'run_nuscreen.sh', stdout=f, shell=True)
-        
+
     #Now we should definitely have the desired .evt file:    
-    evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
+    if adjacent_grades:
+        evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
+    else:
+        evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
+        
     if len(evt_files_0) !=1:
-        print('Failed to find or make grade 0 .evt files – not using NuSTAR.')
+        print('Failed to find or make grade 0 or grade 0-4 .evt files – not using NuSTAR.')
         return
     
     if pile_up_corr:
@@ -199,12 +254,10 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     #======================================================
     #SPECTRAL DATA PRODUCTS
     #Now that we have the region file + the time-interval-specific .evt file, let's do it!
-    unphys_products=0
-    if pile_up_corr:
-        unphys_products=1
     
     #Edit shell script to run nuproducts (component of NuSTAR pipeline)
-    edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, newregfile, datapath, unphys_products=unphys_products)
+    edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, newregfile, datapath, unphys_products=unphys_products,
+                   adjacent_grades=adj_value)
     f = open(nustar_path+timestring+'/'+fpm+"nuproducts_output.txt", "w")
     productprocess = subprocess.run(path_to_dodem+'run_nuproducts.sh', stdout=f, shell=True)
     
@@ -471,15 +524,18 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     
     #======================================================
     # Load in the pha, arf and rmf (NuSTAR RESPONSE)
-    
-    arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, special_pha=special_pha, grade='0',
-                                                     shush=shush)
+
     
     if adjacent_grades:
-            print('Using grades 0-4 NuSTAR events.')
-            arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm,
-                                                            special_pha=special_pha, grade='0_4',
-                                                             shush=shush)
+        print('Using grades 0-4 NuSTAR events.')
+        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm,
+                                                        special_pha=special_pha, grade='0_4',
+                                                         shush=shush)
+    else:
+        print('Using grade 0 NuSTAR events.')
+        arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, 
+                                                          special_pha=special_pha, grade='0',
+                                                         shush=shush)
     
     if pile_up_corr:
         arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(nustar_path, timestring, fpm,
@@ -916,7 +972,8 @@ def percents(evt_file, regfile, time_interval, savefile):
 
 
 
-def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath):
+def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath, adjacent_grades=0, 
+                      unphys_products=0):
     """
     Requires shell script run_nuscreen.sh in input path (nustar_path). 
     Edits based on inputs + overwrites new version.
@@ -932,6 +989,8 @@ def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath):
         screenlist[5] = 'fpm='+fpm
         screenlist[6] = 'INDIR='+datapath
         screenlist[7] = 'work_dir='+nustar_path
+        screenlist[8] = 'unphys_products='+str(unphys_products)
+        screenlist[9] = 'adjacent_grades='+str(adjacent_grades)
 
         newscreen = '\n'.join(screenlist)
         f.seek(0)
@@ -939,7 +998,8 @@ def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath):
         f.truncate()
             
             
-def edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, regfile, datapath, unphys_products=0):
+def edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, regfile, datapath, unphys_products=0,
+                   adjacent_grades=0):
     """
     Requires shell script run_nuproducts.sh in input path (nustar_path). 
     Edits based on inputs + overwrites new version.
@@ -956,6 +1016,7 @@ def edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, regfile, datapa
         productslist[7] = 'INDIR='+datapath
         productslist[8] = 'unphys_products='+str(unphys_products)
         productslist[9] = 'working_dir='+nustar_path
+        productslist[10] = 'adjacent_grades='+str(adjacent_grades)
 
         newnuproducts = '\n'.join(productslist)
         #print(newnuproducts)

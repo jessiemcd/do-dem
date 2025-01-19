@@ -50,7 +50,7 @@ def dodem(time, bl, tr,
           COM_nustar_region=False, twogauss=False, onegauss=False, 
           compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
           #XRT-related
-          xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='First', xrt_exposure_dict=exposure_dict,
+          xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='Average', xrt_exposure_dict=exposure_dict,
           input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False, plot_xrt=False,
           #AIA-related
           real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
@@ -553,10 +553,16 @@ def dodem(time, bl, tr,
                                        exposure_dict=xrt_exposure_dict, input_xrt_region_dict=input_xrt_region_dict,
                                        input_xrt_region=input_xrt_region, real_xrt_err=real_xrt_err,
                                         path_to_dodem=path_to_dodem)
+
+            
             if res is None:
                 print('Something is preventing use of XRT.')
                 print('')
                 xrt=False
+                if aia==False:
+                    print('No AIA or XRT; not set up for NuSTAR-only DEM. Exiting.')
+                    print('')
+                    return
             if xrt:
                 if real_xrt_err:
                     xdnspxs, xrt_errs, filters, xrt_tr, xrt_logt  = res
@@ -576,6 +582,8 @@ def dodem(time, bl, tr,
                         chanax.append(filters[i])
 
 
+        #print(dn_in)
+        #print(chanax)
 #         if eis:
 #             print('')
 #             res = eis_dem_prep.load_chianti_and_eis(eis_path=eis_path, minT=minT, maxT=maxT, dT=dT,
