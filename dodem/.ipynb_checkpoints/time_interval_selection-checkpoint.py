@@ -11,7 +11,56 @@ import glob
 
 
 
+
+def make_tis_scripts(obsids, key, where='./'):
+
+    pystrings = []
+    
+    for i in range(0, len(obsids)):
+        index=i
+        obsid=obsids[index]  
+        pyfile = where+'run_tis_'+obsid+'.py'
+        pystring = 'python '+pyfile+' > '+' tis_out_'+obsid+'.txt &'
+        #print(pystring)
+        pystrings.append(pystring)
+        
+        with open(where+'run_tis_template.py', 'r') as f:
+            lines = f.read()
+            llist = lines.split('\n')
+            #print(productslist)
+            llist[9] = 'key = "'+key+'"'
+            llist[14] = 'index = '+str(index)
+            #print(llist)
+            newlist = '\n'.join(llist)
+        
+            with open(pyfile, 'w') as file_out:
+                file_out.seek(0)
+                file_out.write(newlist)
+                file_out.truncate()
+
+
+    with open(where+'run_ar_tis_template.sh', 'r') as f:
+        lines = f.read()
+        llist = lines.split('\n')
+        llist.extend(['','',])
+        llist.extend(pystrings)
+        llist.extend(['wait', '', 'echo "all orbit scripts finished"'])
+        pylist = '\n'.join(llist)
+
+        with open(where+'run_ar_tis_'+key+'.sh', 'w') as file_out:
+            file_out.seek(0)
+            file_out.write(pylist)
+            file_out.truncate()
+    
+    print(pylist)
+    
+
+
 def tis_wrapper(key, all_targets, method='singlegauss'):
+
+    """
+    Take in a key and an active region summary directory and run TIS for all orbits within.
+    """
 
 
     #Path to top-level do-dem directory - edit for your system.
@@ -70,7 +119,64 @@ def tis_wrapper(key, all_targets, method='singlegauss'):
         
     
 
+def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss'):
+
+    """
+    Same as the above, but just one orbit rather than a loop (to run multiple orbits in ||).
     
+    """
+
+    #Path to top-level do-dem directory - edit for your system.
+    path_to_dodem = '/Users/jmdunca2/do-dem/'
+    from sys import path as sys_path
+    sys_path.append(path_to_dodem+'/dodem/')
+    
+    import initial_analysis as ia
+    import nustar_utilities as nuutil
+    import time_interval_selection as tis
+
+    import pathlib
+    
+
+    #energy range in which we want good statistics (time interval selection based around this):
+    erange=[6.,10]
+    #Grades 0-4, pile-up corrected via subtraction of 5/4 of the unphysical grades.
+    lctype='corr54'
+    #minimum counts per time interval in above energy range
+    countmin=10
+    #Minimum duration of time interval (at e.g. flare times with plenty of statistics)
+    minimum_seconds=30
+    #Radius of circular NuSTAR region (COM-centered)
+    nuradius=150
+
+
+    ARDict = all_targets[key]
+
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    working_dir = ARDict['working_dir']
+    gauss_stats = ARDict['gauss_stats']
+
+    print(working_dir)
+
+    #Make a new working directory for prepped data/etc if it doesn't yet exist
+    save_path = pathlib.Path(working_dir)
+    if not save_path.exists():
+        save_path.mkdir()
+
+    if method=='singlegauss':
+
+        id = id_dirs[index]
+        guess, fast_min_factor = gauss_stats[index]
+    
+        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+        timerange = [time0, time1]
+        print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+        res = find_time_intervals_plus(id, timerange, working_dir, erange=erange, 
+                               lctype=lctype, fast_min_factor=fast_min_factor, countmin=countmin,
+                              minimum_seconds=minimum_seconds, shush=False, force_both_fpm_always=True,
+                                      nuradius=nuradius, energy_percents=True, guess=guess, onegauss=True)    
 
     
 

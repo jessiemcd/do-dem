@@ -2,10 +2,10 @@
 # usage: run_nuproducts.sh
 # Variables below must correspond to names of files
 
-interval=18-41-20_18-42-25
-region=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/18-41-20_18-42-25/nu20615003001A06_0_4_p_cl_sunpos__region.reg
+interval=14-59-45_15-03-20
+region=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/14-59-45_15-03-20/nu20615001001A06_0_4_p_cl_sunpos__region.reg
 fpm=A
-INDIR=/Users/jmdunca2/nustar/apr-2021/20615003001/
+INDIR=/Users/jmdunca2/nustar/apr-2021/20615001001/
 unphys_products=1
 working_dir=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/
 adjacent_grades=1

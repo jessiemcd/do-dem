@@ -2,9 +2,9 @@
 # usage: run_nuscreen.sh
 # Variables below must correspond to names of files
 
-interval=18-41-20_18-42-25
-fpm=B
-INDIR=/Users/jmdunca2/nustar/apr-2021/20615003001/
+interval=14-59-45_15-03-20
+fpm=A
+INDIR=/Users/jmdunca2/nustar/apr-2021/20615001001/
 work_dir=/Users/jmdunca2/do-dem/initial_dem_apr21_gauss/
 unphys_products=1
 adjacent_grades=1

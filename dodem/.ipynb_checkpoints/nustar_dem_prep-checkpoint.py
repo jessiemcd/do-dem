@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import scipy.io as io
 
 from os.path import splitext, isfile
+import os 
+
 from astropy.io import fits
 from astropy import coordinates as coord
 from astropy import units as u
@@ -78,7 +80,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
                          twogauss=False, onegauss=False, direction='', guess=[], guess2=[],
                          #general method related:
                         compare_fpm=False, pile_up_corr=False, adjacent_grades=False,
-                         clobber=False, path_to_dodem='./', dip_before_products=False,
+                         clobber=False, path_to_dodem='/Users/jmdunca2/do-dem/', dip_before_products=False,
                         energy_percents=False):
     """
     See load_nustar() documentation.
@@ -176,13 +178,23 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         #time interval and fpm selected, and run nuscreen to make a time-interval-specific event list.
         edit_gti(gtifile, time[0], time[1], nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
 
+        print('prenuscreen')
+        print(path_to_dodem+'run_nuscreen.sh')
+        print(nustar_path+timestring+'/run_nuscreen.sh')
+        #os.rename(path_to_dodem+'/run_nuscreen.sh', nustar_path+timestring+'/run_nuscreen.sh')
+        status = subprocess.call('cp '+path_to_dodem+'run_nuscreen.sh '+nustar_path+timestring+'/run_nuscreen.sh', shell=True) 
+
+        
         #Edit shell script to run nuscreen (component of NuSTAR pipeline). This makes grade 0, 0-4 and 21-24 .evt files.
-        edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath, adjacent_grades=adj_value, 
+        edit_nuscreen(nustar_path+timestring+'/', nustar_path, timestring, fpm, datapath, adjacent_grades=adj_value, 
                       unphys_products=unphys_products)
         f = open(nustar_path+timestring+'/'+fpm+"nuscreen_output.txt", "w")
         #screenprocess = subprocess.call(path_to_dodem+'run_nuscreen.sh', stdout=f)
-        screenprocess = subprocess.run(path_to_dodem+'run_nuscreen.sh', stdout=f, shell=True)
+        screenprocess = subprocess.run(nustar_path+timestring+'/run_nuscreen.sh', stdout=f, shell=True,
+                                      cwd=nustar_path+timestring+'/')
 
+        print('postnuscreen')
+        
     #Now we should definitely have the desired .evt file:    
     if adjacent_grades:
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
@@ -254,13 +266,19 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     #======================================================
     #SPECTRAL DATA PRODUCTS
     #Now that we have the region file + the time-interval-specific .evt file, let's do it!
+
+    print('prenuproducts')
+    #os.popen('cp '+path_to_dodem+'/run_nuproducts.sh '+nustar_path+timestring+'/run_nuproducts.sh')
+    status = subprocess.call('cp '+path_to_dodem+'/run_nuproducts.sh '+nustar_path+timestring+'/run_nuproducts.sh', shell=True) 
     
     #Edit shell script to run nuproducts (component of NuSTAR pipeline)
-    edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, newregfile, datapath, unphys_products=unphys_products,
+    edit_nuproducts(nustar_path+timestring+'/', nustar_path, timestring, fpm, newregfile, datapath, 
+                    unphys_products=unphys_products,
                    adjacent_grades=adj_value)
     f = open(nustar_path+timestring+'/'+fpm+"nuproducts_output.txt", "w")
-    productprocess = subprocess.run(path_to_dodem+'run_nuproducts.sh', stdout=f, shell=True)
-    
+    productprocess = subprocess.run(nustar_path+timestring+'/run_nuproducts.sh', stdout=f, shell=True,
+                                      cwd=nustar_path+timestring+'/')
+    print('postnuproducts')
     #======================================================
 
     if edit_regfile:
@@ -972,14 +990,14 @@ def percents(evt_file, regfile, time_interval, savefile):
 
 
 
-def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath, adjacent_grades=0, 
+def edit_nuscreen(path_to_run_nuscreen, nustar_path, timestring, fpm, datapath, adjacent_grades=0, 
                       unphys_products=0):
     """
     Requires shell script run_nuscreen.sh in input path (nustar_path). 
     Edits based on inputs + overwrites new version.
     """
-    
-    with open(path_to_dodem+'run_nuscreen.sh', "r+") as f:
+
+    with open(path_to_run_nuscreen+'run_nuscreen.sh', "r+") as f:
         screen = f.read()
         #print(screen)
 
@@ -998,14 +1016,14 @@ def edit_nuscreen(path_to_dodem, nustar_path, timestring, fpm, datapath, adjacen
         f.truncate()
             
             
-def edit_nuproducts(path_to_dodem, nustar_path, timestring, fpm, regfile, datapath, unphys_products=0,
+def edit_nuproducts(path_to_run_nuproducts, nustar_path, timestring, fpm, regfile, datapath, unphys_products=0,
                    adjacent_grades=0):
     """
     Requires shell script run_nuproducts.sh in input path (nustar_path). 
     Edits based on inputs + overwrites new version.
     """
     
-    with open(path_to_dodem+'run_nuproducts.sh', "r+") as f:
+    with open(path_to_run_nuproducts+'run_nuproducts.sh', "r+") as f:
         nuproducts = f.read()
         productslist = nuproducts.split('\n')
         #print(productslist)
