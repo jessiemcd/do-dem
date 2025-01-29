@@ -47,19 +47,23 @@ def dodem(time, bl, tr,
           #NuSTAR-related
           nustar_path='./', nuenergies=[[2.5,8]], fpm='A', make_nustar=False, pile_up_corr=False, adjacent_grades=False,
           gtifile='starter_gti.fits', datapath='', regfile='starter_region.reg', edit_regfile=True, use_fit_regfile=False,
-          COM_nustar_region=False, twogauss=False, onegauss=False, 
+          COM_nustar_region=False, twogauss=False, onegauss=False, guess=[], guess2=[],
           compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
+          
           #XRT-related
           xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='Average', xrt_exposure_dict=exposure_dict,
           input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False, plot_xrt=False,
+          
           #AIA-related
           real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
           input_aia_region=[], input_aia_region_dict=[], plot_aia=False,
           sunpy_dir=sunpy_dir, load_prepped_aia=[],
           errortab=errortab,
+          
           #EIS-related
           eis_path='./', eisbox_bl=[0,0], eisbox_tr=[0,0], contrib_file='chiantipy_gfnt.pickle', 
           edens=1.e+9, eis_exclude=[], fiasco=False, fiascofile='',
+          
           #DEMREG/DEM-related
           mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
           dem_norm0=None, nmu=40, emd_int=True, emd_ret=True):
@@ -441,7 +445,7 @@ def dodem(time, bl, tr,
                 
         if bool(xrt_exclude):
             for x in xrt_exclude:
-                print(chanax)
+                #print(chanax)
                 exindex=[i for i in range(0, len(chanax)) if x == chanax[i]]
                 if bool(exindex):
                     xrtindices.remove(exindex[0])
@@ -677,7 +681,8 @@ def dodem(time, bl, tr,
                 res = nustar_dem_prep.combine_fpm(time, nuenergies, working_directory, make_nustar=make_nustar,
                                               gtifile=gtifile, datapath=datapath, regfile=regfile, 
                                               edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
-                                                 centroid_region=COM_nustar_region, twogauss=twogauss, onegauss=onegauss, 
+                                                 centroid_region=COM_nustar_region, twogauss=twogauss, onegauss=onegauss,
+                                                  guess=guess, guess2=guess2,
                                                   clobber=nuclobber, pile_up_corr=pile_up_corr,
                                                   default_err=default_err, special_pha=special_pha,
                                                  adjacent_grades=adjacent_grades, nuradius=nuradius,
@@ -689,6 +694,7 @@ def dodem(time, bl, tr,
                                                   edit_regfile=edit_regfile, compare_fpm=compare_fpm,
                                                   use_fit_regfile=use_fit_regfile, pile_up_corr=pile_up_corr,
                                                  centroid_region=COM_nustar_region, twogauss=twogauss, onegauss=onegauss, 
+                                                  guess=guess, guess2=guess2,
                                                   clobber=nuclobber, 
                                                  default_err=default_err, special_pha=special_pha,
                                                  adjacent_grades=adjacent_grades, nuradius=nuradius, 

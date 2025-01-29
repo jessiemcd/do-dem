@@ -284,7 +284,7 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
                                         exposure_lim=exposure_lim)
                 
             if xdnspx is not None:
-                print(xdnspx, ' DN/s/px in '+thefilter)
+                #print(xdnspx, ' DN/s/px in '+thefilter)
                 xdnspxs.append(xdnspx)
                 filters_.append(thefilter)
                 if real_xrt_err:
@@ -347,8 +347,8 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
 
     filters_res = np.array([f.decode('utf-8') for f in tr_xrt['filters']])
         
-    print(filters)
-    print(filters_res)
+    #print(filters)
+    #print(filters_res)
 
     #Check that we have a response for every filter we have data from
     check=all(item in filters_res for item in list(filters))
@@ -390,11 +390,11 @@ def load_xrt(xrt_path, time, bl, tr, xrt_exclude=[], plot=True, method='First', 
     #Need to make sure that we include the correct response for each filter in the data, 
     #in the correct order.
     response=np.zeros((len(filters), len(tr_xrt['logt'])))
-    print(len(filters))
+    #print(len(filters))
     for i in range(len(filters)):
-        print(filters)
-        print(list(filters_res))
-        print(filters[i])
+        #print(filters)
+        #print(list(filters_res))
+        #print(filters[i])
         index = list(filters_res).index(filters[i])
         if len(filters_res) > 1:
             response[i,:]=tr_xrt['tr'][index,:]

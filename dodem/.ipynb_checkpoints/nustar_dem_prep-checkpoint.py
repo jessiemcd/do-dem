@@ -172,15 +172,19 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
     else:
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
+
+    #print(nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
+    #print(nustar_path)
+    #print(gtifile)
     
     if len(evt_files_0) != 1 or clobber==True:
         #If there is not an .evt files already for this FPM, (or clobber set), make a gti file for the 
         #time interval and fpm selected, and run nuscreen to make a time-interval-specific event list.
         edit_gti(gtifile, time[0], time[1], nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
 
-        print('prenuscreen')
-        print(path_to_dodem+'run_nuscreen.sh')
-        print(nustar_path+timestring+'/run_nuscreen.sh')
+        #print('prenuscreen')
+        #print(path_to_dodem+'run_nuscreen.sh')
+        #print(nustar_path+timestring+'/run_nuscreen.sh')
         #os.rename(path_to_dodem+'/run_nuscreen.sh', nustar_path+timestring+'/run_nuscreen.sh')
         status = subprocess.call('cp '+path_to_dodem+'run_nuscreen.sh '+nustar_path+timestring+'/run_nuscreen.sh', shell=True) 
 
@@ -193,13 +197,15 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         screenprocess = subprocess.run(nustar_path+timestring+'/run_nuscreen.sh', stdout=f, shell=True,
                                       cwd=nustar_path+timestring+'/')
 
-        print('postnuscreen')
+        #print('postnuscreen')
         
     #Now we should definitely have the desired .evt file:    
     if adjacent_grades:
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
     else:
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
+
+    #print('len evt files: ', len(evt_files_0))
         
     if len(evt_files_0) !=1:
         print('Failed to find or make grade 0 or grade 0-4 .evt files – not using NuSTAR.')
@@ -207,6 +213,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     
     if pile_up_corr:
         evt_files_unphys = glob.glob(nustar_path+timestring+'/*'+fpm+'06_21_24_p_cl.evt')
+        print('len evt files unphys: ', len(evt_files_unphys))
         if len(evt_files_unphys) !=1:
             print('Failed to find or make grade 21-24 .evt files, cant do pile-up correction. Not using NuSTAR.')
             return
@@ -218,6 +225,8 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     if dip_before_products:
         print('dip_before_products is set True, so we will return after making only the time- and grade-specific evt files.')
         return
+
+    #print('got here.')
     
     #======================================================
     #REGION SELECTION
@@ -230,7 +239,11 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         #If we don't already have the sunpos file...
         if len(sun_file) != 1 or clobber==True:
             evt_files_04 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl.evt')
-            convert_wrapper(evt_files_04[0], clobber=clobber)
+            try:
+                convert_wrapper(evt_files_04[0], clobber=clobber)
+            except (TimeoutError, OSError):
+                print('Possible connection error (solar coordinate conversion requires internet) – process failed here.')
+                return
             sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_4_p_cl_sunpos.evt')
             #If we still don't have the sunpos file:
             if len(sun_file) !=1:
@@ -240,12 +253,18 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
         #If we don't already have the sunpos file...
         if len(sun_file) != 1 or clobber==True:
-            convert_wrapper(evt_files_0[0], clobber=clobber)
+            try:
+                convert_wrapper(evt_files_0[0], clobber=clobber)
+            except (TimeoutError, OSError):
+                print('Possible connection error (solar coordinate conversion requires internet) – process failed here.')
+                return
             sun_file = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl_sunpos.evt')
             #If we still don't have the sunpos file:
             if len(sun_file) !=1:
                 print('Failed to find or make grade 0 sunpos.evt file – not using NuSTAR.')
                 return
+
+    #print('got past sunfiles.')
 
     #print('Twogauss set to: ', twogauss)
     if edit_regfile: 
@@ -267,7 +286,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     #SPECTRAL DATA PRODUCTS
     #Now that we have the region file + the time-interval-specific .evt file, let's do it!
 
-    print('prenuproducts')
+    #print('prenuproducts')
     #os.popen('cp '+path_to_dodem+'/run_nuproducts.sh '+nustar_path+timestring+'/run_nuproducts.sh')
     status = subprocess.call('cp '+path_to_dodem+'/run_nuproducts.sh '+nustar_path+timestring+'/run_nuproducts.sh', shell=True) 
     
@@ -278,7 +297,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     f = open(nustar_path+timestring+'/'+fpm+"nuproducts_output.txt", "w")
     productprocess = subprocess.run(nustar_path+timestring+'/run_nuproducts.sh', stdout=f, shell=True,
                                       cwd=nustar_path+timestring+'/')
-    print('postnuproducts')
+    #print('postnuproducts')
     #======================================================
 
     if edit_regfile:
@@ -293,7 +312,7 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shu
     """
     arf_files = glob.glob(nustar_path+timestring+'/*'+fpm+'*'+grade+'_p_sr.arf')
     rmf_files = glob.glob(nustar_path+timestring+'/*'+fpm+'*'+grade+'_p_sr.rmf')
-    print(rmf_files)
+    #print(rmf_files)
     if bool(special_pha):
         pha_files = glob.glob(special_pha+timestring+'*'+fpm+'*.pha')
         if pha_files == []:
@@ -647,13 +666,26 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                     arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0_4')
                 else:
                     arf_files, rmf_files, pha_files = find_nuproducts(nustar_path, timestring, fpm, grade='0')
+
+                if len(arf_files) == 1 and len(rmf_files) == 1 and len(pha_files) == 1:
+                    print('now we have everything for physical grades.')
+                else:
+                    print('still failed to make all physical grade files.')
+                    return
+                    
                 e_lo1, e_hi1, eff_area = nuutil.read_arf(arf_files[0])
                 e_lo2, e_hi2, rmf_mat = nuutil.read_rmf(rmf_files[0])
                 engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
                 if pile_up_corr:
                     arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(nustar_path, timestring, fpm,
                                                                                special_pha=special_pha, grade='21_24')
-                    print(rmf_files_unphys)
+
+                    if len(arf_files_unphys) == 1 and len(rmf_files_unphys) == 1 and len(pha_files_unphys) == 1:
+                        print('now we have everything for unphysical grades.')
+                    else:
+                        print('still failed to make all unphysical grade files.')
+                        return
+                    
                     e_lo1, e_hi1, eff_area_u = nuutil.read_arf(arf_files_unphys[0])
                     e_lo2, e_hi2, rmf_mat_u = nuutil.read_rmf(rmf_files_unphys[0])
                     engs,cnts_u,lvtm,ontim=nuutil.read_pha(pha_files_unphys[0]) 
@@ -752,7 +784,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     
     numax = enz[-1]
     
-    print('Max NuSTAR Energy: ', numax)
+    #print('Max NuSTAR Energy: ', numax)
     if numax > eng_tr[-1][1]:
         print('Warning: there is at least one NuSTAR event of higher energy than your highest energy range')
         print('Highest energy range:', eng_tr[-1])
@@ -945,7 +977,7 @@ def percents(evt_file, regfile, time_interval, savefile):
     import nustar_pysolar as nustar
     from regions import CircleSkyRegion
 
-    print(evt_file)
+    #print(evt_file)
     
     with fits.open(evt_file) as hdu:
         evt_data = hdu[1].data

@@ -250,7 +250,7 @@ def get_suborbit_intervals(both_grouptimes, id_dir, working_dir, erange=[6.,10],
     return bad_suborbits, all_intervals
 
 
-def find_all_intervals(working_dir, shush=False):
+def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orbit=0):
 
     """
     Just to take a look at all the intervals found for all the suborbits.
@@ -265,6 +265,9 @@ def find_all_intervals(working_dir, shush=False):
     orbit=0
     for tt in all_intervals:
         time_intervals = tis.get_saved_intervals(timerange, custom_file=tt)
+        if missing_last:
+            if orbit == missing_orbit:
+                time_intervals = time_intervals[0:-1]
         all_time_intervals.append(time_intervals)
         all_time_intervals_list.extend(time_intervals)
         count=0 
@@ -278,6 +281,58 @@ def find_all_intervals(working_dir, shush=False):
             print('')
         
     return all_time_intervals, all_time_intervals_list
+
+
+def check_conseq(working_dir):
+
+    all_intervals = glob.glob(working_dir+'*intervals.pickle')
+    all_intervals.sort()
+    print(all_intervals)
+    timerange='hi' #not using this, as supplying custom file
+
+    all_time_intervals, all_time_intervals_list = [], []
+    orbit=0
+    for tt in all_intervals:
+        time_intervals, full_interval = tis.get_saved_intervals(timerange, custom_file=tt, return_full_range=True)
+        print('')
+        print('')
+        print('')
+        print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+        for i in range(0, len(time_intervals)-1):
+            now = time_intervals[i]
+            next = time_intervals[i+1]            
+            if i==0:
+                if now[0] == full_interval[0]:
+                    print('good:')
+                else:
+                    print('first bad:')
+                    print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+                    print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                    print('')
+                    
+                    
+            if now[1] == next[0]:
+                print('good:')
+                #print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                #print(next[0].strftime('%H-%M-%S'), next[1].strftime('%H-%M-%S'))
+                #print('')
+            else:
+                print('bad:')
+                print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                print(next[0].strftime('%H-%M-%S'), next[1].strftime('%H-%M-%S'))
+                print('')
+            if i==(len(time_intervals)-2):
+                if time_intervals[i+1][1] == full_interval[1]:
+                    print('good:')
+                else:
+                    print('last bad:')
+                    print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+                    print(time_intervals[i+1][0].strftime('%H-%M-%S'), time_intervals[i+1][1].strftime('%H-%M-%S'))
+                    print('')
+                
+                
+    
+
 
 def regfile_to_regdict(regfile, time):
 
@@ -397,8 +452,8 @@ def check_region_emission(all_time_intervals, working_dir, grade='0_4', plot=Tru
     
     allallpercents=100*np.array(allallpercents)
     print('Mean emision included: ', np.mean(allallpercents).round(2), '%')
-    print('Minimum emision included: ', np.min(allallpercents).round(2), '%')
-    print('Maximum emision included: ', np.max(allallpercents).round(2), '%')
+    print('Minimum emission included: ', np.min(allallpercents).round(2), '%')
+    print('Maximum emission included: ', np.max(allallpercents).round(2), '%')
     print('STDV: ', np.std(allallpercents).round(2), '%')    
 
     #print(len(allallpercents))
@@ -452,17 +507,17 @@ def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[],
     specific_time_evt = glob.glob(working_dir+timestring+'/'+'*cl.evt') #.sort()
     specific_time_evt.sort()
 
-    if grade=='0':
-        evtA=specific_time_evt[1]
-        evtB=specific_time_evt[4]
+    #if grade=='0':
+    #    evtA=specific_time_evt[1]
+    #    evtB=specific_time_evt[4]
         
     if grade=='0_4':
         evtA=specific_time_evt[0]
-        evtB=specific_time_evt[3]
+        evtB=specific_time_evt[2]
 
     if grade=='21_24':
-        evtA=specific_time_evt[2]
-        evtB=specific_time_evt[5]
+        evtA=specific_time_evt[1]
+        evtB=specific_time_evt[3]
 
 
 
@@ -540,6 +595,7 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
 
     i=0
     for t in time_intervals:
+        print(i)
 
         if dorotation:
             tdiff = (t[0]-reference_interval[0]).to(u.hr)
@@ -590,7 +646,7 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
 
 
 
-def make_all_aia_dicts(all_time_intervals, working_dir):
+def make_all_aia_dicts(all_time_intervals, working_dir, key):
     """
     Make AIA region files for ALL time intervals, using lead time interval regions as produced by 
     coalign_based_on_prior(). 
@@ -600,6 +656,12 @@ def make_all_aia_dicts(all_time_intervals, working_dir):
     """
     import pickle
     import pathlib
+
+    aia_dict_dir=working_dir+'all_aia_dicts_'+key+'/'
+    #Make a new working directory for prepped data/etc if it doesn't yet exist
+    save_path = pathlib.Path(aia_dict_dir)
+    if not save_path.exists():
+        save_path.mkdir()
 
     suborbit_directories = []
     for at in range(0, len(all_time_intervals)):
@@ -624,7 +686,7 @@ def make_all_aia_dicts(all_time_intervals, working_dir):
         #orbit-specific directories
         reffile = glob.glob(working_dir+timestring+'/'+'*.evt')[0]
         obsid = reffile.split('/')[-1][2:13]
-        suborbit_dir=working_dir+'orbit_'+obsid
+        suborbit_dir=aia_dict_dir+'orbit_'+obsid
         suborbit_directories.append(suborbit_dir)
         #Make a new working directory for prepped data/etc if it doesn't yet exist
         save_path = pathlib.Path(suborbit_dir)

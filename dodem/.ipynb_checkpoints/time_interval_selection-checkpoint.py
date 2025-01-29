@@ -52,7 +52,7 @@ def make_tis_scripts(obsids, key, where='./'):
             file_out.write(pylist)
             file_out.truncate()
     
-    print(pylist)
+    #print(pylist)
     
 
 
@@ -434,7 +434,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
             #finding sufficient counts (starting at index start_here). 
             print('Let us combine this last bit with the prior interval')
             if new_intervals:
-                #If we've already found good time intervals:
+                #If we've already found good time intervals, propose a period from the beginning of the 
+                #last good interval to the end of the full interval.
                 proposed_interval = new_intervals[-1]
                 proposed_interval[1] = astropy.time.Time(intervaltimes[-1])
 
@@ -453,6 +454,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 print('')
                 proposed_interval = [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]
                 already_full=True
+                #print('Already Full: ', already_full)
                 #NEED TO UPDATE START/ENDEX HERE POSSIBLY, AS THEY ARE RELIED ON LATER!
             
         else:
@@ -504,6 +506,10 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                                         twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
                                        nuradius=nuradius, energy_percents=energy_percents)
 
+        print('')
+        print('check: ')
+        print(check, proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
+        print('')
         if check:
             if check[1]:
                 print('Found Time Interval', proposed_interval[0].strftime('%H-%M-%S'), 
@@ -517,17 +523,53 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 if proposed_interval[1] == intervaltimes[-1]:
                     stop_yet=True
                     continue
+                    
+                start_here = endex
+                fast_min_factor=og_fast_min_factor
                 
-            start_here = endex
-            fast_min_factor=og_fast_min_factor
-
+            else:
+                print('Not Enough counts in: ', 
+                proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
+                print('Counts: ', check[0])
+                #print('Already Full: ', already_full)
+                if already_full:
+                    print('Since that was already the full interval, quitting.')
+                    return False, timerange
+                    
+                #Make a note that we didn't get enough counts in the interval we tried.
+                times_failed+=1
+                failed_intervals.append(proposed_interval)
+                tries+=1
+                #If it's the first time we've failed with this starting index, double the factor used for the fast
+                #method count target (i.e. if we were looking for 1.5x our target counts, now looking for 3x our 
+                #target counts with the initial fast method). 
+                if tries==1:
+                    print('Starting over with requirement for twice the counts in fast interval')
+                    fast_min_factor=og_fast_min_factor*2
+                    
+                if tries==2:
+                    print('Starting over with requirement for FOUR TIMES the counts in fast interval')
+                    fast_min_factor=og_fast_min_factor*4
+                    
+                if tries==3:
+                    print('Starting over with requirement for SIXTEEN TIMES the counts in fast interval')
+                    fast_min_factor=og_fast_min_factor*16
+                    
+                if tries > 3:
+                    print('It STILL did not work - weird! Quitting.')
+                    #print('in tis:', timerange)
+                    return False, timerange                    
+                        
         else:
             print('Not Enough counts in: ', 
                   proposed_interval[0].strftime('%H-%M-%S'), proposed_interval[1].strftime('%H-%M-%S'))
-            print('Counts: ', check[0])
+            #print('Counts: ', check[0])
+            print('or some other failure - could also be failure to make response files due to no counts.')
+            print('Already Full: ', already_full)
             if already_full:
                 print('Since that was already the full interval, quitting.')
                 return False, timerange
+                
             #Make a note that we didn't get enough counts in the interval we tried.
             times_failed+=1
             failed_intervals.append(proposed_interval)
@@ -555,7 +597,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     print('Finishing with ', len(new_intervals), ' new intervals, and ', times_failed, ' failed intervals.' )
     print('Failure %: ', times_failed/len(new_intervals))
     
-    data = {'time_intervals': new_intervals}
+    data = {'time_intervals': new_intervals,
+           'full_interval': [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]}
     
     
     timestring = timerange[0].strftime('%H-%M-%S')
@@ -603,6 +646,9 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, centroid
     
     regfile='starter_region.reg' 
     gtifile=datapath+'event_cl/nu'+obsid+'A06_gti.fits'
+    print(gtifile)
+    print(datapath)
+    print(obsid)
     res = nu.combine_fpm(time_int, [erange], nustar_path, make_nustar=True,
                          pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
@@ -769,7 +815,8 @@ def prepare_nustar_grade_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2
     return times_convertedA, countratesA, lvtA, countsA_, times_convertedB, countratesB, lvtB, countsB_
 
 
-def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, erange=[6.,10.], custom_file=[]):
+def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, erange=[6.,10.], custom_file=[],
+                       return_full_range=False):
     """
     Little wrapper, reads in a file of the type made by find_intervals() above, 
     containing DEM time intervals.
@@ -812,7 +859,12 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, e
     with open(filename, 'rb') as f:
             data = pickle.load(f)
 
-    print(type(data['time_intervals'][0]))
+    #print(type(data['time_intervals'][0]))
+
+    #print(data['time_intervals'])
+
+    if return_full_range:
+        return data['time_intervals'], data['full_interval']
             
     return data['time_intervals']
     
