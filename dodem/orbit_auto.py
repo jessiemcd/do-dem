@@ -575,6 +575,8 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
     """
     import pickle
 
+    #print(input_aias)
+
     #Make a new working directory for images if it doesn't yet exist
     save_path = pathlib.Path(working_dir+'/coalign_images/')
     if not save_path.exists():
@@ -605,7 +607,9 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
         else:
             rotation=0*u.arcsec
 
+
         if input_aias:
+            #print(input_aias[i])
             nunuCOM = nu_aia_coalign(t, working_dir, nushift, justCOM=True, input_aia=input_aias[i])
         else:
             nunuCOM = nu_aia_coalign(t, working_dir, nushift, justCOM=True)
@@ -630,6 +634,8 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
         try:
             with open(file, 'rb') as f:
                 data = pickle.load(f)
+            #print('datamap')
+            #print(data['map'])
             dict = nu_aia_coalign(t, working_dir, nunushift, save_dict=True, input_aia = data['map'],
                                      savefigdir=working_dir+'/coalign_images/')
         except FileNotFoundError: 

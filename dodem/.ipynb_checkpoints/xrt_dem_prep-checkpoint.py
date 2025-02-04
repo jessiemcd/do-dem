@@ -513,7 +513,7 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
     if ones > 0:
         print('Saturation in ', regxmap.meta['ec_fw1_'], ' at ', regxmap.meta['date_obs'], ', skipping.')
         print(ones, ' total saturated pixels.')
-        if plot==True:
+        if plot:
             fig = plt.figure(figsize=(9, 7))
             regxmap.plot()
             plt.savefig(saveimage+'_saturation_excluded_xrt_image.png')
@@ -593,7 +593,8 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
                 SkyCoord(*region_data['center'], frame=subm.coordinate_frame ),
                 region_data['radius']
             ) 
-            
+
+        #plot=True
         if plot:
             fig = plt.figure(figsize=(9, 7))
             ax = fig.add_subplot(projection=subm)
@@ -602,8 +603,12 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see           
             plt.colorbar(norm=norm)
             plt.savefig(saveimage+'_input_region_xrt_image.png')    
-        
-        data = get_region_data(subm, region, b_full_size=True, fill_value=-20)            
+
+        try:
+            data = get_region_data(subm, region, b_full_size=True, fill_value=-20)      
+        except ValueError:
+            print('Suspect region extends off XRT image. Run with plot=True to confirm. Quitting.')
+            return None
         positive_pix = data[np.where(data > 0)]
         xdnspx=np.mean(positive_pix)/dur/chipsum**2
         uncertainty_list = (1 + np.sqrt(positive_pix + 0.75))/dur
@@ -684,7 +689,7 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
     
     if xdnspx < 0:
         print('Negative XRT emission - excluding file.')
-        if plot==True:
+        if plot:
                 fig = plt.figure(figsize=(9, 7))
                 regxmap.plot()
                 plt.savefig(saveimage+'_exposure_excluded_xrt_image.png')
@@ -792,6 +797,7 @@ def get_region_data(map_obj: sunpy.map.Map,
 
     map_data = map_obj.data
     #print(map_obj.wcs)
+    #print(dir(map_obj))
     reg_mask = (region.to_pixel(map_obj.wcs))
     #print(dir(reg_mask))
     reg_mask=reg_mask.to_mask()
@@ -799,11 +805,21 @@ def get_region_data(map_obj: sunpy.map.Map,
     #print(reg_mask.bbox)
     xmin, xmax = reg_mask.bbox.ixmin, reg_mask.bbox.ixmax
     ymin, ymax = reg_mask.bbox.iymin, reg_mask.bbox.iymax
-    #print('bound values:', xmin, xmax, ymin, ymax)
-    #print('Shape of reg_mask data:', reg_mask.data.shape)
-    #print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
-    #print('Shape of map data, no change:', map_data.shape)
-    #print('Y bound max-min, X bound max-min:', ymax-ymin, xmax-xmin)
+
+    #Troubleshooting case where region extends outside image; for now just excluding these.
+    # print('bound values:', xmin, xmax, ymin, ymax)
+    # blist = [xmin, xmax, ymin, ymax]
+    # xmin, xmax, ymin, ymax = [l if l>=0 else 0 for l in blist]
+    
+    # print('bound values:', xmin, xmax, ymin, ymax)
+    
+    # print('Shape of reg_mask data:', reg_mask.data.shape)
+    # print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
+    # print('Shape of map data, no change:', map_data.shape)
+    # print('Y bound max-min, X bound max-min:', ymax-ymin, xmax-xmin)
+
+    # print(map_data.shape)
+    # print(map_data[ymin:ymax, :].shape)
     
     region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
 

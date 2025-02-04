@@ -20,7 +20,7 @@ def make_timestring(time):
     return timestring+'_'+stopstring
 
 
-def load_DEM(time, filename):
+def load_DEM(filename):
     """
     Take in a DEM file (saved output from dodem.dodem) + return dictionary of results + inputs.
     
@@ -30,14 +30,13 @@ def load_DEM(time, filename):
                         names+locations assumed).
     """
     
+    with open(filename, 'rb') as f:
+        data = pickle.load(f)
+
+    time = data['time_interval']
     timestring=make_timestring(time)
     
-    file=filename
-    
-    with open(file, 'rb') as f:
-        data = pickle.load(f)
-        
-    return data, timestring
+    return data, timestring, time
 
 def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
     """
@@ -906,10 +905,10 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
     return powerlaws    
     
       
-def get_DEM_params(time, file):
+def get_DEM_params(file):
     
     """
-    For a given time interval (pair of astropy time objects), fetch assorted DEM result parameters 
+    For a given dem results file, fetch assorted DEM result parameters 
     (written to work with output files named in the style used by dodem.high_temp_analysis(), where 
     the maximum temperature (maxT) is an optional input - default logT=7.2). 
     
@@ -935,7 +934,7 @@ def get_DEM_params(time, file):
     """
     
 
-    data, timestring = load_DEM(time, file)
+    data, timestring, time = load_DEM(file)
     
     
     #MAIN DEM

@@ -215,9 +215,49 @@ def load_nufiles(f):
     return dat, hdr
 
 
+def get_exposures(target_dict, dogoes=False):
+
+    keys = target_dict.keys()
+    
+    all_effective_exposure=0*u.min
+    all_duration=0*u.min
+    all_all_goes=[]
+    for key in keys:
+        ARdict = target_dict[key]
+        durations, total, lvttotal = get_durations(ARdict['datapaths'])
+        print(key)
+        print('Duration: ', np.round(total, 2), '| Effective Exposure: ', np.round(lvttotal,2), '| Livetime %: ', np.round((lvttotal/total),2))
+    
+        target_dict[key]['orbit durations'] = durations
+        target_dict[key]['total duration'] = total
+        target_dict[key]['total livetime'] = lvttotal
+    
+        all_effective_exposure += lvttotal
+        all_duration += total
+    
+        if dogoes:
+            allminmax, allstrings, goes_per_orbit, goes_per_orbit_strings = ana.all_obs_goes(ARdict['datapaths'], satellite=ARdict['goes_satellite'])
+            target_dict[key]['AR GOES min, max vals'] = allminmax
+            target_dict[key]['AR GOES min, max strings'] = allstrings
+            target_dict[key]['orbit GOES min, max vals'] = goes_per_orbit
+            target_dict[key]['orbit GOES min, max strings'] = goes_per_orbit_strings
+            print('')
+            all_all_goes.append(allminmax)
+    
+    
+    print('')
+    print('Total Dataset Effective Exposure: ', all_effective_exposure.to(u.h))
+    print('Total Dataset Observation Duration: ', all_duration.to(u.h))
+    
+    if dogoes:
+        print('GOES - all-dataset: ')
+        all_all_goes_vals_ = [vv.value for vv in all_all_goes]*all_all_goes[0].unit
+        allminmax, allstrings = goes_minmax(all_all_goes_vals_)
 
 
-def single_gauss_prep(key, plot=True):
+
+
+def single_gauss_prep(key, plot=True, guess=[]):
 
 
     with open('all_targets.pickle', 'rb') as f:
@@ -237,7 +277,7 @@ def single_gauss_prep(key, plot=True):
     gauss_stats=[]
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
-        res = g2d.per_orbit_onegauss_params(id_dirs[i], guess=[], plot=plot)
+        res = g2d.per_orbit_onegauss_params(id_dirs[i], guess=guess, plot=plot)
         gauss_stats.append(res)
 
 
@@ -287,7 +327,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4):
     #This is where I'm putting my XRT level-1 data and grade maps:
     xrt_path=working_dir+'/XRT_for_DEM/'
     xrt=True
-    plot_xrt=False
+    plot_xrt=True
     from astropy import units as u
     exposure_dict={'Be_thin': [1*u.s, 10*u.s],
                     'Be_med': [],
@@ -361,7 +401,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4):
     
                                         #xrt related
                                        xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
-                                        xrt_exposure_dict=exposure_dict,
+                                        xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
                                         input_xrt_region="circle", input_xrt_region_dict=region_input)
         print('')
 
