@@ -1,4 +1,7 @@
 # do-dem
+
+NOTE: UNDER CONSTRUCTION - If you're interested in using these tools, please talk to me!
+
 Code to prepare data from NuSTAR and other instruments for use in DEM analysis, do DEMs (either using DEMREG or xrt_dem_iterative2), and visualize results.
 
 For specifics on what was done in the May 29 2018 AR DEM analysis, see the Duncan_et_al_2024_Process folder.
