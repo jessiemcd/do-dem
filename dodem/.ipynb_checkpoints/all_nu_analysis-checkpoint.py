@@ -8,6 +8,7 @@ from sys import path as sys_path
 sys_path.append(path_to_dodem+'/dodem/')
 
 import time_interval_selection as tis
+import visualize_dem_results as viz
 import gauss2D as g2d
 
 
@@ -408,7 +409,126 @@ def do_key_dem(key, missing_last=False, missing_orbit=4):
 
 
 
+def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=5):
+    
+    import glob
+    
+    import pandas as pd
+    import astropy.time
+    
+    df = pd.read_csv('fpmA.csv')
+    starts = df['flare_start'].values
+    stops = df['flare_end'].values
+    
+    from astropy import units as u
+    early_starts = [(astropy.time.Time(s)-2*u.min) for s in starts]
+    late_stops = [(astropy.time.Time(s)+2*u.min) for s in stops]
 
+    if all:
+        res_files = glob.glob('./compact_results/*')
+    elif key:
+        res_files = glob.glob('./compact_results/*'+key+'*.pickle')
+    else:
+        print('Either set all=True, or select a key!')
+    res_files.sort()
+    
+    all_above10s_flares = []
+    all_above10s_non = []
+    all_above10s=[]
+    times = []
+    durations =  []
+    
+    for f in res_files:
+        flare=False
+    
+        data, timestring, time = viz.load_DEM(f)
+        times.append(time)
+        dur = (time[1]-time[0]).to(u.s)
+        durations.append(dur)
+        time_mult = round(dur.value/seconds_per)
+    
+        b4 = [s < time[0] for s in early_starts]
+        ea = [s > time[0] for s in late_stops]
+        es = np.where(np.logical_and(b4, ea))
+    
+        if es[0].size > 0:
+            flare=True
+    
+        b4 = [s > time[0] for s in early_starts]
+        ea = [s < time[1] for s in early_starts]
+        es = np.where(np.logical_and(b4, ea))
+    
+        if es[0].size > 0:
+            flare=True
+        
+        res = viz.get_DEM_params(f)
+    
+        m1, max1, above5_, above7_, above10_, \
+            above_peak, below_peak, above_635, below_635, \
+               data['chanax'], data['dn_in'], data['edn_in'], \
+                    powerlaws, EMT_all, EMT_thresh = res
+
+
+    
+        if flare:
+            if time_weighted:
+                #print(time_mult)
+                #print([above10_[0] for i in range(0,time_mult)])
+                all_above10s_flares.extend([above10_[0] for i in range(0,time_mult)])
+            else:
+                all_above10s_flares.append(above10_[0])
+        else:
+            if time_weighted:
+                #print(time_mult)
+                #print([above10_[0] for i in range(0,time_mult)])
+                all_above10s_non.extend([above10_[0] for i in range(0,time_mult)])
+            else:  
+                all_above10s_non.append(above10_[0])
+        
+        if time_weighted:
+            all_above10s.extend([above10_[0] for i in range(0,time_mult)])
+        else:
+            all_above10s.append(above10_[0])
+
+    # #print(durations)
+    # for d in durations:
+    #     print(round(d.value/5))
+
+    if plot:
+
+        area_i = 100**2
+        area_m = np.pi*150**2
+        #print(area_i, area_m)
+        factor = area_m/area_i
+        factor = 1
+        
+        from matplotlib import pyplot as plt 
+        
+        logbins = np.geomspace(np.min(all_above10s), np.max(all_above10s), 50)
+        
+        fig, ax = plt.subplots(figsize=(15,4), tight_layout = {'pad': 1})
+        
+        ax.hist(all_above10s, bins=logbins, color='green', edgecolor='black', label='All bins')
+        ax.hist(np.array(all_above10s_non)*factor, bins=logbins, color='skyblue', edgecolor='black', label='Non-flare time bins')
+        ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during Reed's flares")
+        ax.set_xscale('log')
+        ax.axvline(1.8e22, color='Red')
+        ax.axvline(1.5e23, color='Red')
+        ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
+        ax.set_ylabel('Number of intervals')
+        ax.set_xlabel('EM Integrated >10 MK')
+        if key:
+            ax.set_title(key)
+        else:
+            ax.set_title('All')
+        ax.legend()
+        if time_weighted:
+            plt.savefig(key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot.png')
+        else:
+            plt.savefig(key+'_above10splot.png')
+        
+
+    return all_above10s, all_above10s_flares, all_above10s_non
 
 
 
