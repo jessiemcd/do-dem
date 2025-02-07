@@ -128,7 +128,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
             print('Re-doing with a plot so you can check if everything is okay – maybe tweak your guess(es)?')
             g2d.nu_fit_gauss(evt_file, twogaussians=True, boxsize=200, plot=True, plotmoments=False, guess=guess, guess2=guess2,
                             plotfile=Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_twogauss_problem_plot.png')
-            #return
+            return
 
         if direction == 'east':
             center_cord = worldcens[np.argmin([worldcens[0].Tx.value, worldcens[1].Tx.value])]            

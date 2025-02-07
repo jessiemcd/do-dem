@@ -295,8 +295,49 @@ def single_gauss_prep(key, plot=True, guess=[]):
 
 
 
+def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN'):
 
-def do_key_dem(key, missing_last=False, missing_orbit=4):
+
+    with open('all_targets.pickle', 'rb') as f:
+        data = pickle.load(f)
+    
+    ARDict = data[key]
+    
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    working_dir = ARDict['working_dir']
+    
+    #Make a new working directory for prepped data/etc if it doesn't yet exist
+    save_path = pathlib.Path(working_dir)
+    if not save_path.exists():
+        save_path.mkdir()
+
+    gauss_stats=[]
+    for i in range(0, len(id_dirs)):
+        #guess, fast_min_factor 
+        res = g2d.per_orbit_twogauss_params(id_dirs[i], sep_axis=sep_axis, guess=guess, guess2=guess2, plot=plot)
+        gauss_stats.append(res)
+        print('')
+
+    print(gauss_stats)
+
+
+    ARDict['gauss_stats'] = gauss_stats
+
+    data[key] = ARDict
+    
+    with open('all_targets.pickle', 'wb') as f:
+        # Pickle the 'data' dictionary using the highest protocol available.
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
+
+    ##where: where to find templates + place scripts.
+    #tis.make_tis_scripts(obsids, key, where='./')   
+
+
+
+
+
+def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -328,7 +369,6 @@ def do_key_dem(key, missing_last=False, missing_orbit=4):
     #This is where I'm putting my XRT level-1 data and grade maps:
     xrt_path=working_dir+'/XRT_for_DEM/'
     xrt=True
-    plot_xrt=True
     from astropy import units as u
     exposure_dict={'Be_thin': [1*u.s, 10*u.s],
                     'Be_med': [],
@@ -512,11 +552,13 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         ax.hist(np.array(all_above10s_non)*factor, bins=logbins, color='skyblue', edgecolor='black', label='Non-flare time bins')
         ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during Reed's flares")
         ax.set_xscale('log')
+        ax.set_xlim([1e18,1e25])
         ax.axvline(1.8e22, color='Red')
         ax.axvline(1.5e23, color='Red')
         ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
         ax.set_ylabel('Number of intervals')
         ax.set_xlabel('EM Integrated >10 MK')
+        
         if key:
             ax.set_title(key)
         else:

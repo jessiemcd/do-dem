@@ -12,7 +12,7 @@ import glob
 
 
 
-def make_tis_scripts(obsids, key, where='./'):
+def make_tis_scripts(obsids, key, where='./scripts/'):
 
     pystrings = []
     
@@ -176,8 +176,22 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss'):
         res = find_time_intervals_plus(id, timerange, working_dir, erange=erange, 
                                lctype=lctype, fast_min_factor=fast_min_factor, countmin=countmin,
                               minimum_seconds=minimum_seconds, shush=False, force_both_fpm_always=True,
-                                      nuradius=nuradius, energy_percents=True, guess=guess, onegauss=True)    
+                                      nuradius=nuradius, energy_percents=True, guess=guess, onegauss=True)   
 
+
+    if method=='doublegauss':
+        id = id_dirs[index]
+        sep_axis, guess, guess2, fast_min_factors = gauss_stats[index]
+
+        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+        timerange = [time0, time1]
+        print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+        
+        res = two_source_tis(timerange, id, working_dir, nuradius, sep_axis,
+                  guess=guess, guess2=guess2, fast_min_factors=fast_min_factors,
+                  erange=erange, lctype=lctype, countmin=countmin, minimum_seconds=minimum_seconds, 
+                  shush=False, force_both_fpm_always=True)
     
 
 

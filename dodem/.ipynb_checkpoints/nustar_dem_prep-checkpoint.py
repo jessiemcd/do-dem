@@ -270,9 +270,16 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     if edit_regfile: 
         #print('Twogauss set to: ', twogauss)
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
-        newregfile, percent = rf.get_file_region(sun_file[0], time[0], time[1], regfile, centroid_region=centroid_region, 
+        res = rf.get_file_region(sun_file[0], time[0], time[1], regfile, centroid_region=centroid_region, 
                                                  radius=nuradius,working_dir=nustar_path, efilter=False, 
-                                                twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2)
+                                                twogauss=twogauss, onegauss=onegauss, direction=direction, 
+                                                 guess=guess, guess2=guess2)
+        if res is None:
+            return
+        else:
+            newregfile, percent = res
+
+            
     else:
         newregfile=regfile
 
@@ -356,7 +363,11 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
-        return
+        if actual_total_counts:
+            print('Region issue, returning 0 counts to force longer time interval in TIS.')
+            return (0, False)
+        else:  
+            return
     
     if actual_total_counts:
         rate, erate, nutrs, nu_tresp, nu_logt, fpm, atc = res
@@ -381,7 +392,11 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
-        return
+        if actual_total_counts:
+            print('Region issue, returning 0 counts to force longer time interval in TIS.')
+            return (0, False)
+        else:  
+            return
     
     if actual_total_counts:
         rate, erate, nutrs, nu_tresp, nu_logt, fpm, atc = res

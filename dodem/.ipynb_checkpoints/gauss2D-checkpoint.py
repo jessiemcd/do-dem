@@ -328,7 +328,7 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
     percent_estimate = [np.mean(percents1), np.mean(percents2)]
     fast_min_factors = [round(1/pe*2) for pe in percent_estimate]
     
-    return sep_axis, guess, fast_min_factors
+    return sep_axis, guess, guess2, fast_min_factors
 
 
 def per_orbit_onegauss_params(in_dir, guess=[], plot=True):

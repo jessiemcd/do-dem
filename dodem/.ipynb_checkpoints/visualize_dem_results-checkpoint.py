@@ -1027,7 +1027,7 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
         print(timestring)
         file=working_dir+\
             timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
-        params=get_DEM_params(t, file)
+        params=get_DEM_params(file)
         m1, max1, above5, above7, above10, \
                above_peak, below_peak, above_635, below_635,\
                chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
