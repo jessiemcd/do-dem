@@ -34,6 +34,36 @@ Various code related to NuSTAR data regions:
 
 """
 
+def plot_file_region(evt_file, time0, time1, regfile):
+    #Read in .evt file
+    with fits.open(evt_file) as hdu:
+        evt_data = hdu[1].data
+        hdr = hdu[1].header
+
+    nustar_map = nustar.map.make_sunpy(evt_data, hdr)
+    bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+    tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+    submap = nustar_map.submap(bottom_left=bl, top_right=tr)
+    cmap = plt.cm.get_cmap('plasma')
+    
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111, projection=nustar_map)
+    submap.plot(axes=ax, cmap='plasma')
+
+    offset, rad = read_regfile(regfile, time0, time1, 'hourangle')
+
+    center = SkyCoord( *(offset[0].value, offset[1].value)*u.arcsec, frame=submap.coordinate_frame)
+    region = CircleSkyRegion(
+            center = center,
+            radius = rad
+        )
+    og_region = region.to_pixel(submap.wcs)
+    og_region.plot(axes=ax, color='green', ls='--', lw=3)
+
+    plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_input_file_region.png')
+    plt.close(fig)
+    
+
 def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='hourangle',
                    centroid_region=False, radius=150, working_dir='./', efilter=False,
                    twogauss=False, onegauss=False, direction='', guess=[], guess2=[]):

@@ -5,6 +5,10 @@ from astropy.io import fits
 import scipy
 import nustar_pysolar as nustar
 import glob
+from astropy.coordinates import SkyCoord
+from regions import CircleSkyRegion
+from astropy import coordinates as coord
+import copy
 
 import nustar_utilities as nuutil
 import nustar_dem_prep as nu
@@ -17,10 +21,15 @@ def abs_dif_cord(cord):
 
 
 def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, plotfile='',
-                guess=[], guess2=[]):
+                guess=[], guess2=[], plotregion=[], plotgaussregions=False, 
+                 write_regions=False, region_dir='./'):
     """Takes in a nustar .evt file and fits one (or two) 2D gaussians 
     to the distribution of data once made into a sunpy map.
     """
+
+    obsid = file.split('/')[-1][2:13]
+    fpm = file.split('/')[-1][13]
+    #print(fpm)
     
     #Read in .evt file
     with fits.open(file) as hdu:
@@ -98,18 +107,49 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
             #fig = plt.figure(figsize=(6,6))
             ax = fig.add_subplot(122, projection=nustar_map)
             nustar_map.plot(axes=ax)
+            if plotregion:
+                for r in plotregion:
+                    center = SkyCoord( *(r['centerx'], r['centery'])*u.arcsec, frame=nustar_map.coordinate_frame)
+                    region = CircleSkyRegion(
+                            center = center,
+                            radius = r['radius'] * u.arcsec
+                        )
+                    og_region = region.to_pixel(nustar_map.wcs)
+                    og_region.plot(axes=ax, color='green', ls='--', lw=3)
 
+        num=0
         worldcens=[]
         for cen in [cen1_, cen2_]:
 
             cen1_world = nustar_map.pixel_to_world(cen[0]*u.pix, cen[1]*u.pix)
-            #print(cen1_world)
+            print(cen1_world.Tx, cen1_world.Ty)
+            print('')
             if plot:
                 ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                          label='Center')
+
+                if plotgaussregions:
+                    region = CircleSkyRegion(
+                            center = cen1_world,
+                            radius = 150 * u.arcsec
+                        )
+                    og_region = region.to_pixel(nustar_map.wcs)
+                    og_region.plot(axes=ax, color='red', ls='--', lw=3)
+
+                if write_regions:
+                    midway = time0 + (time1-time0).to(u.s).value/2*u.s
+                    region = CircleSkyRegion(
+                            center = cen1_world,
+                            radius = 150 * u.arcsec
+                        )
+                    
+                    write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_'+str(num))
+                    num+=1
+                    
             #print(cen1_world.Tx, cen1_world.Ty)
             
             worldcens.append(cen1_world)
+            
         if plot:    
             ax.set_xlim((cen1_[0]-boxsize), (cen1_[0]+boxsize))
             ax.set_ylim((cen1_[1]-boxsize), (cen1_[1]+boxsize))
@@ -131,11 +171,31 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
             #fig = plt.figure(figsize=(6,6))
             ax = fig.add_subplot(122, projection=nustar_map)
             nustar_map.plot(axes=ax)
+            if plotregion:
+                for r in plotregion:
+                    center = SkyCoord( *(r['centerx'], r['centery'])*u.arcsec, frame=nustar_map.coordinate_frame)
+                    region = CircleSkyRegion(
+                            center = center,
+                            radius = r['radius'] * u.arcsec
+                        )
+                    og_region = region.to_pixel(nustar_map.wcs)
+                    og_region.plot(axes=ax, color='green', ls='--', lw=3)
 
         cen1_world = nustar_map.pixel_to_world(cen1_[0]*u.pix, cen1_[1]*u.pix)
         if plot:
             ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                      label='Center')
+            print(cen1_world.Tx, cen1_world.Ty)
+            print('')
+            if plotgaussregions:
+                region = CircleSkyRegion(
+                        center = cen1_world,
+                        radius = 150 * u.arcsec
+                    )
+                og_region = region.to_pixel(nustar_map.wcs)
+                og_region.plot(axes=ax, color='red', ls='--', lw=3)
+
+            
             ax.set_xlim((cen1_[0]-boxsize), (cen1_[0]+boxsize))
             ax.set_ylim((cen1_[1]-boxsize), (cen1_[1]+boxsize))
             if plotfile:
@@ -143,6 +203,87 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
                 plt.close()
     
     return params, cen1_world, nustar_map, time0, time1
+
+
+def write_regfile(regfile, time, region, newfile='sample'):
+    
+    """
+    
+    Read in a region file + change the region specified.
+    
+    Time (astropy.time.Time object) for coordinate conversion needed.
+    
+    Expects region file made in ds9 GUI, circular region, in fk5 coordinates, like:
+        (RA, DEC, RAD) in (hourangle, degrees, arcsec).
+        
+    Returns name of new region file.
+    
+    Keywords
+    --------
+    
+    regfile - existing circular region file (to be used as a template for our new one).
+    region - expects circular region object
+    time - data time interval
+    newfile - name of new region file to save
+
+    """
+
+    #Open the old file, put contents into string
+    f = open(regfile, "r")
+    regstring = f.read()
+    #print(regstring)
+    cs = regstring.split('\n')[-2]
+    cs = cs.split('(')[-1]
+    cs = cs.split(')')[0]
+    cs = cs.split(',')
+    #print(cs)
+    
+    newcs = copy.deepcopy(cs)
+    newcs[2]=str(region.radius.value)+'"'
+    
+    #print([region.center.Tx.value, region.center.Ty.value]*u.arcsec)
+
+    #Get RA, DEC from region in heliocentric coordinates
+    RA, DEC = nuutil.get_sky_position(time, [region.center.Tx.value, region.center.Ty.value]*u.arcsec)
+    #print(RA,DEC)
+    RA = coord.Angle(RA, u.deg)
+    DEC = coord.Angle(DEC, u.deg)
+    #print(DEC)
+    newcs[0] = RA.to_string(unit=u.hour, sep=':')[0:-4]
+    decstring=DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    if decstring[0] == '-':
+        newcs[1] = DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    else:
+        newcs[1] = '+'+DEC.to_string(unit=u.deg, sep=':')[0:-5]
+        
+    #print(newcs[1])
+    
+
+    #Edit copy of region file contents string
+    newcs_string = 'circle('+newcs[0]+','+newcs[1]+','+newcs[2]+')'
+    cs = regstring.split('\n')[-2]
+    split_text = regstring.split('\n')
+    new_split_text = copy.deepcopy(split_text)
+    new_split_text[-2] = newcs_string
+    new_regstring = '\n'.join(new_split_text)
+    #print(new_regstring)
+    
+    #Open the new region file + write to it
+    text_file = open(newfile+".reg", "w")
+    n = text_file.write(new_regstring)
+    text_file.close()
+    
+    f = open(newfile+".reg", "r")
+    regstring = f.read()
+
+    
+    return newfile+".reg"
+
+
+
+
+
+
 
 #Functions to do 2D fitting of dot locations. 
 #First 3 functions adapted from https://scipy-cookbook.readthedocs.io/items/FittingData.html
@@ -265,7 +406,8 @@ def two_gaussians(height, center_x, center_y, width_x, width_y,
                 -(((center_x2-x)/width_x2)**2+((center_y2-y)/width_y2)**2)/2)
 
 
-def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=True):
+def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=True, plotregion=[],
+                             plotgaussregions=False, write_regions=False, region_dir='./'):
 
     """
     Did you need a guess for one of the centers to make it work? Set it here (data coordinates - look
@@ -291,8 +433,10 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
     percents=[]
     for s in sunfiles:
         #If you don't like your two gaussians, try again with the "guess" keyword – enter a coordinate around where
-        #your missing gaussian should be – in pixel coorindates as shown on the left plot.
-        res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2)
+        #your missing gaussian should be – in pixel coordindates as shown on the left plot.
+        res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
+                          plotregion=plotregion, plotgaussregions=plotgaussregions, write_regions=write_regions,
+                          region_dir=region_dir)
         params, worldcens, nustar_map, time0, time1 = res
         separation = abs_dif_cord(worldcens)
         print('Separation between double centers: ', separation)
@@ -331,7 +475,7 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
     return sep_axis, guess, guess2, fast_min_factors
 
 
-def per_orbit_onegauss_params(in_dir, guess=[], plot=True):
+def per_orbit_onegauss_params(in_dir, guess=[], plot=True, plotregion=[], plotgaussregions=False):
 
     """
     Test the fitting on the whole orbit, and set a guess if needed. 
@@ -347,7 +491,8 @@ def per_orbit_onegauss_params(in_dir, guess=[], plot=True):
     for s in sunfiles:
         #If you don't like your gaussian, try again with the "guess" keyword – enter a coordinate around where
         #your missing gaussian should be – in pixel coorindates as shown on the left plot.
-        res = nu_fit_gauss(s, twogaussians=False, boxsize=200, plot=plot, plotmoments=False, guess=guess)
+        res = nu_fit_gauss(s, twogaussians=False, boxsize=200, plot=plot, plotmoments=False, guess=guess,
+                           plotregion=plotregion, plotgaussregions=plotgaussregions)
         params, worldcen, nustar_map, time0, time1 = res
         
         from regions import CircleSkyRegion

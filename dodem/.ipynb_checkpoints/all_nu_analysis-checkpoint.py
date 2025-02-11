@@ -258,7 +258,8 @@ def get_exposures(target_dict, dogoes=False):
 
 
 
-def single_gauss_prep(key, plot=True, guess=[]):
+def single_gauss_prep(key, plot=True, guess=[], make_scripts=True,
+                     plotregion=[], plotgaussregions=False):
 
 
     with open('all_targets.pickle', 'rb') as f:
@@ -278,7 +279,8 @@ def single_gauss_prep(key, plot=True, guess=[]):
     gauss_stats=[]
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
-        res = g2d.per_orbit_onegauss_params(id_dirs[i], guess=guess, plot=plot)
+        res = g2d.per_orbit_onegauss_params(id_dirs[i], guess=guess, plot=plot,
+                                           plotregion=plotregion, plotgaussregions=plotgaussregions)
         gauss_stats.append(res)
 
 
@@ -290,12 +292,14 @@ def single_gauss_prep(key, plot=True, guess=[]):
              # Pickle the 'data' dictionary using the highest protocol available.
              pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
-    #where: where to find templates + place scripts.
-    tis.make_tis_scripts(obsids, key, where='./')   
+    if make_scripts:
+        #where: where to find templates + place scripts.
+        tis.make_tis_scripts(obsids, key, where='./scripts/')   
 
 
 
-def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN'):
+def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
+                      plotregion=[], plotgaussregions=False, write_regions=False, region_dir='./'):
 
 
     with open('all_targets.pickle', 'rb') as f:
@@ -315,7 +319,10 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN'):
     gauss_stats=[]
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
-        res = g2d.per_orbit_twogauss_params(id_dirs[i], sep_axis=sep_axis, guess=guess, guess2=guess2, plot=plot)
+        res = g2d.per_orbit_twogauss_params(id_dirs[i], sep_axis=sep_axis, guess=guess, guess2=guess2, plot=plot,
+                                           plotregion=plotregion, plotgaussregions=plotgaussregions, 
+                                            write_regions=write_regions, region_dir=region_dir)
+                        
         gauss_stats.append(res)
         print('')
 
@@ -330,9 +337,10 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN'):
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
-    ##where: where to find templates + place scripts.
-    #tis.make_tis_scripts(obsids, key, where='./')   
-
+    if make_scripts:
+        ##where: where to find templates + place scripts.
+        tis.make_tis_scripts(obsids, key, where='./scripts/', tworegion=True)   
+    
 
 
 
@@ -544,7 +552,7 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         
         from matplotlib import pyplot as plt 
         
-        logbins = np.geomspace(np.min(all_above10s), np.max(all_above10s), 50)
+        logbins = np.geomspace(1e18, 1e25, 50)
         
         fig, ax = plt.subplots(figsize=(15,4), tight_layout = {'pad': 1})
         
@@ -556,7 +564,8 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         ax.axvline(1.8e22, color='Red')
         ax.axvline(1.5e23, color='Red')
         ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
-        ax.set_ylabel('Number of intervals')
+        if time_weighted:
+            ax.set_ylabel('Number of '+str(seconds_per)+'s intervals')
         ax.set_xlabel('EM Integrated >10 MK')
         
         if key:
@@ -565,9 +574,9 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
             ax.set_title('All')
         ax.legend()
         if time_weighted:
-            plt.savefig(key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot.png')
+            plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot.png')
         else:
-            plt.savefig(key+'_above10splot.png')
+            plt.savefig('figures_etc/'+key+'_above10splot.png')
         
 
     return all_above10s, all_above10s_flares, all_above10s_non

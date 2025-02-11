@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pickle
 import lightcurves as lc
 import nustar_dem_prep as nu
+import region_fitting as rf
 
 import matplotlib.dates as mdates
 import astropy.time
@@ -12,7 +13,7 @@ import glob
 
 
 
-def make_tis_scripts(obsids, key, where='./scripts/'):
+def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False):
 
     pystrings = []
     
@@ -23,8 +24,13 @@ def make_tis_scripts(obsids, key, where='./scripts/'):
         pystring = 'python '+pyfile+' > '+' tis_out_'+obsid+'.txt &'
         #print(pystring)
         pystrings.append(pystring)
-        
-        with open(where+'run_tis_template.py', 'r') as f:
+
+        if tworegion:
+            templatefile = where+'run_tis_template_tworegion.py'
+        else:
+           templatefile = where+'run_tis_template.py'
+            
+        with open(templatefile, 'r') as f:
             lines = f.read()
             llist = lines.split('\n')
             #print(productslist)
@@ -119,7 +125,7 @@ def tis_wrapper(key, all_targets, method='singlegauss'):
         
     
 
-def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss'):
+def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set_regionfiles=False):
 
     """
     Same as the above, but just one orbit rather than a loop (to run multiple orbits in ||).
@@ -187,11 +193,19 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss'):
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         timerange = [time0, time1]
         print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+
+        if use_set_regionfiles:
+            obsid = obsids[index]
+            fpm='A'
+            regionfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
+            print(regionfiles)
+        else:
+            regionfiles=[]
         
         res = two_source_tis(timerange, id, working_dir, nuradius, sep_axis,
                   guess=guess, guess2=guess2, fast_min_factors=fast_min_factors,
                   erange=erange, lctype=lctype, countmin=countmin, minimum_seconds=minimum_seconds, 
-                  shush=False, force_both_fpm_always=True)
+                  shush=False, force_both_fpm_always=True, regionfiles=regionfiles)
     
 
 
@@ -286,7 +300,7 @@ def real_count_lightcurves(datapath, timerange, working_dir, erange):
 def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
                   guess=[], guess2=[], erange=[6.,10], lctype='corr54', fast_min_factors=[2,2],
                   countmin=10, minimum_seconds=30, shush=False,
-                  force_both_fpm_always=False):
+                  force_both_fpm_always=False, regionfiles=[]):
 
     """
     Two-source time interval selection. Makes separate working directories and does everything twice.
@@ -303,6 +317,26 @@ def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
         print("Please chose either east/west ('EW') or south/north ('SN') orientation for your two regions!")
         return
 
+    if regionfiles:
+        ordered_files=[]
+        twogauss=False
+        testvals=[]
+        for ff in regionfiles:
+            offset, rad = rf.read_regfile(ff, timerange[0], timerange[1], 'hourangle')
+            if sep_axis=='EW':
+                testvals.append(offset[0].value)
+            if sep_axis=='SN':
+                testvals.append(offset[1].value)
+                
+        ordered_files = [regionfiles[i] for i in np.argsort(testvals)]
+
+        # print(regionfiles)
+        # print(testvals)
+        # print(np.argsort(testvals))
+        # print(ordered_files)
+        # return
+        
+
     for i in [0,1]:
         dir = directions[i]
         fmf = fast_min_factors[i]
@@ -311,19 +345,24 @@ def two_source_tis(timerange, in_dir, working_base, nuradius, sep_axis,
         if not save_path.exists():
             save_path.mkdir()
 
+        if regionfiles:
+            regionfile = ordered_files[i]
+
         res = find_time_intervals_plus(in_dir, timerange, working_dir, erange=erange, 
                            lctype=lctype, fast_min_factor=fmf, countmin=countmin,
                           minimum_seconds=minimum_seconds, shush=True,
                             twogauss=True, direction=dir, guess=guess, guess2=guess2, 
                                   nuradius=nuradius, energy_percents=True,
-                                      force_both_fpm_always=force_both_fpm_always)
+                                      force_both_fpm_always=force_both_fpm_always, 
+                                      regionfile=regionfile)
 
 
 def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, erange=[6.,10], lctype='corr54',
                             centroid_region=True, fast_min_factor=1, minimum_seconds=[],
                             force_both_fpm_always=False, shush=False,
                             twogauss=False, onegauss=False, direction='', guess=[], guess2=[], nuradius=150,
-                            energy_percents=False):    
+                            energy_percents=False,
+                            regionfile=''):    
     """
     
     Component Methods:
@@ -455,10 +494,11 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
 
                 if force_both_fpm_always:
                     check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
-                                                centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
+                                                centroid_region=centroid_region, lctype=lctype, countmin=countmin, 
                                                 force_both_fpm=True, shush=shush,
                                                 twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                                   nuradius=nuradius, energy_percents=energy_percents)
+                                                   nuradius=nuradius, energy_percents=energy_percents,
+                                               regionfile=regionfile)
                 
                 stop_yet=True
                 continue
@@ -497,7 +537,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                                                         centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
                                                         force_both_fpm=True, shush=shush,
                                                         twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                                        nuradius=nuradius, energy_percents=energy_percents)                       
+                                                        nuradius=nuradius, energy_percents=energy_percents,
+                                                       regionfile=regionfile)                       
                         stop_yet=True
                         continue
                         
@@ -513,12 +554,14 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                                     centroid_region=centroid_region,lctype=lctype, countmin=countmin, 
                                         force_both_fpm=True, shush=shush,
                                         twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                       nuradius=nuradius, energy_percents=energy_percents)
+                                       nuradius=nuradius, energy_percents=energy_percents,
+                                       regionfile=regionfile)
         else:
             check = check_interval_slow(proposed_interval, erange, datapath, obsid, working_dir, 
                                         centroid_region=centroid_region,lctype=lctype, countmin=countmin, shush=shush,
                                         twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                       nuradius=nuradius, energy_percents=energy_percents)
+                                       nuradius=nuradius, energy_percents=energy_percents,
+                                       regionfile=regionfile)
 
         print('')
         print('check: ')
@@ -632,7 +675,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
 def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, centroid_region=True,
                        lctype='corr14', countmin=10, force_both_fpm=False, shush=False,
                         twogauss=False, onegauss=False, direction='', guess=[], guess2=[], nuradius=150,
-                       energy_percents=False):
+                       energy_percents=False, regionfile=''):
     
     if lctype=='grade0':
         pile_up_corr=False
@@ -657,16 +700,24 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, centroid
     if twogauss and onegauss:
         print("Make a choice about # of gaussians, you can't have two and one!")
         return
-    
-    regfile='starter_region.reg' 
+
+    if regionfile:
+        regfile=regionfile
+        edit_regfile=False
+        #manual entry of region overrides everything else
+        centroid_region=False
+        twogauss=False
+        onegauss=False
+        
+    else:
+        regfile='starter_region.reg' 
+        edit_regfile=True
     gtifile=datapath+'event_cl/nu'+obsid+'A06_gti.fits'
-    print(gtifile)
-    print(datapath)
-    print(obsid)
+
     res = nu.combine_fpm(time_int, [erange], nustar_path, make_nustar=True,
                          pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                           gtifile=gtifile, datapath=datapath, regfile=regfile, 
-                            edit_regfile=True, actual_total_counts=True,
+                            edit_regfile=edit_regfile, actual_total_counts=True,
                             centroid_region=centroid_region, nuradius=nuradius,
                              clobber=False, countmin=countmin,
                             force_both_fpm=force_both_fpm, shush=shush,

@@ -271,7 +271,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         #print('Twogauss set to: ', twogauss)
         #Taking our solar-coordinates file, let's make a region in order to generate spectral data products!
         res = rf.get_file_region(sun_file[0], time[0], time[1], regfile, centroid_region=centroid_region, 
-                                                 radius=nuradius,working_dir=nustar_path, efilter=False, 
+                                                 radius=nuradius, working_dir=nustar_path, efilter=False, 
                                                 twogauss=twogauss, onegauss=onegauss, direction=direction, 
                                                  guess=guess, guess2=guess2)
         if res is None:
@@ -282,6 +282,10 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
             
     else:
         newregfile=regfile
+        plot_region=True
+        if plot_region:
+            rf.plot_file_region(sun_file[0], time[0], time[1], regfile)
+
 
 
     if energy_percents:
