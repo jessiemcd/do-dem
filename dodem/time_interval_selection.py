@@ -470,6 +470,13 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     """
 
     #print('Twogauss set to: ', twogauss)
+
+    timestring = timerange[0].strftime('%H-%M-%S')
+    stopstring = timerange[1].strftime('%H-%M-%S')
+    timestring=timestring+'_'+stopstring
+
+    filename = working_dir+'/'+timestring+'_'+lctype+'_'+str(erange[0])+\
+                    '-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
     
     
     #Things will break if your datapath does not end in the standard nustar obsid data directory
@@ -653,10 +660,22 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                 if tries==3:
                     print('Starting over with requirement for SIXTEEN TIMES the counts in fast interval')
                     fast_min_factor=og_fast_min_factor*16
+
+                if tries==4:
+                    print('Starting over with requirement for THIRTY-TWO TIMES the counts in fast interval')
+                    fast_min_factor=og_fast_min_factor*32
                     
-                if tries > 3:
+                if tries > 4:
                     print('It STILL did not work - weird! Quitting.')
                     #print('in tis:', timerange)
+                    if new_intervals:
+                        print('saving file at:', filename)
+                        data = {'time_intervals': new_intervals,
+                               'full_interval': [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]}
+                        with open(filename, 'wb') as f:
+                            # Pickle the 'data' dictionary using the highest protocol available.
+                            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
+                                            
                     return False, timerange                    
                         
         else:
@@ -699,13 +718,8 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     data = {'time_intervals': new_intervals,
            'full_interval': [astropy.time.Time(intervaltimes[0]), astropy.time.Time(intervaltimes[-1])]}
     
-    
-    timestring = timerange[0].strftime('%H-%M-%S')
-    stopstring = timerange[1].strftime('%H-%M-%S')
-    timestring=timestring+'_'+stopstring
-    
-    filename = working_dir+'/'+timestring+'_'+lctype+'_'+str(erange[0])+\
-                    '-'+str(erange[1])+'keV_min'+str(countmin)+'time_intervals.pickle'
+
+
     print('saving file at:', filename)
     
     with open(filename, 'wb') as f:

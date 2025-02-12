@@ -108,6 +108,9 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
             #fig = plt.figure(figsize=(6,6))
             ax = fig.add_subplot(122, projection=nustar_map)
             nustar_map.plot(axes=ax)
+            nustar_map.draw_limb()
+            levels = np.array([5, 10, 30, 50, 70, 90, 95])*u.percent 
+            nustar_map.draw_contours(levels, axes=ax, alpha=1, zorder=1)
             if plotregion:
                 num=0
                 if write_input_regions:

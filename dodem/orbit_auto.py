@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import pathlib
 import glob
+import os
 
 from astropy import units as u 
 
@@ -18,6 +19,8 @@ from nustar_tools.utils import utilities
 
 import time_interval_selection as tis
 import nustar_dem_prep as nu
+import initial_analysis as ia
+import nustar_utilities as nuutil
 
 
 def get_correlator(id_dir, fpm, t_corr):
@@ -198,6 +201,7 @@ def get_suborbits(id_dir, t_corr, min_step, plot=False):
 
 
 
+
 def get_suborbit_intervals(both_grouptimes, id_dir, working_dir, erange=[6.,10],
                           lctype='corr54',fast_min_factor=2, countmin=10,
                           minimum_seconds=30, centroid_region=True, 
@@ -249,6 +253,13 @@ def get_suborbit_intervals(both_grouptimes, id_dir, working_dir, erange=[6.,10],
 
     return bad_suborbits, all_intervals
 
+
+def find_region_dirs(working_dir):
+    
+    region_dirs = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
+    region_dirs.sort()
+    
+    return region_dirs
 
 def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orbit=0):
 
@@ -470,16 +481,46 @@ def check_region_emission(all_time_intervals, working_dir, grade='0_4', plot=Tru
 
 
 
+def get_orbit_aiamaps(aia_dir, id_dirs, wave=94):
 
+    import sunpy.map
+    from aiapy.calibrate.util import get_correction_table, get_pointing_table
+    from aiapy.calibrate import register, update_pointing, degradation, estimate_error
+
+    aiamaps = []
+    for id in id_dirs:
+        print(id)
+        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+        start = str(time0)
+        files = glob.glob(aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+'*')
+        print(start)
+        print(files)
+        amap=sunpy.map.Map(files[0])
+        #ptab = get_pointing_table(amap.date - 12 * u.h, amap.date + 12 * u.h)
+        #m_temp = update_pointing(amap, pointing_table=ptab)
+        try:
+            m = register(amap)
+        except TypeError:
+            amap.meta.pop('crpix1')
+            amap.meta.pop('crpix2')
+            print('CRPIX issue on ', files)
+            m = register(amap)
+    
+        aiamaps.append(m)
+
+    return aiamaps
     
 
-def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[], 
+def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
+                   obsid='', region_dir='',
+                   input_aia=[], 
                    grade='0_4', justCOM=False, save_dict=False,
                   savefigdir=[]):
     """
     nushift in x, y arcseconds
     """
-    import initial_analysis as ia
+    
     import pickle
 
     time = time_interval
@@ -487,25 +528,39 @@ def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[],
     stopstring = time[1].strftime('%H-%M-%S')
     timestring=timestring+'_'+stopstring
 
+    if regionmethod=='fit':
+        regionfileA = glob.glob(working_dir+timestring+'/'+'*A*sunpos*.reg')[0]
+        regionfileB = glob.glob(working_dir+timestring+'/'+'*B*sunpos*.reg')[0]
 
-    regionfileA = glob.glob(working_dir+timestring+'/'+'*A*sunpos*.reg')[0]
-    regionfileB = glob.glob(working_dir+timestring+'/'+'*B*sunpos*.reg')[0]
+    if regionmethod=='input':
+        if not obsid or not region_dir:
+            print('This method requires you specify the obsid, and the region directory.')
+            print('(set obsid and region_dir)')
+            return
+        fpm='A' #WHEN DOING MANUAL INPUT, REGIONS ARE THE SAME!
+        obsid = obsid
+        regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+        regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+        
 
-    print(regionfileA)
+    regiondictA = [regfile_to_regdict(rA, time) for rA in regionfileA]
+    regiondictB = [regfile_to_regdict(rB, time) for rB in regionfileB]
 
-    regiondictA = regfile_to_regdict(regionfileA, time)
-    regiondictB = regfile_to_regdict(regionfileB, time)
-
-    nuCOM=[regiondictA['centerx'], regiondictA['centery']]
-    
-    if justCOM:
-        return nuCOM
-
+    #print(regiondictA)
+    #print(regionfileA)
     #regionsavename=working_dir+'/'+timestring+'/'+timestring
     if not savefigdir:
-        savefigdir=working_dir+timestring
-    specific_time_evt = glob.glob(working_dir+timestring+'/'+'*cl.evt') #.sort()
+        if region_dir:
+            savefigdir=region_dir+timestring
+        else:
+            savefigdir=working_dir+timestring
+
+    #in_dir='/Users/jmdunca2/nustar/sep-2017/80310229001/'
+    #specific_time_evt = glob.glob(in_dir+'/event_cl/nu*06_cl.evt')
+    
+    specific_time_evt = glob.glob(region_dir+timestring+'/'+'*cl.evt') #.sort()
     specific_time_evt.sort()
+    #print(specific_time_evt)
 
     #if grade=='0':
     #    evtA=specific_time_evt[1]
@@ -514,6 +569,7 @@ def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[],
     if grade=='0_4':
         evtA=specific_time_evt[0]
         evtB=specific_time_evt[2]
+        #evtB=specific_time_evt[1]
 
     if grade=='21_24':
         evtA=specific_time_evt[1]
@@ -522,13 +578,13 @@ def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[],
 
 
     if input_aia:
-        m, nu_smap, aiareg = ia.nuevtplot(evtA=evtA, evtB=evtB,
+        m, nu_smap, aiareg, COMxy = ia.nuevtplot(evtA=evtA, evtB=evtB,
               savefigdir=savefigdir, AIA94=True, input_aia=input_aia,
               regiondictA=regiondictA, regiondictB=regiondictB,
              regionsave=False, #regionsavename=regionsavename, 
                              overlimb=True, nushift=nushift) 
     else:
-        m, nu_smap, aiareg = ia.nuevtplot(evtA=evtA, evtB=evtB,
+        m, nu_smap, aiareg, COMxy = ia.nuevtplot(evtA=evtA, evtB=evtB,
               savefigdir=savefigdir, AIA94=True,
               regiondictA=regiondictA, regiondictB=regiondictB,
              regionsave=False, #regionsavename=regionsavename, 
@@ -536,20 +592,116 @@ def nu_aia_coalign(time_interval, working_dir, nushift, input_aia=[],
 
 
     if save_dict:
-        dict = {'aiaregdict': aiareg,
+        dict = {'aiaregdicts': aiareg,
             'map': m,
-            'nuCOM': nuCOM,
+            'nuCOM': COMxy,
             'nushift': nushift}
     
-        file=working_dir+timestring+'/'+timestring+'_aia_region.pickle'
+        if region_dir:
+            file=region_dir+timestring+'/'+timestring+'_aia_region.pickle'
+        else:
+            file=working_dir+timestring+'/'+timestring+'_aia_region.pickle'
         with open(file, 'wb') as f:
             pickle.dump(dict, f, pickle.HIGHEST_PROTOCOL)
 
-        return dict
+        return dict, file
     
 
 
-    return aiareg, m, nuCOM
+    return aiareg, m, COMxy
+
+
+
+def per_orbit_region_adjustment(working_dir, orbit_ind, nushift=[20,0]):
+
+    import copy
+
+    #Find the top level directory for each region
+    region_dirs = find_region_dirs(working_dir)
+
+    #Find all time intervals for each region and make a big nested list
+    all_all_time_intervals=[]
+    starts=[]
+    for r in region_dirs:
+        all_time_intervals, all_time_intervals_list = find_all_intervals(r)
+        if len(all_time_intervals) != len(id_dirs):
+            print('TIS failed on at least one orbit. Orbits completed: ', len(all_time_intervals))
+            print('Orbits total: ', len(id_dirs))
+            print('Region was: ', r)
+            fixit=True
+            
+        starts_reg=[]
+        for at in all_time_intervals:
+            starts_reg.append(at[0][0])
+        starts.append(starts_reg)
+        all_all_time_intervals.append(all_time_intervals)
+    
+    #THE FOLLOWING is activated when TIS has failed for at least one orbit for at least one region (no saved 
+    #intervals file).
+    #It adds an empty string placeholder to the all_all_time_intervals array for that orbit(s) for that region.
+    #It seems to work, but if your regions are looking very off the culprit may be incorrect performance here. 
+    if fixit:
+        ls = [len(s) for s in starts]
+        longest = starts[np.argmax(ls)]
+        #Looping over # orbits in region with the most
+        for i in range(0, len(longest)):
+            #Looping over regions
+            for j in range(0, len(starts)):
+                try:
+                    test=starts[j][i]
+                except IndexError:
+                    test=''
+                if test != longest[i]:
+                    #print('no,', test, longest[i])
+                    all_all_time_intervals[j].insert(i, '')
+                    starts[j].insert(i, '')
+
+
+    #Get a list of the first interval from this orbit for each region.
+    #(with placeholders for missing TIS results, see above).
+    try:
+        first_intervals = [at[orbit_ind][0] for at in all_all_time_intervals]
+        copyintervals = copy.deepcopy(first_intervals)
+    except IndexError:
+        first_intervals=[]
+        copyintervals = []
+        if fixit:
+            intervals = [at[orbit_ind] for at in all_all_time_intervals]
+            for intr in intervals:
+                if intr:
+                    first_intervals.append(intr[0])
+                    copyintervals.append(intr[0])
+                else:
+                    copyintervals.append('')
+                    
+    #Find the longest of the first intervals across all regions. Use that time interval for plotting.      
+    durations = [(fi[1]-fi[0]).to(u.s).value for fi in first_intervals]
+    maxint = np.argmax(durations)
+    time_interval = first_intervals[maxint]
+    region_dir = region_dirs[maxint]
+    
+    obsid=obsids[orbit_ind]
+    
+    #Plot NuSTAR over AIA, and save an aia regions file in the corresponding region+time interval directory
+    dict, file = nu_aia_coalign(time_interval, working_dir, nushift, save_dict=True, input_aia=aiamaps[orbit_ind],
+                            regionmethod='input', obsid=obsid, region_dir=region_dir)
+    
+    #For all the other regions, copy the generated aia region file into their first time interval directories, as we
+    #want the same shift for all regions (and the files contain all regions. 
+    import subprocess
+    for i in range(0, len(copyintervals)):
+        time=copyintervals[i]
+        if time:
+            r = region_dirs[i]
+            timestring = time[0].strftime('%H-%M-%S')
+            stopstring = time[1].strftime('%H-%M-%S')
+            timestring=timestring+'_'+stopstring
+            regcopy = r+timestring+'/'+timestring+'_aia_region.pickle'
+            status = subprocess.call('cp '+file+' '+regcopy, shell=True)
+
+
+
+
 
 
 def coalign_based_on_prior(time_intervals, working_dir, reference_interval, dorotation=True,
@@ -685,8 +837,11 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key):
             print('Something is wrong, no prepared region file found for ', timestring)
             print('Exiting.')
             return
-            
-        aiareg = data['aiaregdict']
+
+        try:
+            aiareg = data['aiaregdict']
+        except KeyError:
+            aiareg = data['aiaregdicts']
         #print(aiareg)
     
         #orbit-specific directories
@@ -724,8 +879,19 @@ def make_interval_dicts(time_intervals, regiondict, where='./'):
     import pickle
 
     for t in time_intervals:
-        dict = copy.deepcopy(regiondict)
-        dict['time_interval'] = t
+        if not isinstance(regiondict, list):
+            regiondicts = [copy.deepcopy(regiondict)]
+        else:
+            regiondicts = copy.deepcopy(regiondict)
+
+        dict_ = {}
+
+        num=0
+        for i in range(0, len(regiondicts)):
+            r = regiondicts[i]
+            r['time_interval'] = t
+            dict_['region'+str(num)] = r
+            num+=1
 
         time = t
         timestring = time[0].strftime('%H-%M-%S')
@@ -733,9 +899,11 @@ def make_interval_dicts(time_intervals, regiondict, where='./'):
         timestring=timestring+'_'+stopstring
 
         filename = where+'/'+timestring+'_aia_prep.pickle'
+
+        #print(dict_)
         
         with open(filename, 'wb') as f:
-            pickle.dump(dict, f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(dict_, f, pickle.HIGHEST_PROTOCOL)
     
 
 def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_aia_prep',
