@@ -21,7 +21,8 @@ def abs_dif_cord(cord):
 
 
 def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, plotfile='',
-                guess=[], guess2=[], plotregion=[], plotgaussregions=False, 
+                guess=[], guess2=[], plotregion=[], write_input_regions=False,
+                 plotgaussregions=False, 
                  write_regions=False, region_dir='./'):
     """Takes in a nustar .evt file and fits one (or two) 2D gaussians 
     to the distribution of data once made into a sunpy map.
@@ -108,6 +109,9 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
             ax = fig.add_subplot(122, projection=nustar_map)
             nustar_map.plot(axes=ax)
             if plotregion:
+                num=0
+                if write_input_regions:
+                    inputcens=[]
                 for r in plotregion:
                     center = SkyCoord( *(r['centerx'], r['centery'])*u.arcsec, frame=nustar_map.coordinate_frame)
                     region = CircleSkyRegion(
@@ -116,6 +120,12 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
                         )
                     og_region = region.to_pixel(nustar_map.wcs)
                     og_region.plot(axes=ax, color='green', ls='--', lw=3)
+
+                    if write_input_regions:
+                        midway = time0 + (time1-time0).to(u.s).value/2*u.s
+                        write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
+                        num+=1
+                        inputcens.append(center)
 
         num=0
         worldcens=[]
@@ -158,8 +168,10 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
                 plt.savefig(plotfile)
                 plt.close()
 
-
-        return params, worldcens, nustar_map, time0, time1
+        if write_input_regions:
+            return params, inputcens, nustar_map, time0, time1
+        else:
+            return params, worldcens, nustar_map, time0, time1
         
     else:
         from astropy import coordinates as coord
@@ -406,8 +418,69 @@ def two_gaussians(height, center_x, center_y, width_x, width_y,
                 -(((center_x2-x)/width_x2)**2+((center_y2-y)/width_y2)**2)/2)
 
 
+def per_orbit_manual_params(in_dir, guess=[], guess2=[], plot=True, 
+                            plotregion=[], write_input_regions=True, 
+                              plotgaussregions=True, 
+                                region_dir='./'):
+
+    """
+
+    guess parameters are for the two-gaussian fit we'll be doing, as a helpful reference. We are NOT going
+    to write the gaussian-fit regions to files (for that functionality, see per_orbit_twogauss_params below).
+    
+    """
+
+    files = glob.glob(in_dir+'/event_cl/nu*06_cl.evt')
+    for f in files:
+        nu.convert_wrapper(f)
+    sunfiles=glob.glob(in_dir+'/event_cl/nu*06_cl_sunpos.evt')
+
+    percents_=[]
+    for s in sunfiles:
+        #If you don't like your two gaussians, try again with the "guess" keyword – enter a coordinate around where
+        #your missing gaussian should be – in pixel coordindates as shown on the left plot.
+        res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
+                          plotregion=plotregion, write_input_regions=write_input_regions, 
+                           plotgaussregions=plotgaussregions, 
+                          region_dir=region_dir)
+        
+        
+        params, inputcens, nustar_map, time0, time1 = res
+
+        percents=[]
+        num=0
+        for w in inputcens:
+            from regions import CircleSkyRegion
+            region = CircleSkyRegion(
+                center = w,
+                radius = 150*u.arcsec
+                )
+        
+            regdata = get_region_data(nustar_map, region, 0)
+            percent = np.sum(regdata)/np.sum(nustar_map.data)
+            percents.append(percent)
+            print('Percent of data in region '+str(num)+': ', percent)
+            num+=1
+
+        percents_.append(percents)
+
+    percents_ = np.array(percents_)
+    
+    fast_min_factors=[]
+    for i in range(0, len(inputcens)):
+        pe = np.mean(percents_[:,i])
+        fast_min_factors.append(round(1/pe*2))
+
+    #print(fast_min_factors)
+
+    return fast_min_factors
+
+
+
+
 def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=True, plotregion=[],
-                             plotgaussregions=False, write_regions=False, region_dir='./'):
+                             write_input_regions=False, 
+                              plotgaussregions=False, write_regions=False, region_dir='./'):
 
     """
     Did you need a guess for one of the centers to make it work? Set it here (data coordinates - look
@@ -435,7 +508,8 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
         #If you don't like your two gaussians, try again with the "guess" keyword – enter a coordinate around where
         #your missing gaussian should be – in pixel coordindates as shown on the left plot.
         res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
-                          plotregion=plotregion, plotgaussregions=plotgaussregions, write_regions=write_regions,
+                          plotregion=plotregion, write_input_regions=write_input_regions, 
+                           plotgaussregions=plotgaussregions, write_regions=write_regions,
                           region_dir=region_dir)
         params, worldcens, nustar_map, time0, time1 = res
         separation = abs_dif_cord(worldcens)

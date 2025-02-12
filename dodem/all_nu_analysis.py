@@ -237,7 +237,8 @@ def get_exposures(target_dict, dogoes=False):
         all_duration += total
     
         if dogoes:
-            allminmax, allstrings, goes_per_orbit, goes_per_orbit_strings = ana.all_obs_goes(ARdict['datapaths'], satellite=ARdict['goes_satellite'])
+            allminmax, allstrings, \
+                goes_per_orbit, goes_per_orbit_strings = ana.all_obs_goes(ARdict['datapaths'], satellite=ARdict['goes_satellite'])
             target_dict[key]['AR GOES min, max vals'] = allminmax
             target_dict[key]['AR GOES min, max strings'] = allstrings
             target_dict[key]['orbit GOES min, max vals'] = goes_per_orbit
@@ -294,12 +295,13 @@ def single_gauss_prep(key, plot=True, guess=[], make_scripts=True,
 
     if make_scripts:
         #where: where to find templates + place scripts.
-        tis.make_tis_scripts(obsids, key, where='./scripts/')   
+        tis.make_tis_scripts(obsids, key, where='./scripts/')  
 
 
 
 def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
-                      plotregion=[], plotgaussregions=False, write_regions=False, region_dir='./'):
+                      plotregion=[], write_input_regions=False,
+                      plotgaussregions=False, write_regions=False, region_dir='./'):
 
 
     with open('all_targets.pickle', 'rb') as f:
@@ -320,7 +322,8 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
         res = g2d.per_orbit_twogauss_params(id_dirs[i], sep_axis=sep_axis, guess=guess, guess2=guess2, plot=plot,
-                                           plotregion=plotregion, plotgaussregions=plotgaussregions, 
+                                           plotregion=plotregion, plotgaussregions=plotgaussregions,
+                                            write_input_regions=write_input_regions,
                                             write_regions=write_regions, region_dir=region_dir)
                         
         gauss_stats.append(res)
@@ -342,6 +345,74 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
         tis.make_tis_scripts(obsids, key, where='./scripts/', tworegion=True)   
     
 
+
+
+def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
+                      plotregion=[], write_input_regions=True,
+                      plotgaussregions=False):
+
+    """
+    key - key for all target dictionary (where to get information about the nustar data, region, etc)
+    plot - set True for plots to be made in general
+    guess, guess2 - for tweaking the double gaussian fit used for context. Not related to final regions 
+                    saved, etc. Optional. 
+
+    make_scripts - set True with you've finalized your regions and are ready to write corresponding scripts for TIS
+    plotregion - list of region dictionaries, of the form:
+                    
+                    plotregion = [{'centerx': 950, 'centery': -325, 'radius': 150},
+                               {'centerx': 900, 'centery': -50, 'radius': 150}]
+
+                (You can have as many regions as you want. Values in arcseconds from solar center.)
+                
+    write_input_regions - set True to write a .reg file for every region in plotregion. This is needed to run TIS 
+                            (scripts written in make_scripts will call functions that will look for these regions).
+
+    plotgaussregions - set True to plot 150" circles centered at gaussian fit result locations, if useful for visualization.
+
+    
+    """
+
+
+    with open('all_targets.pickle', 'rb') as f:
+        data = pickle.load(f)
+    
+    ARDict = data[key]
+    
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    working_dir = ARDict['working_dir']
+
+    
+    #Make a new working directory for prepped data/etc if it doesn't yet exist
+    save_path = pathlib.Path(working_dir)
+    if not save_path.exists():
+        save_path.mkdir()
+
+    region_stats=[]
+    for i in range(0, len(id_dirs)):
+        #guess, fast_min_factor 
+        res = g2d.per_orbit_manual_params(id_dirs[i], guess=guess, guess2=guess2, plot=plot,
+                                           plotregion=plotregion, plotgaussregions=plotgaussregions,
+                                            write_input_regions=write_input_regions,
+                                            region_dir=working_dir)
+                        
+        region_stats.append(res)
+        print('')
+
+
+    ARDict['region_stats'] = region_stats
+
+    data[key] = ARDict
+    
+    with open('all_targets.pickle', 'wb') as f:
+        # Pickle the 'data' dictionary using the highest protocol available.
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
+
+    if make_scripts:
+        ##where: where to find templates + place scripts.
+        tis.make_tis_scripts(obsids, key, where='./scripts/', manualregion=True)  
+    
 
 
 

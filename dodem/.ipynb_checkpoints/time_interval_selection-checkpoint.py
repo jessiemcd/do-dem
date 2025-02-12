@@ -13,7 +13,7 @@ import glob
 
 
 
-def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False):
+def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False, manualregion=False):
 
     pystrings = []
     
@@ -27,6 +27,8 @@ def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False):
 
         if tworegion:
             templatefile = where+'run_tis_template_tworegion.py'
+        if manualregion:
+            templatefile = where+'run_tis_template_manualregion.py'
         else:
            templatefile = where+'run_tis_template.py'
             
@@ -161,7 +163,6 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
     id_dirs = ARDict['datapaths']
     obsids = ARDict['obsids']
     working_dir = ARDict['working_dir']
-    gauss_stats = ARDict['gauss_stats']
 
     print(working_dir)
 
@@ -171,6 +172,8 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
         save_path.mkdir()
 
     if method=='singlegauss':
+
+        gauss_stats = ARDict['gauss_stats']
 
         id = id_dirs[index]
         guess, fast_min_factor = gauss_stats[index]
@@ -186,6 +189,9 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
 
 
     if method=='doublegauss':
+
+        gauss_stats = ARDict['gauss_stats']
+        
         id = id_dirs[index]
         sep_axis, guess, guess2, fast_min_factors = gauss_stats[index]
 
@@ -208,7 +214,43 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
                   shush=False, force_both_fpm_always=True, regionfiles=regionfiles)
     
 
+    if method=='manual_regions':
+        
+        obsid = obsids[index]
+        fpm='A'
+        id = id_dirs[index]
+        fast_min_factors = ARDict['region_stats'][index]
 
+        regionfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+        regionfiles.sort()
+        
+        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+        timerange = [time0, time1]
+        print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+
+
+        for i in range(0, len(regionfiles)):
+
+            fmf = fast_min_factors[i]
+            print(fmf)
+            working_dir_reg=working_dir+'/'+'region_'+str(i)+'/'
+            save_path = pathlib.Path(working_dir_reg)
+            if not save_path.exists():
+                try:
+                    save_path.mkdir()
+                except FileExistsError:
+                    print('already got it')
+
+            regionfile = regionfiles[i]
+            print('file: ', i, regionfile)
+
+            res = find_time_intervals_plus(id, timerange, working_dir_reg, erange=erange, 
+                               lctype=lctype, fast_min_factor=fmf, countmin=countmin,
+                              minimum_seconds=minimum_seconds, shush=True,
+                                twogauss=False, nuradius=nuradius, energy_percents=True,
+                                          force_both_fpm_always=True, 
+                                          regionfile=regionfile)
 
 
 def real_count_lightcurves(datapath, timerange, working_dir, erange):

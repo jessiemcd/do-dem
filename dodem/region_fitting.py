@@ -47,7 +47,7 @@ def plot_file_region(evt_file, time0, time1, regfile):
     cmap = plt.cm.get_cmap('plasma')
     
     fig = plt.figure(figsize=(10,10))
-    ax = fig.add_subplot(111, projection=nustar_map)
+    ax = fig.add_subplot(111, projection=submap)
     submap.plot(axes=ax, cmap='plasma')
 
     offset, rad = read_regfile(regfile, time0, time1, 'hourangle')
