@@ -612,7 +612,8 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
 
 
 
-def per_orbit_region_adjustment(working_dir, orbit_ind, nushift=[20,0]):
+def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps, nushift=[20,0],
+                               method='input', shush=False):
 
     import copy
 
@@ -622,8 +623,9 @@ def per_orbit_region_adjustment(working_dir, orbit_ind, nushift=[20,0]):
     #Find all time intervals for each region and make a big nested list
     all_all_time_intervals=[]
     starts=[]
+    fixit=False
     for r in region_dirs:
-        all_time_intervals, all_time_intervals_list = find_all_intervals(r)
+        all_time_intervals, all_time_intervals_list = find_all_intervals(r, shush=shush)
         if len(all_time_intervals) != len(id_dirs):
             print('TIS failed on at least one orbit. Orbits completed: ', len(all_time_intervals))
             print('Orbits total: ', len(id_dirs))
