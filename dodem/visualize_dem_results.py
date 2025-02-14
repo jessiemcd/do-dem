@@ -30,8 +30,12 @@ def load_DEM(filename):
                         names+locations assumed).
     """
     
-    with open(filename, 'rb') as f:
-        data = pickle.load(f)
+    try:
+        with open(filename, 'rb') as f:
+            data = pickle.load(f)
+    except FileNotFoundError:
+        print('No DEM file: ', filename)
+        return
 
     time = data['time_interval']
     timestring=make_timestring(time)
@@ -788,7 +792,7 @@ def DEMmax(ts, DEM, wind=2, plot=False):
         print('DEM: ', DEM)
         print('Fitrange: ', fitrange)
         print('Just returning location of max value.')
-        return maxtemp
+        return (maxtemp, False)
         
     
     if plot:
@@ -800,7 +804,7 @@ def DEMmax(ts, DEM, wind=2, plot=False):
         plt.plot(fitts, gaussian(fitts, *popt))
         plt.legend()
     
-    return popt[1]
+    return (popt[1], True)
 
     
 
@@ -934,7 +938,12 @@ def get_DEM_params(file):
     """
     
 
-    data, timestring, time = load_DEM(file)
+    res = load_DEM(file)
+    
+    if res is not None:
+        data, timestring, time = res
+    else:
+        return 
     
     
     #MAIN DEM
@@ -943,7 +952,9 @@ def get_DEM_params(file):
     dem = data['DEM']
     ts = data['ts']
     
-    m1 = DEMmax(data['ts'], dem, wind=3, plot=False)
+    m1, condition = DEMmax(data['ts'], dem, wind=3, plot=False)
+    if condition==False:
+        print(time)
     #print('DEM is a maximum at: log(T)=', m1, 'OR, ', 10**m1/1e6, ' MK')
     max1 = np.max(dem)
     
@@ -1021,6 +1032,8 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
     EMT_alls=[]
     EMT_threshs=[]
 
+    result_time_intervals=[]
+
 
     for t in time_intervals:
         timestring=make_timestring(t)
@@ -1028,9 +1041,14 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
         file=working_dir+\
             timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
         params=get_DEM_params(file)
-        m1, max1, above5, above7, above10, \
+        if params is not None:
+            m1, max1, above5, above7, above10, \
                above_peak, below_peak, above_635, below_635,\
                chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
+
+            result_time_intervals.append(t)
+        else:
+            continue
         
         peaks.append(m1)
         maxes.append(max1)

@@ -529,8 +529,9 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
     timestring=timestring+'_'+stopstring
 
     if regionmethod=='fit':
-        regionfileA = glob.glob(working_dir+timestring+'/'+'*A*sunpos*.reg')[0]
-        regionfileB = glob.glob(working_dir+timestring+'/'+'*B*sunpos*.reg')[0]
+        regionfileA = glob.glob(working_dir+timestring+'/'+'*A*sunpos*.reg')
+        regionfileB = glob.glob(working_dir+timestring+'/'+'*B*sunpos*.reg')
+        specific_time_evt = glob.glob(working_dir+timestring+'/'+'*cl.evt')
 
     if regionmethod=='input':
         if not obsid or not region_dir:
@@ -541,6 +542,10 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
         obsid = obsid
         regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
         regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+        specific_time_evt = glob.glob(region_dir+timestring+'/'+'*cl.evt')
+    
+    specific_time_evt.sort()      
+        
         
 
     regiondictA = [regfile_to_regdict(rA, time) for rA in regionfileA]
@@ -555,11 +560,7 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
         else:
             savefigdir=working_dir+timestring
 
-    #in_dir='/Users/jmdunca2/nustar/sep-2017/80310229001/'
-    #specific_time_evt = glob.glob(in_dir+'/event_cl/nu*06_cl.evt')
-    
-    specific_time_evt = glob.glob(region_dir+timestring+'/'+'*cl.evt') #.sort()
-    specific_time_evt.sort()
+
     #print(specific_time_evt)
 
     #if grade=='0':
@@ -612,14 +613,12 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
 
 
 
-def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps, nushift=[20,0],
-                               method='input', shush=False):
+def region_time_intervals(region_dirs, id_dirs, shush=True):
 
-    import copy
-
-    #Find the top level directory for each region
-    region_dirs = find_region_dirs(working_dir)
-
+    """
+    Wrapper for find_all_intervals that deals with the case that TIS may have suceeded/failed for different
+    sets of orbits for different regions (when using more than one region). 
+    """
     #Find all time intervals for each region and make a big nested list
     all_all_time_intervals=[]
     starts=[]
@@ -658,48 +657,80 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
                     all_all_time_intervals[j].insert(i, '')
                     starts[j].insert(i, '')
 
+    return all_all_time_intervals, fixit
 
-    #Get a list of the first interval from this orbit for each region.
-    #(with placeholders for missing TIS results, see above).
-    try:
-        first_intervals = [at[orbit_ind][0] for at in all_all_time_intervals]
-        copyintervals = copy.deepcopy(first_intervals)
-    except IndexError:
-        first_intervals=[]
-        copyintervals = []
-        if fixit:
-            intervals = [at[orbit_ind] for at in all_all_time_intervals]
-            for intr in intervals:
-                if intr:
-                    first_intervals.append(intr[0])
-                    copyintervals.append(intr[0])
-                else:
-                    copyintervals.append('')
-                    
-    #Find the longest of the first intervals across all regions. Use that time interval for plotting.      
-    durations = [(fi[1]-fi[0]).to(u.s).value for fi in first_intervals]
-    maxint = np.argmax(durations)
-    time_interval = first_intervals[maxint]
-    region_dir = region_dirs[maxint]
+
+
+def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps, nushift=[20,0],
+                               method='input', shush=False):
+
+    """
+    Takes a given orbit (orbit_ind) for a given AR observation which has completed time interval selection.
+    Plots AIA + NuSTAR data together, showing analysis regions. Allows adjustment of the needed shift for
+    NuSTAR/AIA coalignment, and then saves an aia region pickle file for the first interval in the orbit. 
+
+    Do this for every orbit, then run make_all_aia_dicts() to make aia region files for all time intervals 
+    in all orbits (ready for upload to the NCCS, or wherever AIA data is being prepped based on region inputs. 
+    """
+    
+    import copy
+
+    if method=='input':
+        #Find the top level directory for each region
+        region_dirs = find_region_dirs(working_dir)
+        all_all_time_intervals, fixit = region_time_intervals(region_dirs, id_dirs, shush=shush)
+
+
+        #Get a list of the first interval from this orbit for each region.
+        #(with placeholders for missing TIS results, see above).
+        try:
+            first_intervals = [at[orbit_ind][0] for at in all_all_time_intervals]
+            copyintervals = copy.deepcopy(first_intervals)
+        except IndexError:
+            first_intervals=[]
+            copyintervals = []
+            if fixit:
+                intervals = [at[orbit_ind] for at in all_all_time_intervals]
+                for intr in intervals:
+                    if intr:
+                        first_intervals.append(intr[0])
+                        copyintervals.append(intr[0])
+                    else:
+                        copyintervals.append('')
+                        
+        #Find the longest of the first intervals across all regions. Use that time interval for plotting.      
+        durations = [(fi[1]-fi[0]).to(u.s).value for fi in first_intervals]
+        maxint = np.argmax(durations)
+        time_interval = first_intervals[maxint]
+        region_dir = region_dirs[maxint]
+
+
+
+
+    if method=='fit':
+        all_time_intervals, all_time_intervals_list = find_all_intervals(working_dir, shush=shush)
+        time_interval = all_time_intervals[orbit_ind][0]
+        #irrelevant in this case:
+        region_dir=''
     
     obsid=obsids[orbit_ind]
-    
     #Plot NuSTAR over AIA, and save an aia regions file in the corresponding region+time interval directory
     dict, file = nu_aia_coalign(time_interval, working_dir, nushift, save_dict=True, input_aia=aiamaps[orbit_ind],
-                            regionmethod='input', obsid=obsid, region_dir=region_dir)
-    
-    #For all the other regions, copy the generated aia region file into their first time interval directories, as we
-    #want the same shift for all regions (and the files contain all regions. 
-    import subprocess
-    for i in range(0, len(copyintervals)):
-        time=copyintervals[i]
-        if time:
-            r = region_dirs[i]
-            timestring = time[0].strftime('%H-%M-%S')
-            stopstring = time[1].strftime('%H-%M-%S')
-            timestring=timestring+'_'+stopstring
-            regcopy = r+timestring+'/'+timestring+'_aia_region.pickle'
-            status = subprocess.call('cp '+file+' '+regcopy, shell=True)
+                            regionmethod=method, obsid=obsid, region_dir=region_dir)
+
+    if method=='input' and (len(region_dirs) > 1):
+        #For all the other regions, copy the generated aia region file into their first time interval directories, as we
+        #want the same shift for all regions (and the files contain all regions. 
+        import subprocess
+        for i in range(0, len(copyintervals)):
+            time=copyintervals[i]
+            if time:
+                r = region_dirs[i]
+                timestring = time[0].strftime('%H-%M-%S')
+                stopstring = time[1].strftime('%H-%M-%S')
+                timestring=timestring+'_'+stopstring
+                regcopy = r+timestring+'/'+timestring+'_aia_region.pickle'
+                status = subprocess.call('cp '+file+' '+regcopy, shell=True)
 
 
 
@@ -806,7 +837,7 @@ def coalign_based_on_prior(time_intervals, working_dir, reference_interval, doro
 
 
 
-def make_all_aia_dicts(all_time_intervals, working_dir, key):
+def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path=''):
     """
     Make AIA region files for ALL time intervals, using lead time interval regions as produced by 
     coalign_based_on_prior(). 
@@ -822,6 +853,13 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key):
     save_path = pathlib.Path(aia_dict_dir)
     if not save_path.exists():
         save_path.mkdir()
+
+    if additional_path:
+        other_aia_dict_dir=additional_path+'all_aia_dicts_'+key+'/'
+        #Make a new working directory for prepped data/etc if it doesn't yet exist
+        save_path = pathlib.Path(other_aia_dict_dir)
+        if not save_path.exists():
+            save_path.mkdir()
 
     suborbit_directories = []
     for at in range(0, len(all_time_intervals)):
@@ -855,6 +893,15 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key):
         save_path = pathlib.Path(suborbit_dir)
         if not save_path.exists():
             save_path.mkdir()
+
+        if additional_path:
+            other_suborbit_dir=other_aia_dict_dir+'orbit_'+obsid
+            #suborbit_directories.append(suborbit_dir)
+            #Make a new working directory for prepped data/etc if it doesn't yet exist
+            save_path = pathlib.Path(other_suborbit_dir)
+            if not save_path.exists():
+                save_path.mkdir()
+            
     
         # #alternately, can make suborbit-specific directories. 
         # suborbit_dir=working_dir+'suborbit_'+timestring
@@ -865,6 +912,9 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key):
         #     save_path.mkdir()
             
         make_interval_dicts(all_time_intervals[at], aiareg, where=suborbit_dir)
+        if additional_path:
+            make_interval_dicts(all_time_intervals[at], aiareg, where=other_suborbit_dir)
+        
 
     return suborbit_directories
 
@@ -934,24 +984,75 @@ def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_a
 
     #print(data)
 
-    if bltr:
-        offset = [data['centerx'], data['centery']]
-        rad = data['radius']*u.arcsec
+    if 'centerx' in data.keys():
         
-        xx = offset[0].value
-        yy = offset[1].value
-        
-        #Set broad box for plotting (using region object)
-        bl=[(xx-600)*u.arcsec, (yy-600)*u.arcsec]
-        tr=[(xx+800)*u.arcsec,(yy+800)*u.arcsec]
+        if bltr:
+            offset = [data['centerx'], data['centery']]
+            rad = data['radius']*u.arcsec
+            
+            xx = offset[0].value
+            yy = offset[1].value
+            
+            #Set broad box for plotting (using region object)
+            bl=[(xx-600)*u.arcsec, (yy-600)*u.arcsec]
+            tr=[(xx+800)*u.arcsec,(yy+800)*u.arcsec]
+    
+            if xrt_region_input:
+                region_input = {'center': offset,
+                      'radius': rad}
+    
+                return data, bl, tr, region_input
+            else:
+                return data, bl, tr
+    
+        #print(data.keys())
+        return data
 
-        if xrt_region_input:
-            region_input = {'center': offset,
-                  'radius': rad}
+    else:
+        if bltr:
+            offsets_x, offsets_y = [], []
+            xrt_region_inputs = []
+            for k in data.keys():
+                regdata = data[k]
+                offsets_x.append(regdata['centerx'].value)
+                offsets_y.append(regdata['centery'].value)
+                
+                if xrt_region_input:
+                    region_input = {'center': [regdata['centerx'], regdata['centery']],
+                          'radius': regdata['radius']*u.arcsec}
+                    xrt_region_inputs.append(region_input)
+    
+            xx = np.mean(offsets_x)
+            yy = np.mean(offsets_y)
+    
+            #Set broad box for plotting (using region object)
+            bl=[(xx-600)*u.arcsec, (yy-600)*u.arcsec]
+            tr=[(xx+800)*u.arcsec,(yy+800)*u.arcsec]
 
-            return data, bl, tr, region_input
+            if xrt_region_input:
+                return data, bl, tr, xrt_region_inputs
+            
+            else:
+                return data, bl, tr
         else:
-            return data, bl, tr
+            return data
 
-    #print(data.keys())
-    return data
+
+
+
+
+
+
+
+
+
+
+
+            
+            
+
+
+
+
+
+

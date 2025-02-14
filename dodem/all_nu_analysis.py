@@ -416,7 +416,7 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 
-def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
+def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit'):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -425,6 +425,9 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
     """
 
     import orbit_auto as oa
+
+    #Path to top-level do-dem directory - edit for your system.
+    path_to_dodem = '/Users/jmdunca2/do-dem/'
 
     with open('all_targets.pickle', 'rb') as f:
         data = pickle.load(f)
@@ -435,8 +438,15 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
     obsids = ARDict['obsids']
     working_dir = ARDict['working_dir']
     prepped_aia_dir = ARDict['prepped_aia']
-    
-    all_time_intervals, all_time_intervals_list = oa.find_all_intervals(working_dir, shush=True, 
+
+    if method=='input':
+        region_dirs = oa.find_region_dirs(working_dir)
+        all_all_time_intervals, fixit = oa.region_time_intervals(region_dirs, id_dirs, shush=True)
+
+    if method=='fit':
+        onegauss=True
+        regfile=path_to_dodem+'starter_region.reg'
+        all_time_intervals, all_time_intervals_list = oa.find_all_intervals(working_dir, shush=True, 
                                                                         missing_last=missing_last, missing_orbit=missing_orbit)
 
     #What instruments are you using?
@@ -459,7 +469,6 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
     #If nustar is being used, here are the chosen energy ranges:
     nuenergies=[[2.5,3.5], [3.5,6.], [6.,10.]]
     nuradius=150
-    onegauss=True
     #---------------------------------
     
     #---------------------------------
@@ -475,57 +484,89 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True):
     
     name=key
     
-    #Path to top-level do-dem directory - edit for your system.
-    path_to_dodem = '/Users/jmdunca2/do-dem/'
-    
     import dodem
+    import glob
     
     for o in range(0, len(obsids)):
     
         datapath=id_dirs[o]
-        gtifile=datapath+'event_cl/nu'+obsids[o]+'A06_gti.fits'
-        regfile=path_to_dodem+'starter_region.reg'
-    
-        orbit_aia_dir = prepped_aia_dir+'/orbit_'+obsids[o]+'/'
-    
-        time_intervals = all_time_intervals[o]
-    
-        guess = ARDict['gauss_stats'][o][0]
-    
         xrt_path=path_to_dodem+'other_idl/'+obsids[o]+'_coobs/XRT_for_DEM/'
-
         if not pathlib.Path(xrt_path).is_dir():
             xrt=False
-    
-        for time in time_intervals:
-    
-            data, bl, tr, region_input = oa.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+        gtifile=datapath+'event_cl/nu'+obsids[o]+'A06_gti.fits'
+        orbit_aia_dir = prepped_aia_dir+'/orbit_'+obsids[o]+'/'
+        obsid=obsids[o]
 
-            dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
-                                        plotMK=plotMK, minT=minT, maxT=maxT,
-                                        plotresp=False, working_directory=working_dir,
-                                        default_err=0.2, path_to_dodem=path_to_dodem,
-                
-                                        #demreg related
-                                        rgt_fact=1.2, max_iter=30,
-                                        reg_tweak=1, gloci=1, mc_in=True, mc_rounds=100, 
-                                        
-                                        #nustar related 
-                                        combine_fpm=True, nuenergies=nuenergies, 
-                                        datapath=datapath, gtifile=gtifile,
-                                        nuradius=nuradius, guess=guess, onegauss=onegauss,
-                                        adjacent_grades=True, pile_up_corr=True,
-                
-                                        #aia related
-                                        load_prepped_aia=data, 
-    
-                                        #xrt related
-                                       xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
-                                        xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
-                                        input_xrt_region="circle", input_xrt_region_dict=region_input)
+        if method=='fit':
+            guess = ARDict['gauss_stats'][o][0]
+            time_intervals = all_time_intervals[o]    
+            for time in time_intervals:
+        
+                data, bl, tr, region_input = oa.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
+                                            plotMK=plotMK, minT=minT, maxT=maxT,
+                                            plotresp=False, working_directory=working_dir,
+                                            default_err=0.2, path_to_dodem=path_to_dodem,
+                    
+                                            #demreg related
+                                            rgt_fact=1.2, max_iter=30,
+                                            reg_tweak=1, gloci=1, mc_in=True, mc_rounds=100, 
+                                            
+                                            #nustar related 
+                                            combine_fpm=True, nuenergies=nuenergies, 
+                                            datapath=datapath, gtifile=gtifile,
+                                            nuradius=nuradius, guess=guess, onegauss=onegauss,
+                                            adjacent_grades=True, pile_up_corr=True,
+                    
+                                            #aia related
+                                            load_prepped_aia=data, 
+        
+                                            #xrt related
+                                           xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                            xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
+                                            input_xrt_region="circle", input_xrt_region_dict=region_input)
         print('')
 
+        if method=='input':
+            fpm='A'
+            regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            regfiles.sort()
+            
+            for i in range(0, len(region_dirs)):
+                #Time intervals for this region, orbit
+                time_intervals = all_all_time_intervals[i][o]
 
+                regfile = regfiles[i]
+                print(region_dirs[i], regfiles[i])
+
+                for time in time_intervals:
+                    datas, bl, tr, xrt_region_inputs = oa.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                    data = datas['region'+str(i)]
+                    region_input = xrt_region_inputs[i]
+
+                    dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
+                            plotMK=plotMK, minT=minT, maxT=maxT,
+                            plotresp=False, working_directory=region_dirs[i],
+                            default_err=0.2, path_to_dodem=path_to_dodem,
+    
+                            #demreg related
+                            rgt_fact=1.2, max_iter=30,
+                            reg_tweak=1, gloci=1, mc_in=True, mc_rounds=100, 
+                            
+                            #nustar related 
+                            combine_fpm=True, nuenergies=nuenergies, 
+                            datapath=datapath, gtifile=gtifile,
+                            nuradius=nuradius, edit_regfile=False,
+                            regfile=regfile,
+                            adjacent_grades=True, pile_up_corr=True,
+    
+                            #aia related
+                            load_prepped_aia=data, 
+
+                            #xrt related
+                           xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                            xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
+                            input_xrt_region="circle", input_xrt_region_dict=region_input)
 
 
 def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=5):

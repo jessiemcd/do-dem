@@ -506,7 +506,12 @@ def dodem(time, bl, tr,
                 #    dict = pickle.load(f)
                 dict=load_prepped_aia
                 
-                aia_dn_s_px = dict['aia_dn_s_px']
+                try:
+                    aia_dn_s_px = dict['aia_dn_s_px']
+                except KeyError:
+                    print('No prepped AIA data in input AIA dictionary. Not doing DEM.')
+                    return
+                    
                 aia_err_dn_s_px = dict['newerr']
                 chans = dict['chans']
                 aia_tr = dict['aia_tr']
