@@ -442,7 +442,7 @@ def per_orbit_manual_params(in_dir, guess=[], guess2=[], plot=True,
     for s in sunfiles:
         #If you don't like your two gaussians, try again with the "guess" keyword – enter a coordinate around where
         #your missing gaussian should be – in pixel coordindates as shown on the left plot.
-        res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
+        res = nu_fit_gauss(s, twogaussians=True, boxsize=300, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
                           plotregion=plotregion, write_input_regions=write_input_regions, 
                            plotgaussregions=plotgaussregions, 
                           region_dir=region_dir)

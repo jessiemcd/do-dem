@@ -540,7 +540,10 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                 print(region_dirs[i], regfiles[i])
 
                 for time in time_intervals:
-                    datas, bl, tr, xrt_region_inputs = oa.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                    res = oa.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                    if res is None:
+                        continue
+                    datas, bl, tr, xrt_region_inputs = res
                     data = datas['region'+str(i)]
                     region_input = xrt_region_inputs[i]
 

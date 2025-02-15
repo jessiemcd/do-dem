@@ -153,6 +153,7 @@ def aia_for_DEM_NCCS(time, bl, tr, wav=[], plot=True, aia_path='./', method='Mid
                 print('exiting.')
                 return
             else:
+                #print(paths)
                 amaps=sunpy.map.Map(paths)
                 if checker == 0:
                     if len(paths) == 1:
@@ -711,6 +712,10 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
     #====================================================================================== 
             
     aia_dn_s_px = np.array(aia_dn_s_px)
+    if np.isnan(aia_dn_s_px).any():
+        print('At least one aia input value was NaN - not able to make inputs.')
+        print(aia_dn_s_px)
+        return
 
     if NCCS:
         aia_resp_path = NCCS_aia_resp_path
@@ -931,30 +936,50 @@ def file_prep(f, data_dir, NCCS_save_path, map_save_path,
             if 'aia_dn_s_px' in data:
                 print('already prepped, and clobber=False, skipping.')
                 return
+
+
+        if 'radius' in data:
+            newdata = region_prep(data, map_save_path, errortab, aia_clobber,
+                                    NCCS_save_path, NCCS_aia_resp_path, data_dir)
+
+        else:
+            import copy
+            newdata = copy.deepcopy(data)
+            for k in data.keys():
+                newdata[k] = region_prep(data[k], map_save_path, errortab, aia_clobber,
+                                    NCCS_save_path, NCCS_aia_resp_path, data_dir)
+ 
+        if newdata is not None:
+            with open(f, 'wb') as f_:
+                pickle.dump(newdata, f_, pickle.HIGHEST_PROTOCOL)
+
+def region_prep(data, map_save_path, errortab, aia_clobber,
+                NCCS_save_path, NCCS_aia_resp_path, data_dir):
+
+    rad = data['radius']*u.arcsec
+    offset = [data['centerx'], data['centery']]
+    time = data['time_interval']
     
-        rad = data['radius']*u.arcsec
-        offset = [data['centerx'], data['centery']]
-        time = data['time_interval']
-        
-        bl, tr, input_region, input_aia_region_dict = circle_region_wrapper(offset, rad)
-    
-        deminputs = load_aia(time, bl, tr, plot=False, NCCS=True, 
-                             aia_exclude=[], aia_path=map_save_path, 
-                 method='Average', one_avg=True,
-                 input_region=input_region, input_aia_region_dict=input_aia_region_dict, 
-                 real_aia_err=True, errortab=errortab,
-                 aia_clobber=aia_clobber, 
-                 NCCS_aia_resp_path=NCCS_aia_resp_path,
-                 NCCS_save_path=NCCS_save_path,
-                 path_to_dodem='./',
-                 data_dir=data_dir)
-        
+    bl, tr, input_region, input_aia_region_dict = circle_region_wrapper(offset, rad)
+
+    deminputs = load_aia(time, bl, tr, plot=False, NCCS=True, 
+                         aia_exclude=[], aia_path=map_save_path, 
+             method='Average', one_avg=True,
+             input_region=input_region, input_aia_region_dict=input_aia_region_dict, 
+             real_aia_err=True, errortab=errortab,
+             aia_clobber=aia_clobber, 
+             NCCS_aia_resp_path=NCCS_aia_resp_path,
+             NCCS_save_path=NCCS_save_path,
+             path_to_dodem='./',
+             data_dir=data_dir)
+
+    if deminputs is not None:
         data.update(deminputs)
         print(data.keys())
-    
-        with open(f, 'wb') as f_:
-            pickle.dump(data, f_, pickle.HIGHEST_PROTOCOL)
- 
+        return data
+    else:
+        return
+
 
 def aia_prep_orbit(data_dir, regions_dir, map_save_path):
     

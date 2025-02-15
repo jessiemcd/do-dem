@@ -613,7 +613,7 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
 
 
 
-def region_time_intervals(region_dirs, id_dirs, shush=True):
+def region_time_intervals(region_dirs, id_dirs, shush=True, list_=False):
 
     """
     Wrapper for find_all_intervals that deals with the case that TIS may have suceeded/failed for different
@@ -621,6 +621,7 @@ def region_time_intervals(region_dirs, id_dirs, shush=True):
     """
     #Find all time intervals for each region and make a big nested list
     all_all_time_intervals=[]
+    all_all_time_intervals_list=[]
     starts=[]
     fixit=False
     for r in region_dirs:
@@ -636,6 +637,7 @@ def region_time_intervals(region_dirs, id_dirs, shush=True):
             starts_reg.append(at[0][0])
         starts.append(starts_reg)
         all_all_time_intervals.append(all_time_intervals)
+        all_all_time_intervals_list.append(all_time_intervals_list)
     
     #THE FOLLOWING is activated when TIS has failed for at least one orbit for at least one region (no saved 
     #intervals file).
@@ -657,6 +659,9 @@ def region_time_intervals(region_dirs, id_dirs, shush=True):
                     all_all_time_intervals[j].insert(i, '')
                     starts[j].insert(i, '')
 
+    if list_:
+        return all_all_time_intervals, fixit, all_all_time_intervals_list
+        
     return all_all_time_intervals, fixit
 
 
@@ -1014,6 +1019,8 @@ def read_interval_dicts(time_interval, where='./', bltr=False, common_string='_a
             xrt_region_inputs = []
             for k in data.keys():
                 regdata = data[k]
+                if regdata is None:
+                    return
                 offsets_x.append(regdata['centerx'].value)
                 offsets_y.append(regdata['centery'].value)
                 
