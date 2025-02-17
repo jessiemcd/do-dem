@@ -438,9 +438,18 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
     obsids = ARDict['obsids']
     working_dir = ARDict['working_dir']
     prepped_aia_dir = ARDict['prepped_aia']
+    if method=='double':
+        gauss_stats = ARDict['gauss_stats']
+        sep_axis = gauss_stats[0][0]
+    else:
+        sep_axis = ''
 
     if method=='input':
         region_dirs = oa.find_region_dirs(working_dir)
+        all_all_time_intervals, fixit = oa.region_time_intervals(region_dirs, id_dirs, shush=True)
+
+    if method=='double':
+        region_dirs = oa.find_direction_dirs(working_dir, sep_axis)
         all_all_time_intervals, fixit = oa.region_time_intervals(region_dirs, id_dirs, shush=True)
 
     if method=='fit':
@@ -527,9 +536,13 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                             input_xrt_region="circle", input_xrt_region_dict=region_input)
         print('')
 
-        if method=='input':
+        if method in ['input', 'double']:
             fpm='A'
-            regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            if method=='input':
+                regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            if method=='double':
+                regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
+                
             regfiles.sort()
             
             for i in range(0, len(region_dirs)):
