@@ -588,7 +588,45 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=5):
     
     import glob
+
+    if all:
+        res_files = glob.glob('./compact_results/*')
+    elif key:
+        res_files = glob.glob('./compact_results/*'+key+'*.pickle')
+        
+        if 'region' in res_files[0]:
+            zeros = [f for f in res_files if 'region_0' in f]
+            ones = [f for f in res_files if 'region_1' in f]
+            zeros.sort()
+            if zeros:
+                res0 = extract_and_plot_above10s(zeros, key=key, 
+                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 0')
+            else:
+                res0 = [],[],[]
+            ones.sort()
+            if ones:
+                res1 = extract_and_plot_above10s(ones, key=key,
+                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 1')
+            else:
+                res1 = [],[],[]
+            res = [res0,res1]
+            
+    else:
+        print('Either set all=True, or select a key!')
+        return
+        
+    res_files.sort()
+
+    res = extract_and_plot_above10s(res_files, key=key, plot=plot, time_weighted=time_weighted, seconds_per=seconds_per)
+
+    return res
+
     
+
+
+def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False, seconds_per=5, plotlabel=''):
+
+
     import pandas as pd
     import astropy.time
     
@@ -598,15 +636,8 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
     
     from astropy import units as u
     early_starts = [(astropy.time.Time(s)-2*u.min) for s in starts]
-    late_stops = [(astropy.time.Time(s)+2*u.min) for s in stops]
+    late_stops = [(astropy.time.Time(s)+2*u.min) for s in stops]    
 
-    if all:
-        res_files = glob.glob('./compact_results/*')
-    elif key:
-        res_files = glob.glob('./compact_results/*'+key+'*.pickle')
-    else:
-        print('Either set all=True, or select a key!')
-    res_files.sort()
     
     all_above10s_flares = []
     all_above10s_non = []
@@ -697,14 +728,14 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         ax.set_xlabel('EM Integrated >10 MK')
         
         if key:
-            ax.set_title(key)
+            ax.set_title(key+' '+plotlabel)
         else:
             ax.set_title('All')
         ax.legend()
         if time_weighted:
-            plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot.png')
+            plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot_'+plotlabel+'.png')
         else:
-            plt.savefig('figures_etc/'+key+'_above10splot.png')
+            plt.savefig('figures_etc/'+key+'_above10splot_'+plotlabel+'.png')
         
 
     return all_above10s, all_above10s_flares, all_above10s_non
