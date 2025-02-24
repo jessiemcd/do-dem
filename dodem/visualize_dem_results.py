@@ -1037,7 +1037,7 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
 
     for t in time_intervals:
         timestring=make_timestring(t)
-        print(timestring)
+        #print(timestring)
         file=working_dir+\
             timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
         params=get_DEM_params(file)
@@ -1083,7 +1083,8 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
         'below_635s': below_635s,
         'above_635s': above_635s,                            
         'EMT_alls': EMT_alls,
-        'EMT_threshs': EMT_threshs}
+        'EMT_threshs': EMT_threshs,
+        'result_time_intervals': result_time_intervals}
     
     return vals
 
@@ -1092,13 +1093,14 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
 def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, color, backcolors,
                            error=False, quantity_low=[], quantity_high=[], errorcolor='gray',
                            comparisonbar=False, ylog=False, working_dir='./',
-                           comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)']): 
+                           comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)'], plot_flares=False): 
     
     
     lw=2
     
     times = [t[0].datetime for t in time_intervals]
     midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in time_intervals]
+
 
     starttime = (time_intervals[0][0]-120*u.s).datetime
     stoptime = (time_intervals[-1][1]+120*u.s).datetime
@@ -1117,6 +1119,20 @@ def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, colo
         else:
             ax.axvspan(times[t], times2[t], alpha=.5, color=backcolors[1])
         flip*=-1
+
+    if plot_flares:
+        import pandas as pd
+        import astropy.time
+        df = pd.read_csv('fpmA.csv')
+        starts = df['flare_start'].values
+        stops = df['flare_end'].values
+        
+
+        early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in starts]
+        late_stops = [(astropy.time.Time(s)+2*u.min).datetime for s in stops]  
+
+        for j in range(0, len(early_starts)):
+            ax.axvspan(early_starts[j], late_stops[j], alpha=.5, color='grey')
         
         
     if error:

@@ -10,7 +10,7 @@ sys_path.append(path_to_dodem+'/dodem/')
 import time_interval_selection as tis
 import visualize_dem_results as viz
 import gauss2D as g2d
-
+import orbit_auto as oa
 
 
 
@@ -146,7 +146,6 @@ def get_durations(datapaths, fpm='A'):
     import initial_analysis as ia
     import nustar_utilities as nuutil
 
-    import importlib
     from astropy import units as u
     import glob
     from astropy.io import fits
@@ -154,7 +153,6 @@ def get_durations(datapaths, fpm='A'):
     import astropy.time
     
 
-    importlib.reload(ia)
 
     durations = []
     lvttotals = []
@@ -301,7 +299,7 @@ def single_gauss_prep(key, plot=True, guess=[], make_scripts=True,
 
 def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
                       plotregion=[], write_input_regions=False,
-                      plotgaussregions=False, write_regions=False, region_dir='./'):
+                      plotgaussregions=False, write_regions=False):
 
 
     with open('all_targets.pickle', 'rb') as f:
@@ -324,7 +322,7 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
         res = g2d.per_orbit_twogauss_params(id_dirs[i], sep_axis=sep_axis, guess=guess, guess2=guess2, plot=plot,
                                            plotregion=plotregion, plotgaussregions=plotgaussregions,
                                             write_input_regions=write_input_regions,
-                                            write_regions=write_regions, region_dir=region_dir)
+                                            write_regions=write_regions, region_dir=working_dir)
                         
         gauss_stats.append(res)
         print('')
@@ -741,7 +739,357 @@ def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False
     return all_above10s, all_above10s_flares, all_above10s_non
 
 
+def make_orbit_plots(working_dir, key, minT=5.6, maxT=7.2):
 
+    
+    all_time_intervals, all_time_intervals_list = oa.find_all_intervals(working_dir, shush=True, 
+                                                                        missing_last=False)
+    print(len(all_time_intervals))
+    
+    
+    print('Number of orbits:', len(all_time_intervals))
+    for k in range(0, len(all_time_intervals)):
+        time_intervals = all_time_intervals[k]
+    
+
+        vals = viz.get_DEM_timeseries(time_intervals, working_dir, minT, maxT, key)    
+
+        if len(vals['result_time_intervals'])==0:
+            print('No sucessful DEM intervals.')
+            continue
+        
+        
+        dn_inss=vals['dn_ins']
+        labels= ['NuSTAR 6-10 keV Emission', 'NuSTAR 3.5-6 keV Emission', 'NuSTAR 2.5-3.5 keV Emission']
+        backcolors=['turquoise', 'lightcyan']
+        color='darkcyan'
+        for i in range(1,4):
+            ind = i*-1
+            nuvals = [din[ind] for din in dn_inss]    
+            viz.pretty_orbit_timeseries(vals['result_time_intervals'], nuvals, 'Cts/s', labels[i-1],
+                                color, backcolors, working_dir=working_dir, plot_flares=True)
+        
+        
+        peaks=vals['peaks']
+        peaksmk = [10**m1/1e6 for m1 in peaks]    
+        
+        backcolors=['pink', 'lavenderblush']
+        color='Red'
+            
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], peaksmk, 'DEM Peak Temperature (MK)', 'DEM Peak Temperature',
+                                color, backcolors, working_dir=working_dir)
+        
+        
+        backcolors=['powderblue', 'aliceblue']
+        color='Blue'
+        
+        above10s=np.array(vals['above10s'])
+        above10s_=above10s[:,0]
+        
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], above10s_, 'EM (cm^-5)', 'Total EM >10 MK',
+                                color, backcolors, error=True, quantity_low=above10s[:,1], quantity_high=above10s[:,2], 
+                                ylog=True, comparisonbar=True, comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017) 95%'],
+                                    working_dir=working_dir, plot_flares=True)
+        
+        backcolors=['powderblue', 'aliceblue']
+        color='Green'
+        
+        above7s=np.array(vals['above7s'])
+        above7s_=above7s[:,0]
+        
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], above7s_, 'EM (cm^-5)', 'Total EM >7 MK',
+                                color, backcolors, error=True, quantity_low=above7s[:,1], quantity_high=above7s[:,2], 
+                                ylog=True, working_dir=working_dir)
+        
+        backcolors=['powderblue', 'aliceblue']
+        color='Purple'
+        
+        above5s=np.array(vals['above5s'])
+        above5s_=above5s[:,0]
+        
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], above5s_, 'EM (cm^-5)', 'Total EM >5 MK',
+                                color, backcolors, error=True, quantity_low=above5s[:,1], quantity_high=above5s[:,2], 
+                                ylog=True, working_dir=working_dir)
+        
+        
+        backcolors=['khaki', 'lemonchiffon']
+        color='Orange'
+        
+        val=np.array(vals['low_powers'])
+        
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], val, 'Index', 'Lower Power Law',
+                                color, backcolors, error=False, working_dir=working_dir)
+        
+        
+        backcolors=['khaki', 'lemonchiffon']
+        color='Red'
+        
+        val=np.array(vals['hi_powers'])*-1
+        
+        viz.pretty_orbit_timeseries(vals['result_time_intervals'], val, 'Index', 'Upper Power Law',
+                                color, backcolors, error=False, working_dir=working_dir)
+
+
+def make_summary_lcs(key):
+
+    
+    from matplotlib import pyplot as plt
+    import copy
+    import matplotlib.dates as mdates
+    import initial_analysis as ia
+    import nustar_utilities as nuutil
+    import lightcurves as lc
+    import glob
+
+    minT=5.6
+    maxT=7.2
+    nustar_cts_color=['xkcd:sky blue', 'xkcd:cerulean', 'xkcd:periwinkle', 'xkcd:cyan']
+
+    with open('all_targets.pickle', 'rb') as f:
+        data = pickle.load(f)
+
+    ARDict = data[key]
+    
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    working_dir = ARDict['working_dir']
+    
+    all_time_intervals, all_time_intervals_list = oa.find_all_intervals(working_dir, shush=True, 
+                                                                            missing_last=False)
+
+    
+
+    for ind in range(0, len(all_time_intervals)):
+        
+        datapath=id_dirs[ind]
+        obsid=obsids[ind] 
+    
+        time_intervals = all_time_intervals[ind]
+        vals = viz.get_DEM_timeseries(time_intervals, working_dir, minT, maxT, key)   
+        time_intervals = vals['result_time_intervals']
+        
+        
+        
+        evt_data, hdr, obsid = ia.return_submap(datapath=datapath, fpm='A', return_evt_hdr=True, return_obsid=True)
+        time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+        timerange = [time0.datetime, time1.datetime]
+        print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
+        
+        
+        from datetime import timezone
+        newtimerange = [t.replace(tzinfo=timezone.utc) for t in timerange]
+        
+        axiscolor='black'
+        
+        labelfontsize=10
+        tickfontsize=17
+        
+        
+        fig, axes = plt.subplots(5, 1, figsize=(15, 12), sharex=True)
+        plt.subplots_adjust(hspace=0)
+        
+        
+        
+        # AIA PLOTS + NuSTAR DEM INPUT PLOTS + >10 MK EM plots #======================================================================
+        
+        lw=2
+        times = [t[0].datetime for t in time_intervals]
+        midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in time_intervals]
+        
+        
+        starttime = (time_intervals[0][0]-120*u.s).datetime
+        stoptime = (time_intervals[-1][1]+120*u.s).datetime
+        
+        times_ = copy.deepcopy(times)
+        times_.append(time_intervals[-1][1].datetime)
+        
+        
+        dn_ins = vals['dn_ins']
+        chanaxs = vals['chanaxs']
+        
+        allcolors = lc.make_colors(10)
+        
+        ax=axes[0]
+        normin=1
+        for i in range(0, 6):  
+            aiavals = [din[i] for din in dn_ins] 
+            label = chanaxs[0][i]
+            color = allcolors[i]
+            normvals = np.array(aiavals)/np.max(aiavals)
+            if np.min(normvals) < normin:
+                normin=np.min(normvals)
+            ax.stairs(normvals, times_, linewidth=lw, color=color, 
+                      label=label,
+                     baseline=None)
+        
+        ax.set_ylim([normin*0.95, 1.01])
+        
+        ax=axes[1]
+        normin=1
+        for i in range(0, 3): 
+            ii = (i+1)*-1
+            aiavals = [din[ii] for din in dn_ins] 
+            label = chanaxs[0][ii]
+            color = allcolors[ii]
+            normvals = np.array(aiavals)/np.max(aiavals)
+            if np.min(normvals) < normin:
+                normin=np.min(normvals)
+            ax.stairs(normvals, times_, linewidth=lw, color=color, 
+                      label=label,
+                     baseline=None)
+        
+        ax.set_ylim([normin*0.95, 1.01])
+
+
+        ax=axes[4]
+        above10s=np.array(vals['above10s'])
+        above10s_=above10s[:,0]
+        label='Total EM >10 MK'
+        ylabel='EM (cm^-5)'
+        color='Blue'
+        ax.stairs(above10s_, times_, linewidth=lw, color=color, 
+                      label=label,
+                     baseline=None)
+        
+        quantity_low=above10s[:,1]
+        quantity_high=above10s[:,2]
+        
+        error=True
+        if error:
+            lp = np.hstack([quantity_low, quantity_low[-1]])
+            hp = np.hstack([quantity_high, quantity_high[-1]])
+
+            fill = ax.fill_between(times_, lp, hp, step="post", 
+                                 color=color, alpha=0.1) 
+        
+        ax.set_ylabel(ylabel)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+        ax.set_yscale('log')
+        
+        comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017) 95%']
+        comparisonbar=True
+        if comparisonbar:
+            ax.axhspan(comp_band[0], comp_band[1], color='brown', alpha=0.5, label=comp_band[2])   
+            ax.legend()
+        
+        
+        
+        #==================================================================================================================================
+        
+        #NUSTAR - ALL-FOV, FINE TIME RESOLUTION ==========================================================================================
+        
+        tr=newtimerange
+            
+        evtA = glob.glob(datapath+'/event_cl/*A06_cl.evt')
+        evtB = glob.glob(datapath+'/event_cl/*B06_cl.evt')
+        hkA  = glob.glob(datapath+'/hk/*A_fpm.hk')
+        hkB  = glob.glob(datapath+'/hk/*B_fpm.hk')
+        
+        #Load in the evt file (has the list of photons)
+        evtdataA, hdrA = lc.load_nufiles(evtA[0])
+        # Load in the hk file (has the livetime info)
+        lvdataA, lvhdrA = lc.load_nufiles(hkA[0])
+        evtdataB, hdrB = lc.load_nufiles(evtB[0])
+        lvdataB, lvhdrB = lc.load_nufiles(hkB[0])
+
+        
+        eranges=[[2.5,3.5],[3.5,6.], [6.,10.], [10.,15.]]
+        labels = ['NuSTAR 2.5-3.5 keV', 'NuSTAR 3.5-6 keV', 'NuSTAR 6-10 keV', 'NuSTAR 10-15 keV']
+        eind=0
+        #     acc=0
+        for erange in eranges:
+            kevA = evtdataA['PI']*0.04+1.6
+            erange_evtdataA = evtdataA[np.where(np.logical_and(kevA > erange[0],kevA < erange[1]))]
+            kevB = evtdataB['PI']*0.04+1.6
+            erange_evtdataB = evtdataB[np.where(np.logical_and(kevB > erange[0],kevB < erange[1]))]
+        
+        
+            res = lc.get_a_nustar_lightcurve(erange_evtdataA, hdrA, lvdataA, lvhdrA, timebin=10, livetime_corr=True, event_stats=True)
+            times_converted, countrate, lvt, counts, acc_sample, rej_sample, all_sample = res
+
+
+        
+            keepinds = np.nonzero(np.logical_and(times_converted > tr[0], times_converted < tr[1]))
+            times_converted=times_converted[keepinds]
+            countrateA=countrate[keepinds]        
+                
+            res = lc.get_a_nustar_lightcurve(erange_evtdataB, hdrB, lvdataB, lvhdrB, timebin=10, livetime_corr=True, event_stats=True)
+            times_converted, countrate, lvt, counts, acc_sample, rej_sample, all_sample = res
+
+        
+            keepinds = np.nonzero(np.logical_and(times_converted > tr[0], times_converted < tr[1]))
+            times_converted=times_converted[keepinds]
+            countrateB=countrate[keepinds]
+
+            totalrate = countrateA+countrateB
+            totalrate_vals = totalrate[np.isfinite(totalrate)]
+            maximum = np.nanmax(totalrate_vals) 
+            axes[2].plot(times_converted, totalrate/maximum, label=labels[eind], color=nustar_cts_color[eind]) 
+        
+            eind+=1
+            
+        axes[2].set_ylim([0,1.01])
+        
+        #==================================================================================================================================
+        
+        #Add Goes Curve (both days) #=========================================================================================================
+        tr=timerange
+        #print(tr)
+        lc.get_goes(tr, satellite=16)
+        instrument='GOES'
+        data = lc.load_lightcurves(instrument)
+        
+        ylabel = data['GOES flux label']
+        goestimes = data['GOES Times']
+        xrsbcounts = data['XRSB counts']
+        xrsblabel = data['XRSB label']
+        gts = [t.datetime for t in goestimes]
+        
+        axg = axes[3] #.twinx()
+        #xrs=[x.value for x in all_xrsb]
+        axg.plot(gts, xrsbcounts, label='GOES '+xrsblabel, color='red')
+        axg.set_yscale('log')
+        #axg.set_ylim([1e-7,1e-6])
+        #axg.yaxis.set_ticks([1e-6, 1e-5, 1e-4], labels=['C','M','X'], color='red', fontsize=labelfontsize)
+        axg.grid(True, which='major', axis='y', linestyle=':', color='red')
+        
+        #axg.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        #axg.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+        
+        #==================================================================================================================================
+        
+        #Plot Flares from Reed's list #====================================================================================================
+        plot_flares=True
+        if plot_flares:
+            import pandas as pd
+            import astropy.time
+            df = pd.read_csv('fpmA.csv')
+            starts = df['flare_start'].values
+            stops = df['flare_end'].values
+            
+        
+            early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in starts]
+            late_stops = [(astropy.time.Time(s)+2*u.min).datetime for s in stops]  
+        
+            for j in range(0, len(early_starts)):
+                for ax in axes:
+                    ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='grey')
+                    ax.set_xlim(timerange[0], timerange[1])
+        
+        #==================================================================================================================================
+        
+        
+        leg0 = axes[0].legend()
+        leg1 = axes[1].legend()#(loc='best')
+        leg2 = axes[2].legend()#loc='best')
+        leg3 = axes[3].legend()
+        
+        
+        plt.savefig(working_dir+obsid+'_lc_summary.png', transparent=False)
+    print('')
+
+    
 
 
 
