@@ -76,7 +76,6 @@ def tis_wrapper(key, all_targets, method='singlegauss'):
     from sys import path as sys_path
     sys_path.append(path_to_dodem+'/dodem/')
     
-    import initial_analysis as ia
     import nustar_utilities as nuutil
     import time_interval_selection as tis
 
@@ -116,7 +115,7 @@ def tis_wrapper(key, all_targets, method='singlegauss'):
             id = id_dirs[i]
             guess, fast_min_factor = gauss_stats[i]
             
-            evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+            evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
             time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
             timerange = [time0, time1]
             print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
@@ -139,7 +138,6 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
     from sys import path as sys_path
     sys_path.append(path_to_dodem+'/dodem/')
     
-    import initial_analysis as ia
     import nustar_utilities as nuutil
     import time_interval_selection as tis
 
@@ -178,7 +176,7 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
         id = id_dirs[index]
         guess, fast_min_factor = gauss_stats[index]
     
-        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         timerange = [time0, time1]
         print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
@@ -195,7 +193,7 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
         id = id_dirs[index]
         sep_axis, guess, guess2, fast_min_factors = gauss_stats[index]
 
-        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         timerange = [time0, time1]
         print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
@@ -224,7 +222,7 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
         regionfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
         regionfiles.sort()
         
-        evt_data, hdr = ia.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
+        evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         timerange = [time0, time1]
         print(timerange[0].strftime('%H-%M-%S'), timerange[1].strftime('%H-%M-%S'))
@@ -988,10 +986,154 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, e
         return data['time_intervals'], data['full_interval']
             
     return data['time_intervals']
+
+
+
+def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orbit=0):
+
+    """
+    Just to take a look at all the intervals found for all the suborbits.
+    
+    """
+    
+    all_intervals = glob.glob(working_dir+'*intervals.pickle')
+    all_intervals.sort()
+    timerange='hi' #not using this, as supplying custom file
+
+    all_time_intervals, all_time_intervals_list = [], []
+    orbit=0
+    for tt in all_intervals:
+        time_intervals = get_saved_intervals(timerange, custom_file=tt)
+        if missing_last:
+            if orbit == missing_orbit:
+                time_intervals = time_intervals[0:-1]
+        all_time_intervals.append(time_intervals)
+        all_time_intervals_list.extend(time_intervals)
+        count=0 
+        if shush==False:
+            for t in time_intervals:
+                print(orbit,'-',count, t[0].strftime('%H-%M-%S'), t[1].strftime('%H-%M-%S'))
+                count+=1
+            
+        orbit+=1
+        if shush==False:
+            print('')
+        
+    return all_time_intervals, all_time_intervals_list
+
+
+def region_time_intervals(region_dirs, id_dirs, shush=True, list_=False):
+
+    """
+    Wrapper for find_all_intervals that deals with the case that TIS may have suceeded/failed for different
+    sets of orbits for different regions (when using more than one region). 
+    """
+    #Find all time intervals for each region and make a big nested list
+    all_all_time_intervals=[]
+    all_all_time_intervals_list=[]
+    starts=[]
+    fixit=False
+    for r in region_dirs:
+        all_time_intervals, all_time_intervals_list = find_all_intervals(r, shush=shush)
+        if len(all_time_intervals) != len(id_dirs):
+            print('TIS failed on at least one orbit. Orbits completed: ', len(all_time_intervals))
+            print('Orbits total: ', len(id_dirs))
+            print('Region was: ', r)
+            fixit=True
+            
+        starts_reg=[]
+        for at in all_time_intervals:
+            starts_reg.append(at[0][0])
+        starts.append(starts_reg)
+        all_all_time_intervals.append(all_time_intervals)
+        all_all_time_intervals_list.append(all_time_intervals_list)
+    
+    #THE FOLLOWING is activated when TIS has failed for at least one orbit for at least one region (no saved 
+    #intervals file).
+    #It adds an empty string placeholder to the all_all_time_intervals array for that orbit(s) for that region.
+    #It seems to work, but if your regions are looking very off the culprit may be incorrect performance here. 
+
+    #print(starts)
+    if fixit:
+        ls = [len(s) for s in starts]
+        longest = starts[np.argmax(ls)]
+        #Looping over # orbits in region with the most
+        for i in range(0, len(longest)):
+            print('')
+            #Looping over regions
+            for j in range(0, len(starts)):
+                #print('longest: ', longest[i])
+                try:
+                    #print('starts val: ', starts[j][i])
+                    test=starts[j][i]
+                except IndexError:
+                    test=''
+                if test != longest[i]:
+                    #print('no,', test, longest[i])
+                    all_all_time_intervals[j].insert(i, '')
+                    starts[j].insert(i, '')
+
+    #print(starts)
+    #print(all_all_time_intervals)
+
+    if list_:
+        return all_all_time_intervals, fixit, all_all_time_intervals_list
+        
+    return all_all_time_intervals, fixit
     
     
 
+def check_consec(working_dir):
 
+    """
+    Made for evaluating the performance of time interval selection: are the output intervals consecutive in time?
+    """
+
+    all_intervals = glob.glob(working_dir+'*intervals.pickle')
+    all_intervals.sort()
+    print(all_intervals)
+    timerange='hi' #not using this, as supplying custom file
+
+    all_time_intervals, all_time_intervals_list = [], []
+    orbit=0
+    for tt in all_intervals:
+        time_intervals, full_interval = get_saved_intervals(timerange, custom_file=tt, return_full_range=True)
+        print('')
+        print('')
+        print('')
+        print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+        for i in range(0, len(time_intervals)-1):
+            now = time_intervals[i]
+            next = time_intervals[i+1]            
+            if i==0:
+                if now[0] == full_interval[0]:
+                    print('good:')
+                else:
+                    print('first bad:')
+                    print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+                    print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                    print('')
+                    
+                    
+            if now[1] == next[0]:
+                print('good:')
+                #print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                #print(next[0].strftime('%H-%M-%S'), next[1].strftime('%H-%M-%S'))
+                #print('')
+            else:
+                print('bad:')
+                print(now[0].strftime('%H-%M-%S'), now[1].strftime('%H-%M-%S'))
+                print(next[0].strftime('%H-%M-%S'), next[1].strftime('%H-%M-%S'))
+                print('')
+            if i==(len(time_intervals)-2):
+                if time_intervals[i+1][1] == full_interval[1]:
+                    print('good:')
+                else:
+                    print('last bad:')
+                    print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
+                    print(time_intervals[i+1][0].strftime('%H-%M-%S'), time_intervals[i+1][1].strftime('%H-%M-%S'))
+                    print('')
+                
 
 
 

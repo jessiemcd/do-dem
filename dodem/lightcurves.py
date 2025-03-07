@@ -1256,7 +1256,7 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
                    plot_each=True, plot_logic=True, remove_fexviii_max=False, 
                    analyze_transients=True, transient_number=3,
                    timerange=[datetime.datetime(2018, 5, 29, 22, 22), datetime.datetime(2018, 5, 29, 23, 19)],
-                  excluded_range=[]):
+                  excluded_range=[], save_dir='./', savestring='test', show=False):
     """
     For an input set of types of lightcurve (prepared using prepare_lightcurves - see above), 
     over an input time interval:
@@ -1307,7 +1307,18 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
     
     clrs=make_colors(26)
     ind=0
-    
+
+
+    number=len(aia_inputs)+2*len(nustar_inputs)+len(goes_inputs)
+    if plot_logic:
+        number+=1
+    if fexviii:
+        number+=1
+    fig, axes = plt.subplots(number, 1, figsize=(15, number*2), sharex=True)
+    plt.subplots_adjust(hspace=0)
+
+    nn=0
+
     if nustar_inputs:
         instrument='NuSTAR'
         
@@ -1315,10 +1326,10 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
         n_all_outdownsA=[]
         n_all_outupsB=[]
         n_all_outdownsB=[]
+        first=0
         for er in nustar_inputs:
-
             erange=er
-            data = load_lightcurves(instrument, erange=erange)
+            data = load_lightcurves(instrument, erange=erange, lc_dir=save_dir)
 
             times_convertedA = data['FPMA_times']
             countrateA = data['FPMA_countrate']
@@ -1326,28 +1337,84 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             times_convertedB = data['FPMB_times']
             countrateB = data['FPMB_countrate']
             lvtB = data['FPMB_livetime']
+
+            tstep=(times_convertedA[1]-times_convertedA[0]).seconds
+
+            accA = data['FPMA_accepted']
+            accB = data['FPMB_accepted']
+            rejA = data['FPMA_rejected']
+            rejB = data['FPMB_rejected'] 
+            allA = data['FPMA_all_ev']
+            allB = data['FPMB_all_ev']
+
+            if first==0:
+                #BECAUSE these things (accepted event percentage, time range, non-zero count rates)
+                #should not be energy-range dependent, just doing for the first range and then keeping 
+                #selected indices constant.
+
+                accA = data['FPMA_accepted']
+                accB = data['FPMB_accepted']
+                rejA = data['FPMA_rejected']
+                rejB = data['FPMB_rejected'] 
+                allA = data['FPMA_all_ev']
+                allB = data['FPMB_all_ev'] 
+                
+                evsumA=accA/(accA+rejA)
+                evsumB=accB/(accB+rejB)
+                evsum = (np.array(evsumA)+np.array(evsumB))/2.
+                #Condition that accepted event percent is above 95
+                accthresh_inds = np.where(evsum > 0.9)
+                #print('acc', len(accthresh_inds[0]))
+                #Condition that both countrates are not 0 (this is usually SAA)
+                nonzero_inds = np.where(np.logical_and(countrateA > 0, countrateB > 0))
+                #print('nz', len(nonzero_inds[0]))
+                #Intersection of the prior two conditions
+                allinds = np.intersect1d(accthresh_inds, nonzero_inds)
+                
+                if bool(excluded_range): 
+                    times1 = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < excluded_range[0]))
+                    times2 = np.where(np.logical_and(times_convertedA > excluded_range[1], times_convertedA < timerange[1]))
+                    times = np.concatenate((times1[0], times2[0]))
+                else:
+                    #Trim with timerange:
+                    times = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))
+                    #print('nt', len(times[0]))
+                #Intersection of the prior two conditions, plus the timerange
+                allinds = np.intersect1d(allinds, times)
+
+                first+=1
+
+            times_convertedA = times_convertedA[allinds]
+            times_convertedB = times_convertedB[allinds]
+            countrateA = countrateA[allinds]            
+            countrateB = countrateB[allinds]  
+            lvtA = lvtA[allinds]
+            lvtB = lvtB[allinds]
+
+
+            # print(countrateB)
             
-            if bool(excluded_range): 
-                times1 = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < excluded_range[0]))
-                times2 = np.where(np.logical_and(times_convertedA > excluded_range[1], times_convertedA < timerange[1]))
-                times = np.concatenate((times1[0], times2[0]))
-            else:
-                #Trim with timerange:
-                times = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))
+            # if bool(excluded_range): 
+            #     times1 = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < excluded_range[0]))
+            #     times2 = np.where(np.logical_and(times_convertedA > excluded_range[1], times_convertedA < timerange[1]))
+            #     times = np.concatenate((times1[0], times2[0]))
+            # else:
+            #     #Trim with timerange:
+            #     times = np.where(np.logical_and(times_convertedA > timerange[0], times_convertedA < timerange[1]))
 
 
-            times_convertedA = times_convertedA[times]
-            countrateA = countrateA[times]
-            lvtA = lvtA[times]
-            times_convertedB = times_convertedB[times]
-            countrateB = countrateB[times]
-            lvtB = lvtB[times]
+            # times_convertedA = times_convertedA[times]
+            # countrateA = countrateA[times]
+            # lvtA = lvtA[times]
+            # times_convertedB = times_convertedB[times]
+            # countrateB = countrateB[times]
+            # lvtB = lvtB[times]
 
             std = np.std(countrateA[np.isfinite(countrateA)])
             mean_val = np.mean(countrateA[np.isfinite(countrateA)])
             means = np.full(len(countrateA), mean_val)
 
-            tstep=(times_convertedA[1]-times_convertedA[0]).seconds
+            #tstep=(times_convertedA[1]-times_convertedA[0]).seconds
             #print('NuSTAR Timestep (s): ', tstep)
 
             n_bx = round(smooth/tstep)
@@ -1368,29 +1435,34 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             
             
             if plot_each:
-                fig = plt.figure(figsize=(15,3))
-                plt.plot(times_convertedA, countrateA, 
+                ax=axes[nn]
+                ax.plot(times_convertedA, countrateA, 
                          label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV',
                          **default_kwargs, color=clrs[ind])
 
-                plt.plot(times_convertedA, avg_lc, color=clrs[ind])
-                plt.errorbar(times_convertedA, means, yerr=std, color='Black')
-                plt.legend()
+                ax.plot(times_convertedA, avg_lc, color=clrs[ind])
+                ax.errorbar(times_convertedA, means, yerr=std, color='Black')
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+                ax.legend()
+
+                nn+=1
                 
             if plot_logic:
             
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(times_convertedA, outs)
+                ax = axes[-1]
+                ax.plot(times_convertedA, outs)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
 
 
             std = np.std(countrateB[np.isfinite(countrateB)])
             mean_val = np.mean(countrateB[np.isfinite(countrateB)])
             means = np.full(len(countrateB), mean_val)
             
-            tstep=(times_convertedB[1]-times_convertedB[0]).seconds
+            #tstep=(times_convertedB[1]-times_convertedB[0]).seconds
             #print('NuSTAR Timestep (s): ', tstep)
-
-            n_bx = round(smooth/tstep)
+            #n_bx = round(smooth/tstep)
 
             arr_lc = np.array(countrateB)
             avg_lc = boxcar_average(arr_lc, n_bx)
@@ -1406,21 +1478,28 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             n_all_outdownsB.append(outs_down)
 
             if plot_each:
-                fig = plt.figure(figsize=(15,3))
+                ax=axes[nn]
 
-                plt.plot(times_convertedB, countrateB, 
+                ax.plot(times_convertedB, countrateB, 
                          label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV', 
                          **default_kwargs, color=clrs[ind+1])
-                plt.plot(times_convertedB, avg_lc, color=clrs[ind+1])
-                plt.errorbar(times_convertedB, means, yerr=std, color='Black')
+                ax.plot(times_convertedB, avg_lc, color=clrs[ind+1])
+                ax.errorbar(times_convertedB, means, yerr=std, color='Black')
                 ind+=2
 
-                plt.legend()
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+
+                ax.legend()
+
+                nn+=1
                 
             if plot_logic:
 
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(times_convertedB, outs)
+                ax = axes[-1]
+                ax.plot(times_convertedA, outs)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
 
         
         
@@ -1502,17 +1581,23 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             outs = fexviii_outs_up+fexviii_outs_down
             
             if plot_each:
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(times_converted, avg_lc, label='Fe-XVIII boxcar', color=clrs[ind])
-                plt.plot(times_converted, corr_totals, label='Fe-XVIII', **default_kwargs, color=clrs[ind])
-                plt.errorbar(times_converted, means, yerr=std, color='Black', label='1 stdv from mean')
+                ax=axes[nn]
+                ax.plot(times_converted, avg_lc, label='Fe-XVIII boxcar', color=clrs[ind])
+                ax.plot(times_converted, corr_totals, label='Fe-XVIII', **default_kwargs, color=clrs[ind])
+                ax.errorbar(times_converted, means, yerr=std, color='Black', label='1 stdv from mean')
+                
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+                ax.legend()
 
-                plt.legend()
+                nn+=1
                 
             if plot_logic:
 
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(times_converted, outs)
+                ax=axes[-1]
+                ax.plot(times_converted, outs)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
             
         
         if aia_inputs:
@@ -1621,18 +1706,20 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
 
                 if plot_each:
 
-                    fig = plt.figure(figsize=(15, 3))
+                    ax=axes[nn]
 
-                    plt.plot(times_converted, avg_lc, label=chanlabel+' boxcar', color=clrs[ind])
-                    plt.plot(times_converted, corr_totals, label=chanlabel, **default_kwargs, color=clrs[ind])
-                    plt.errorbar(times_converted, means, yerr=std, color='Black', label='1 stdv from mean')
+                    ax.plot(times_converted, avg_lc, label=chanlabel+' boxcar', color=clrs[ind])
+                    ax.plot(times_converted, corr_totals, label=chanlabel, **default_kwargs, color=clrs[ind])
+                    ax.errorbar(times_converted, means, yerr=std, color='Black', label='1 stdv from mean')
 
-                    plt.legend()
+                    ax.legend()
+
+                    nn+=1
                     
                 if plot_logic:
 
-                    fig = plt.figure(figsize=(15, 3))
-                    plt.plot(times_converted, outs)
+                    ax=axes[-1]
+                    ax.plot(times_converted, outs)
 
 
                 ind+=1
@@ -1684,23 +1771,25 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             
             if plot_each:
                 #FIGURE A
-                fig = plt.figure(figsize=(15, 3))
+                ax=axes[nn]
 
-                plt.semilogy(gts, xrsacounts, 
+                ax.semilogy(gts, xrsacounts, 
                              label=xrsalabel,
                              **default_kwargs, color=clrs[xrsaclr])
 
-                plt.plot(gts, avg_lc, color=clrs[xrsaclr], label='XRSA Boxcar')
+                ax.plot(gts, avg_lc, color=clrs[xrsaclr], label='XRSA Boxcar')
                 #plt.errorbar(gts, means, yerr=std, color='Black', label='1 stdv from mean')
-                plt.axhline(mean_val, color='Black', label='1 stdv from mean')
-                plt.axhline(mean_val+std, color='Black')
-                plt.axhline(mean_val-std, color='Black')
-                plt.legend()
+                ax.axhline(mean_val, color='Black', label='1 stdv from mean')
+                ax.axhline(mean_val+std, color='Black')
+                ax.axhline(mean_val-std, color='Black')
+                ax.legend()
+
+                nn+=1
                 
             if plot_logic:
                 
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(gts, outs)
+                ax=axes[-1]
+                ax.plot(gts, outs)
 
             
         if 'xrsb' in goes_inputs:
@@ -1733,25 +1822,29 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
             
             if plot_each:
                 #FIGURE B
-                fig = plt.figure(figsize=(15, 3))
+                ax=axes[nn]
 
-                plt.semilogy(gts, xrsbcounts, 
+                ax.semilogy(gts, xrsbcounts, 
                              label=xrsblabel, 
                              **default_kwargs, color=clrs[xrsbclr])
 
-                plt.plot(gts, avg_lc, color=clrs[xrsbclr])
-                plt.axhline(mean_val, color='Black', label='1 stdv from mean')
-                plt.axhline(mean_val+std, color='Black')
-                plt.axhline(mean_val-std, color='Black')
-                plt.legend()
-                
+                ax.plot(gts, avg_lc, color=clrs[xrsbclr])
+                ax.axhline(mean_val, color='Black', label='1 stdv from mean')
+                ax.axhline(mean_val+std, color='Black')
+                ax.axhline(mean_val-std, color='Black')
+                ax.legend()
+
+                nn+=1
                 
             if plot_logic:
                 
-                fig = plt.figure(figsize=(15, 3))
-                plt.plot(gts, outs)
+                ax=axes[-1]
+                ax.plot(gts, outs)
 
-            
+
+    plt.savefig(save_dir+'/'+savestring+'_stdv.png')
+    if not show:
+        plt.close()
             
     fig = plt.figure(figsize=(15, 5))
     
@@ -1762,6 +1855,7 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
     nustar_res=[]
     goes_res=[]
 
+    interp=False
     
     if goes_inputs:
         totalgoesoutups = np.sum(goesoutups, axis=0)
@@ -1865,17 +1959,20 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
     
     plt.legend(ncol=3)
     plt.xlim(timerange)
-    plt.savefig('quiescence_summary.png')
+    plt.savefig(save_dir+'/'+savestring+'_quiescence_summary.png')
+    if not show:
+        plt.close()
     
 
     if analyze_transients:
-        res = transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange)
+        res = transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, transient_number=transient_number,
+                                 show=show, save_dir=save_dir, savestring=savestring)
     
     
-    return []
+    return res
 
 def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, interp=True,
-                      transient_number=2):
+                      transient_number=2, show=True, save_dir='./', savestring='test'):
     """
     Takes in arrays corresponding to times where each instrument is above/below the mean+-stdv window during
     the observation, and quantifies intervals where there are multiple instruments above/below. 
@@ -2042,7 +2139,7 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
             #print('')
     
     #print(each_window_has)
-    print('Overlaps:', count)
+    #print('Overlaps:', count)
     print('')
     
     #We know that some of the windows may have have overlap with eachother. We want to simplify to combine these. 
@@ -2119,11 +2216,11 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
     newwindows = [newwindows[i] for i in inds]
     newwindow_labels = [newwindow_labels[i] for i in inds]
     
-    for i in range(0, len(newwindows_sort)):
-        print('')
-        print('Window ', i)
-        print('Channels: ', sorted( newwindow_labels[i]))
-        print('Time Range: ', newwindows[i][0].strftime('%H:%M:%S'), newwindows[i][1].strftime('%H:%M:%S'))
+    # for i in range(0, len(newwindows_sort)):
+    #     print('')
+    #     print('Window ', i)
+    #     print('Channels: ', sorted( newwindow_labels[i]))
+    #     print('Time Range: ', newwindows[i][0].strftime('%H:%M:%S'), newwindows[i][1].strftime('%H:%M:%S'))
 
     fig, ax = plt.subplots(1, figsize=(15, 3))
     
@@ -2141,9 +2238,12 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
     
     plt.legend(ncol=3)
     plt.xlim(timerange)
+    plt.savefig(save_dir+'/'+savestring+'_transients.png')
+    if not show:
+        plt.close()
         
         
-    return []
+    return newwindows
 
 def windows(time, outup, outdown):
     """
@@ -2155,7 +2255,7 @@ def windows(time, outup, outdown):
     ca = consecutive(ai)
     awindows=[]
     for c in ca:
-        if c != []:
+        if len(c) > 0:
             c=np.array(c)
             awindows.append([time[c[0]], time[c[-1]]])
     
@@ -2163,7 +2263,7 @@ def windows(time, outup, outdown):
     cb = consecutive(bi)
     bwindows=[]
     for c in cb:
-        if c != []:
+        if len(c) > 0:
             c=np.array(c)
             bwindows.append([time[c[0]], time[c[-1]]])
     

@@ -1041,15 +1041,21 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
         file=working_dir+\
             timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_MC_DEM_result.pickle'
         params=get_DEM_params(file)
-        if params is not None:
-            m1, max1, above5, above7, above10, \
-               above_peak, below_peak, above_635, below_635,\
-               chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
-
-            result_time_intervals.append(t)
-        else:
+        if params is None:
+            #Moving on if there's no DEM result file
             continue
-        
+
+        m1, max1, above5, above7, above10, \
+           above_peak, below_peak, above_635, below_635,\
+           chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
+
+        if len(dn_in) <= 6:
+            #Not including cases of AIA-only DEMs when something went wrong with NuSTAR
+            continue
+
+        else:
+            result_time_intervals.append(t)
+
         peaks.append(m1)
         maxes.append(max1)
         above5s.append(above5)
@@ -1093,7 +1099,8 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
 def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, color, backcolors,
                            error=False, quantity_low=[], quantity_high=[], errorcolor='gray',
                            comparisonbar=False, ylog=False, working_dir='./',
-                           comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)'], plot_flares=False): 
+                           comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017)'], plot_flares=False, 
+                            show=True): 
     
     
     lw=2
@@ -1186,6 +1193,9 @@ def pretty_orbit_timeseries(time_intervals, quantity, quantitylabel, label, colo
         
     starttime = make_timestring(time_intervals[0])        
     plt.savefig(working_dir+'/'+savelabel+'_startat_'+starttime+'.png')
+
+    if not show:
+        plt.close()
     
     
     

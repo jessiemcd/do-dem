@@ -1157,3 +1157,122 @@ def edit_gti(gti_file, newstart, newstop, newfile):
     fits.writeto(newfile, d, header=hdr, overwrite=True)
 
 
+    
+
+def plot_grade_spectra(working_dir, timestring, fpm):
+
+    """
+    Wrapper to plot spectra.
+    """
+    
+    #unphysical grades
+    arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(working_dir, timestring, fpm,
+                                                                               special_pha=False, grade='21_24')
+    engs,cnts_u,lvtm,ontim=nuutil.read_pha(pha_files_unphys[0]) 
+
+    #Grade 0 files: 
+
+    arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0')
+    engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
+    
+    fig=plt.figure(figsize=(10,5))
+    plt.plot(engs, (cnts-0.25*cnts_u), label='corr')
+    plt.plot(engs, cnts, label='og grade 0')
+    plt.plot(engs, cnts_u, label='unphys')
+    plt.yscale('log')
+    plt.xlim([0,13])
+    plt.legend()
+    plt.savefig(working_dir+timestring+'/'+timestring+fpm+'pile_up.png')
+    plt.close(fig)
+
+
+    #Grade 0-4 files: 
+    
+    arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0')
+    engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
+    
+    fig=plt.figure(figsize=(10,5))
+    plt.plot(engs, (cnts-(5./4)*cnts_u), label='corr')
+    plt.plot(engs, cnts, label='og grades 0-4')
+    plt.plot(engs, cnts_u, label='unphys')
+    plt.yscale('log')
+    plt.xlim([0,13])
+    plt.legend()
+    plt.savefig(working_dir+timestring+'/'+timestring+fpm+'_adjacent_pile_up.png')   
+    plt.close(fig)
+
+
+
+def return_submap(datapath='./', fpm='A', specific_evt=[], 
+                  bl=[], tr=[], nusmooth=True,
+                  return_evt_hdr=False, plot=False,
+                     return_obsid=False):
+    """
+    wrapper - convert to solar coordinates and make submap for nice plot
+    """
+    from astropy.coordinates import SkyCoord
+    
+    #Get evt file
+    if specific_evt:
+        evt_file=specific_evt
+    else:
+        #print(datapath)
+        evt_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl.evt')[0]
+
+    #print(evt_file)
+    #Convert evt file to solar coordinates         
+    convert_wrapper(evt_file, clobber=False)
+    
+    #Get solar coordinates file
+    if specific_evt:
+        sun_file = specific_evt[:-4]+'_sunpos.evt'
+    else:
+        sun_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl_sunpos.evt')[0]
+    #print('Using solar coodinates file:', sun_file)
+    
+    with fits.open(sun_file) as hdu:
+        evt_data = hdu[1].data
+        hdr = hdu[1].header
+
+    
+
+    if return_evt_hdr:
+        if return_obsid:
+            obsid = sun_file.split('/')[-1][2:13]
+            return evt_data, hdr, obsid
+        return evt_data, hdr
+
+
+    nustar_map = numap.make_sunpy(evt_data, hdr, norm_map=True)
+    
+    if nusmooth:
+       from scipy import ndimage
+       import sunpy.map
+       #Smoothing the data; change sigma to smooth more or less
+       dd=ndimage.gaussian_filter(nustar_map.data, sigma=2, mode='nearest')
+       nustar_map=sunpy.map.Map(dd, nustar_map.meta)
+        
+    if bl:
+        submap = nustar_map.submap(bottom_left=SkyCoord(*bl, frame=nustar_map.coordinate_frame),
+                          top_right=SkyCoord(*tr, frame=nustar_map.coordinate_frame))
+    else:    
+        bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+        tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+        submap = nustar_map.submap(bottom_left=bl, top_right=tr)
+
+    if plot:
+        print(submap.unit)
+        fig = plt.figure(figsize=(6,6))
+        ax = fig.add_subplot(1,1,1, projection=submap)
+        submap.plot(axes=ax)
+        submap.draw_contours(5, axes=ax)#, index=1, percent=True, fill=True)
+
+        #print(submap.contour(0.05))
+        #ax.plot_coord(submap.contour(0.05))
+        #print(submap.contour(0.05))
+
+    #print(np.max(submap.data))
+    #print(np.min(submap.data))
+    #print(np.mean(submap.data))
+
+    return submap

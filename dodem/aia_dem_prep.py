@@ -343,7 +343,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     #Define the list of temperatures for which we have AIA response values
     tresp_logt=np.array(aia_tresp['logt'])
     
-    aia_tr = aia_tresp['tr']
+    aia_tr = aia_tresp['tr'] #AIA temperature response function is in units of [DN cm^5 s^-1 pix^-1]
     
     #If we are excluding any channels from the default list...
     if bool(aia_exclude):
@@ -602,7 +602,7 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
 	
 	OR (if real_aia_err==True):
 	
-	DN/px/s value, error
+	(DN/px/s value), (DN/px/s error)
 	
     """
     
