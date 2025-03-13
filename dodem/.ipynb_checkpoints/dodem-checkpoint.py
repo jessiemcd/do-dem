@@ -49,6 +49,7 @@ def dodem(time, bl, tr,
           gtifile='starter_gti.fits', datapath='', regfile='starter_region.reg', edit_regfile=True, use_fit_regfile=False,
           COM_nustar_region=False, twogauss=False, onegauss=False, guess=[], guess2=[],
           compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
+          force_nustar=False,
           
           #XRT-related
           xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='Average', xrt_exposure_dict=exposure_dict,
@@ -167,6 +168,10 @@ def dodem(time, bl, tr,
     
     NuSTAR-related 
     -------------- 
+
+    force_nustar - set True to quit rather than do a non-NuSTAR DEM (helpful if you want the process to quit when there
+                is an issue with the NuSTAR inputs, rather than make an AIA/XRT-only DEM). 
+    
     nuenergies - if using NuSTAR data, provide an energy range (or ranges) to use
             FORMAT LIKE, nuenergies=[2.5,7]
                             OR
@@ -348,6 +353,10 @@ def dodem(time, bl, tr,
     edens - electron density (for calculating contribution functions)
     
     """
+
+    if force_nustar and nustar==False:
+        print('You set force_nustar True and nustar False – quitting.')
+        return
     
     if mc_in==True and just_prep==True:
         print('We will not get to DEMReg MCMC since we are exiting with data products for input elsewhere')
@@ -708,6 +717,9 @@ def dodem(time, bl, tr,
                 print('Something is wrong; Not using NuSTAR.')
                 print('')
                 nustar=False
+                if force_nustar:
+                    print('force_nustar is set True, so we will NOT do this non-NuSTAR DEM.')
+                    return
 
             if nustar:
                 rate, erate, nutrs, nu_tresp, nu_logt, fpm = res

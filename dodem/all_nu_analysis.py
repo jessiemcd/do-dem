@@ -234,7 +234,7 @@ def get_exposures(target_dict, dogoes=False):
     
         if dogoes:
             allminmax, allstrings, \
-                goes_per_orbit, goes_per_orbit_strings = ana.all_obs_goes(ARdict['datapaths'], satellite=ARdict['goes_satellite'])
+                goes_per_orbit, goes_per_orbit_strings = all_obs_goes(ARdict['datapaths'], satellite=ARdict['goes_satellite'])
             target_dict[key]['AR GOES min, max vals'] = allminmax
             target_dict[key]['AR GOES min, max strings'] = allstrings
             target_dict[key]['orbit GOES min, max vals'] = goes_per_orbit
@@ -571,6 +571,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                             nuradius=nuradius, edit_regfile=False,
                             regfile=regfile,
                             adjacent_grades=True, pile_up_corr=True,
+                            force_nustar=True,
     
                             #aia related
                             load_prepped_aia=data, 
@@ -581,47 +582,73 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                             input_xrt_region="circle", input_xrt_region_dict=region_input)
 
 
+
+
+def get_key_resultfiles(key, withparams=False):
+    
+    import glob
+
+    if withparams:
+        res_files = glob.glob('./compact_results/*'+key+'*withparams.pickle')
+    else:
+        rfs = glob.glob('./compact_results/*'+key+'*.pickle')
+        res_files = [f for f in rfs if 'withparams' not in f]
+        #print(res_files)
+        
+    res_files.sort()
+        
+    if 'region' in res_files[0]:
+        rez = []
+        zeros = [f for f in res_files if 'region_0' in f]
+        if zeros:
+            rez.append(zeros)
+        ones = [f for f in res_files if 'region_1' in f]
+        if ones:
+            rez.append(ones)
+
+
+        if zeros and ones:
+            return rez, True
+        else:
+            #print(rez[0])
+            return rez[0], False
+
+
+    else:
+        return res_files, False
+        
+
 def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
-                EMT=False):
+                EMT=False, regions_return=False):
     
     import glob
 
     if all:
         res_files = glob.glob('./compact_results/*')
     elif key:
-        res_files = glob.glob('./compact_results/*'+key+'*.pickle')
-        print(key)
-        #print(res_files)
-
-        #try:
-        if 'region' in res_files[0]:
-            zeros = [f for f in res_files if 'region_0' in f]
-            ones = [f for f in res_files if 'region_1' in f]
-            zeros.sort()
-            if zeros:
-                res0 = extract_and_plot_above10s(zeros, key=key, 
+        res_files, tworegion = get_key_resultfiles(key, withparams=False)
+        if tworegion:
+            res=[]
+            if res_files[0]:
+                res0 = extract_and_plot_above10s(res_files[0], key=key, 
                                              plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 0',
                                                 EMT=EMT)
-            else:
-                res0 = [],[],[]
-            ones.sort()
-            if ones:
-                res1 = extract_and_plot_above10s(ones, key=key,
+                res.append(res0)
+                
+            if res_files[1]:
+                res1 = extract_and_plot_above10s(res_files[1], key=key, 
                                              plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 1',
-                                                EMT=EMT)
-            else:
-                res1 = [],[],[]
-            res = [res0,res1]
-        # except IndexError:
-        #     print(key)
-        #     print(res_files)
-        #     print(res_files[0])
-            
+                                                EMT=EMT)  
+                res.append(res1)
+
+            if regions_return:
+                return res 
+
+            res_files = res_files[0] + res_files[1]
+       
     else:
         print('Either set all=True, or select a key!')
         return
-        
-    res_files.sort()
 
     res = extract_and_plot_above10s(res_files, key=key, plot=plot, time_weighted=time_weighted, seconds_per=seconds_per)
 
@@ -637,7 +664,62 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         return res
 
     
+def check_for_flare(time, starts, stops):
 
+    flare=False
+    #If there is a flare that starts before time0 and stops after time0
+    b4 = [s < time[0] for s in starts]
+    ea = [s > time[0] for s in stops]
+    es = np.where(np.logical_and(b4, ea))
+
+    if es[0].size > 0:
+        flare=True
+
+    #If there is a flare that starts between time0 and time1
+    b4 = [s > time[0] for s in starts]
+    ea = [s < time[1] for s in starts]
+    es = np.where(np.logical_and(b4, ea))
+
+    if es[0].size > 0:
+        flare=True
+
+    return flare
+
+
+def get_saved_flares(add_stdv_flares=True):
+
+    import pandas as pd
+    import astropy.time as time
+
+    risefactor=1
+    fallfactor=2
+    
+    df = pd.read_csv('fpmA.csv')
+    starts = df['flare_start'].values
+    stops = df['flare_end'].values
+    num=len(starts)
+    
+    from astropy import units as u
+    durs = [(time.Time(stops[i])-time.Time(starts[i])).to(u.s) for i in range(0,num)]
+    early_starts = [(time.Time(starts[i])-risefactor*durs[i]).datetime for i in range(0,num)]
+    late_stops = [(time.Time(stops[i])+fallfactor*durs[i]).datetime for i in range(0,num)]
+
+    #early_starts = [(time.Time(s)-2*u.min) for s in starts]
+    #late_stops = [(time.Time(s)+4*u.min) for s in stops]
+
+    if add_stdv_flares:
+        with open('stdv_flares.pickle', 'rb') as f:
+            data = pickle.load(f)
+
+        flarewindows = np.array(data['stdv_flares'])
+        num=len(flarewindows)
+        durs = [time.Time(flarewindows[i,1])-time.Time(flarewindows[i,0]) for i in range(0, num)]
+        early_starts.extend([(time.Time(flarewindows[i,0])-risefactor*durs[i]).datetime for i in range(0, num)])
+        late_stops.extend([(time.Time(flarewindows[i,1])+fallfactor*durs[i]).datetime for i in range(0, num)])
+        #early_starts.extend([(time.Time(s)-2*u.min).datetime for s in flarewindows[:,0]])
+        #late_stops.extend([(time.Time(s)+4*u.min).datetime for s in flarewindows[:,1]]) 
+
+    return [early_starts, late_stops]
 
 def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False, seconds_per=5, plotlabel='', show=False,
                              EMT=False):
@@ -645,24 +727,10 @@ def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False
 
     import pandas as pd
     import astropy.time
-    
-    df = pd.read_csv('fpmA.csv')
-    starts = df['flare_start'].values
-    stops = df['flare_end'].values
-    
-    from astropy import units as u
-    early_starts = [(astropy.time.Time(s)-2*u.min) for s in starts]
-    late_stops = [(astropy.time.Time(s)+4*u.min) for s in stops]
 
-    add_stdv_flares=True
-    if add_stdv_flares:
-        with open('stdv_flares.pickle', 'rb') as f:
-            data = pickle.load(f)
-
-        flarewindows = np.array(data['stdv_flares'])
-        early_starts.extend([(astropy.time.Time(s)-2*u.min).datetime for s in flarewindows[:,0]])
-        late_stops.extend([(astropy.time.Time(s)+4*u.min).datetime for s in flarewindows[:,1]]) 
-    
+    flare_res = get_saved_flares(add_stdv_flares=True)
+    early_starts = flare_res[0]
+    late_stops = flare_res[1]
     
     all_above10s_flares = []
     all_above10s_non = []
@@ -682,7 +750,7 @@ def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False
     EMTnon = []
     
     for f in res_files:
-        flare=False
+        #flare=False
     
         data, timestring, time = viz.load_DEM(f)
         times.append(time)
@@ -691,27 +759,25 @@ def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False
             time1=time[0]
         durations.append(dur)
         time_mult = round(dur.value/seconds_per)
-    
-        b4 = [s < time[0] for s in early_starts]
-        ea = [s > time[0] for s in late_stops]
-        es = np.where(np.logical_and(b4, ea))
-    
-        if es[0].size > 0:
-            flare=True
-    
-        b4 = [s > time[0] for s in early_starts]
-        ea = [s < time[1] for s in early_starts]
-        es = np.where(np.logical_and(b4, ea))
-    
-        if es[0].size > 0:
-            flare=True
-        
+
+        flare = check_for_flare(time, early_starts, late_stops)
         res = viz.get_DEM_params(f)
+
+        #print(res)
     
         m1, max1, above5_, above7_, above10_, \
             above_peak, below_peak, above_635, below_635, \
-               data['chanax'], data['dn_in'], data['edn_in'], \
+               chanax, dn_in, edn_in, \
                     powerlaws, EMT_all, EMT_thresh = res
+
+        #if above10_[0] > 1e24:
+        #    print(f, above10_)
+
+        if len(data['dn_in']) <= 6:
+            print('Suspect missing nustar:')
+            print(chanax)
+            print(f)
+            continue
 
 
     
@@ -1279,44 +1345,67 @@ def make_summary_lcs(key, method='input', show=True):
             
             #==================================================================================================================================
             
-            #Plot Flares from Reed's list #====================================================================================================
-            plot_flares=True
-            if plot_flares:
-                import pandas as pd
-                import astropy.time
-                df = pd.read_csv('fpmA.csv')
-                starts = df['flare_start'].values
-                stops = df['flare_end'].values
+            # #Plot Flares from Reed's list #====================================================================================================
+            # plot_flares=True
+            # if plot_flares:
+            #     import pandas as pd
+            #     import astropy.time
+            #     df = pd.read_csv('fpmA.csv')
+            #     starts = df['flare_start'].values
+            #     stops = df['flare_end'].values
                 
             
-                early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in starts]
-                late_stops = [(astropy.time.Time(s)+4*u.min).datetime for s in stops]  
+            #     early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in starts]
+            #     late_stops = [(astropy.time.Time(s)+4*u.min).datetime for s in stops]  
             
-                for j in range(0, len(early_starts)):
-                    for ax in axes:
-                        ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='purple')
-                        ax.set_xlim(timerange[0], timerange[1])
+            #     for j in range(0, len(early_starts)):
+            #         for ax in axes:
+            #             ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='purple')
+            #             ax.set_xlim(timerange[0], timerange[1])
             
 
-            #Plot Flares stdv analysis list #====================================================================================================
-            plot_stdv_flares=True
-            if plot_stdv_flares:
-                #print('got here')
+            # #Plot Flares stdv analysis list #====================================================================================================
+            # plot_stdv_flares=True
+            # if plot_stdv_flares:
+            #     #print('got here')
 
-                with open('stdv_flares.pickle', 'rb') as f:
-                    data = pickle.load(f)
+            #     with open('stdv_flares.pickle', 'rb') as f:
+            #         data = pickle.load(f)
 
-                flarewindows = np.array(data['stdv_flares'])
+            #     flarewindows = np.array(data['stdv_flares'])
                 
-                early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in flarewindows[:,0]]
-                late_stops = [(astropy.time.Time(s)+4*u.min).datetime for s in flarewindows[:,1]]  
+            #     early_starts = [(astropy.time.Time(s)-2*u.min).datetime for s in flarewindows[:,0]]
+            #     late_stops = [(astropy.time.Time(s)+4*u.min).datetime for s in flarewindows[:,1]]  
             
-                for j in range(0, len(early_starts)):
-                    for ax in axes:
-                        ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='green')
-                        ax.set_xlim(timerange[0], timerange[1])
+            #     for j in range(0, len(early_starts)):
+            #         for ax in axes:
+            #             ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='green')
+            #             ax.set_xlim(timerange[0], timerange[1])
                         
             
+            plot_flares=True
+            plot_stdv_flares=True
+            
+            if plot_flares:
+                flare_res = get_saved_flares()
+                early_starts = flare_res[0]
+                late_stops = flare_res[1]
+
+                for j in range(0, len(early_starts)):
+                    for ax in axes:
+                        ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='blue')
+                        ax.set_xlim(timerange[0], timerange[1])
+
+                if plot_stdv_flares:
+                    flare_res = get_saved_flares(add_stdv_flares=True)
+                    early_starts = flare_res[0]
+                    late_stops = flare_res[1]
+                    for j in range(0, len(early_starts)):
+                        for ax in axes:
+                            ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='red')
+                            ax.set_xlim(timerange[0], timerange[1])
+                    
+
             
             
             #==================================================================================================================================
@@ -1361,6 +1450,104 @@ def make_summary_lcs(key, method='input', show=True):
 
     
 
+def plot_with_discriminator(axes, resfiles, discriminator, options, label, paramx, paramy, optionnumbers, caselabels,
+                  xindex='', yindex='', flare=False, startstop=[], update_flarecheck=False):
+
+    """
+
+    Takes in plot axes, a set of resultfiles from a given key/region, and selections re what parameters we would like to plot.
+
+    Also takes in DISCRIMINATOR – a value of the key/region with which we would like to separate out different cases and plot them
+    on different axes. The number of axes should be equal to the number of possible values of discriminator. For recordkeeping, we 
+    also need: 
+    
+    optionnumbers – array (of the same length as the number of possible values of the discriminator), containing the number of each which
+                    has been found so far (we'll add to the number associated with the value of discriminator each time this is run). 
+
+    caselabels - list (of the same length as the number of possible values of the discriminator) containting lists of the LABELS of each
+                    key/region (we'll add the present label value to the list for the present value of the discriminator.)
+    
+    If startstop is not set, take all intervals.
+    If startstop contains lists of paired start and stop times for flares, then:
+        if Flare == True: take only times intersecting with a flare
+        if Flare == False: take only times that do not intersect with a flare
+    """
+
+    from astropy import units as u
+
+    greenz = ['green', 'darkgreen', 'mediumseagreen', 'lightgreen', 'forestgreen', 'seagreen', 'darkseagreen', 'lime', 'springgreen', 
+          'mediumaquamarine', 'aquamarine', 'lawngreen', 'green', 'darkgreen', 'mediumseagreen', 'lightgreen', 'forestgreen', 'seagreen', 
+              'darkseagreen', 'lime', 'springgreen', 
+          'mediumaquamarine', 'aquamarine', 'lawngreen']
+
+    bluez = ['blue', 'royalblue', 'mediumblue', 'darkblue', 'navy', 'cornflowerblue', 'dodgerblue', 'deepskyblue', 'skyblue',
+         'lightblue', 'lightskyblue', 'steelblue', 'lightsteelblue', 'powderblue', 'darkslateblue', 'slateblue', 'lightslategray',
+         'slategray']
+
+
+    reds = ['lightcoral', 'indianred', 'brown', 'red', 'salmon', 'tomato']
+
+    purples = ['plum', 'violet', 'purple', 'darkviolet', 'darkorchid', 'thistle']
+
+    colorz = [greenz, bluez, reds, purples]
+
+    first = 0
+
+    if startstop:
+        early_starts = startstop[0]
+        late_stops = startstop[1]
+
+    valuex=[]
+    valuey=[]            
+    for r in resfiles:
+        #regiondicts=[]
+        with open(r, 'rb') as f:
+            data = pickle.load(f)
+        #regiondicts.append(data)
+        if startstop:
+            time = data['time_interval']
+            if 'flare?' in data.keys() and update_flarecheck == False:
+                flarecheck = data['flare?'] 
+            else:
+                flarecheck = check_for_flare(time, early_starts, late_stops)
+                if update_flarecheck:
+                    data['flare?'] = flarecheck
+                    with open(r, 'wb') as f:
+                         # Pickle the 'data' dictionary using the highest protocol available.
+                         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
+                        
+            if flarecheck != flare:
+                #print(time[0].strftime('%H-%M-%S'))
+                continue
+                
+        #print(time[0].strftime('%H-%M-%S'))    
+        if type(xindex) == int:
+            valuex.append(data[paramx][xindex])
+        else:
+            valuex.append(data[paramx])
+            
+        if type(yindex) == int:
+            valuey.append(data[paramy][yindex])
+        else:
+            valuey.append(data[paramy])
+
+    for o in range(0, len(options)):
+        if discriminator == options[o]:
+            ax=axes[o]
+            if label not in caselabels[o]:
+                optionnumbers[o]+=1
+                caselabels[o].append(label)
+                first = 1
+            thecolor = colorz[o][int(optionnumbers[o])]
+            if first:
+                ax.scatter(valuex, valuey, color=thecolor, label=label)
+                ax.set_title(options[o]+' regions, '+paramy+' vs. '+paramx)
+                firstl=0
+            else:
+                ax.scatter(valuex, valuey, color=thecolor)             
+
+
+    return optionnumbers, caselabels
 
 
 

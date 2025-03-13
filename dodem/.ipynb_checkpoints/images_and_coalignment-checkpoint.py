@@ -924,12 +924,14 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
     import pickle
     import pathlib
 
-    aia_dict_dir=working_dir+'all_aia_dicts_'+key+'/'
     #Make a new working directory for prepped data/etc if it doesn't yet exist
+    aia_dict_dir=working_dir+'all_aia_dicts_'+key+'/'
     save_path = pathlib.Path(aia_dict_dir)
     if not save_path.exists():
         save_path.mkdir()
 
+    #This is used to make an additional directory containing aia region files for all regions
+    #in a given observation.
     if additional_path:
         other_aia_dict_dir=additional_path+'all_aia_dicts_'+key+'/'
         #Make a new working directory for prepped data/etc if it doesn't yet exist
@@ -937,7 +939,9 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
         if not save_path.exists():
             save_path.mkdir()
 
+    
     suborbit_directories = []
+    #For each orbit...
     for at in range(0, len(all_time_intervals)):
         #Get lead interval, for which we've saved a region.
         lead_interval = all_time_intervals[at][0]
@@ -946,6 +950,7 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
         stopstring = time[1].strftime('%H-%M-%S')
         timestring=timestring+'_'+stopstring
         file=working_dir+timestring+'/'+timestring+'_aia_region.pickle'
+        
         try:
             with open(file, 'rb') as f:
                 data = pickle.load(f)  

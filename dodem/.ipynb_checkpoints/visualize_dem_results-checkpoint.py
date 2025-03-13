@@ -909,7 +909,7 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
     return powerlaws    
     
       
-def get_DEM_params(file):
+def get_DEM_params(file, save_params_file=False):
     
     """
     For a given dem results file, fetch assorted DEM result parameters 
@@ -997,7 +997,27 @@ def get_DEM_params(file):
     res = (m1, max1, above5_, above7_, above10_, 
            above_peak, below_peak, above_635, below_635,
            data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh)
-    
+
+    save_params_file=True
+    if save_params_file:
+
+        savefile = file.split('.p')[-2]+'_withparams.pickle'
+        #print(savefile)
+
+        data['max'] = max1
+        data['max_temp'] = m1
+        data['above_5MK'] = above5_
+        data['above_7MK'] = above7_
+        data['above_10MK'] = above10_
+        data['above_peak'] = above_peak
+        data['below_peak'] = below_peak
+        data['powerlaws'] = powerlaws
+        data['EMT_all'] = EMT_all
+        data['EMT_thresh_5'] = EMT_thresh
+
+        with open(savefile, 'wb') as f:
+             # Pickle the 'data' dictionary using the highest protocol available.
+             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)   
     
     return res      
     
