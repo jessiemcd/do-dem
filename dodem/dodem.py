@@ -45,8 +45,8 @@ def dodem(time, bl, tr,
           path_to_dodem='./', working_directory='./',
           
           #NuSTAR-related
-          nustar_path='./', nuenergies=[[2.5,8]], fpm='A', make_nustar=False, pile_up_corr=False, adjacent_grades=False,
-          gtifile='starter_gti.fits', datapath='', regfile='starter_region.reg', edit_regfile=True, use_fit_regfile=False,
+          nuenergies=[[2.5,8]], fpm='A', make_nustar=False, pile_up_corr=False, adjacent_grades=False,
+          gtifile='starter_gti.fits', datapath='./', regfile='starter_region.reg', edit_regfile=True, use_fit_regfile=False,
           COM_nustar_region=False, twogauss=False, onegauss=False, guess=[], guess2=[],
           compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
           force_nustar=False,
@@ -68,6 +68,8 @@ def dodem(time, bl, tr,
           #DEMREG/DEM-related
           mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
           dem_norm0=None, nmu=40, emd_int=True, emd_ret=True):
+
+    
     """
     Wrapper for doing multi-instrument DEMs of a particular region/interval.
     
@@ -180,9 +182,7 @@ def dodem(time, bl, tr,
             
     datapath – NuSTAR data directory (location of event_cl, etc. directories). If default downloaded data is used, will
                 be named after the OBSID. E.g.: '/Users/jessieduncan/nustar/may-2018/5_29test/80410203001/'            
-            
-    nustar_path –   Location of timestring directory (named like /19-09-00_19-14-00/ after time interval hhmmss_hhmmss).
-                    The timestring directory is where NuSTAR spectral data products, etc. are either found or placed.            
+         
             
     make_nustar - Set True to make nustar spectral data products if they are not found. If you want to use this, you must
                     also provide inputs to gtifile, datapath, regfile (see below).
@@ -191,8 +191,6 @@ def dodem(time, bl, tr,
                    
     nuclobber - set True to ignore previously-made spectral data products + re-do them all.
                    
-    nustar_path –   Location of timestring directory (named like /19-09-00_19-14-00/ after time interval hhmmss_hhmmss).
-                    The timestring directory is where NuSTAR spectral data products, etc. are either found or placed.
                     
     gtifile – NuSTAR GTI file – will be edited based on time input. Can find one to use in event_cl directory post 
                 initial pipeline (see datapath). 
@@ -1407,20 +1405,33 @@ def read_iterative_outputs(data, chi_thresh=0.95, name='', working_directory='./
         
     return data    
     
-def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies, 
-                       highT=7.2, dT=0.05,
-                       gtifile='starter_gti.fits', regfile='starter_region.reg', name2='',
-                       xrt=True, aia=True, nustar=True, edit_regfile=False, use_fit_regfile=False,
-                       COM_nustar_region=False, nuclobber=False, special_pha='', pile_up_corr=False,
-                       adjacent_grades=False,
-                       plotMK=False, plot=False, aia_exclude=[], aia_clobber=False,
-                       xrt_exclude=[], xrtmethod='Average', xrt_path='./xrt_for_DEM/', xrt_factor=2,
-                       input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False,
-                       aiamethod='Average', input_aia_region=[], input_aia_region_dict=[],
-                       demmethod='DEMREG', use_prior_prep=False, prior_name='',
-                       real_aia_err=False, default_err=0.2,
+def high_temp_analysis(time, bl, tr, 
+                       xrt=True, aia=True, nustar=True,
+                       plotMK=False, plot=False, highT=7.2, dT=0.05,
+                       name2='', demmethod='DEMREG', use_prior_prep=False, prior_name='',
+                        default_err=0.2, path_to_dodem='./', working_directory='./',
+
+                       #demreg/xrt_iterative related
                        reg_tweak=1, max_iter=30, rgt_fact=1.5,
-                       mc_iter=100, chi_thresh=0.95):
+                       mc_iter=100, chi_thresh=0.95,
+
+                       #nustar=related
+                       datapath='./', gtifile='starter_gti.fits', regfile='starter_region.reg',
+                       edit_regfile=False, use_fit_regfile=False, COM_nustar_region=False, 
+                       nuclobber=False, special_pha='', pile_up_corr=False,
+                       adjacent_grades=False, nuenergies = [[2.5,3.5], [3.5,6.], [6.,10.]],
+                       twogauss=False, onegauss=False, guess=[], guess2=[], nuradius=150,
+                        force_nustar=False,
+
+                       #xrt related
+                       xrt_exposure_dict = {}, xrt_exclude=[], xrtmethod='Average', xrt_path='./xrt_for_DEM/', 
+                       xrt_factor=2, input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False,
+
+                       #aia related
+                        load_prepped_aia=[],
+                       aia_exclude=[], aia_clobber=False,
+                        aiamethod='Average', input_aia_region=[], input_aia_region_dict=[],
+                       real_aia_err=False):
    
     
     """
@@ -1444,17 +1455,12 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies,
         
         
     #Identical across temperature ranges;
-    compare_fpm=False
     combine_fpm=True
-    eis=False
     make_nustar=True
-    just_prep=False
-    gloci=1
     mc_in=True
     mc_rounds=100
     plotresp=False
-    nustar_path='./'
-    use_highT_prep=False
+    eis=False
     
     mc_iter=100
     
@@ -1491,28 +1497,40 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies,
         
         
         if demmethod=='DEMREG':   
-            res1 = dodem(time, bl, tr, 
+            res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=eis, 
                         minT=tpair[0], maxT=tpair[1],
-                        xrt=xrt, aia=aia, nustar=nustar, eis=eis, dT=dT,
-                        name=name, compare_fpm=compare_fpm, combine_fpm=combine_fpm,
-                        nuenergies=nuenergies, nustar_path=nustar_path, pile_up_corr=pile_up_corr,
+                        dT=dT, name=name, plotresp=plotresp,
+                         plotMK=plotMK, use_prior_prep=use_prior_prep, default_err=default_err,
+                         path_to_dodem=path_to_dodem, working_directory=working_directory,
+                         
+                        #nustar related
+                        combine_fpm=combine_fpm,
+                        nuradius=nuradius, guess=guess, guess2=guess2, onegauss=onegauss, twogauss=twogauss,
+                        nuenergies=nuenergies, pile_up_corr=pile_up_corr,
                         make_nustar=make_nustar, gtifile=gtifile, datapath=datapath, adjacent_grades=adjacent_grades,
                         regfile=regfile, edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
-                        COM_nustar_region=COM_nustar_region, twogauss=twogauss, onegauss=onegauss, 
+                        COM_nustar_region=COM_nustar_region,
                          nuclobber=nuclobber, special_pha=special_pha,
-                        xrt_path=xrt_path, plot=plot, xrt_exclude=xrt_exclude, 
-                        xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=exposure_dict,
+                        force_nustar=force_nustar,
+
+                        #xrt related 
+                        xrt_path=xrt_path, plot_xrt=plot, xrt_exclude=xrt_exclude, 
+                        xrt_factor=xrt_factor, xrtmethod=xrtmethod, xrt_exposure_dict=xrt_exposure_dict,
                         input_xrt_region=input_xrt_region, input_xrt_region_dict=input_xrt_region_dict,
                         real_xrt_err=real_xrt_err,
-                        aiamethod=aiamethod, input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
-                        input_aia_region_dict=input_aia_region_dict,
-                        just_prep=just_prep,
-                        gloci=1, mc_in=mc_in, mc_rounds=mc_rounds, 
-                        plotresp=plotresp, reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter,
-                        plotMK=plotMK, use_prior_prep=use_prior_prep,
-                        real_aia_err=real_aia_err, default_err=default_err)
+
+                        #aia related 
+                        load_prepped_aia=load_prepped_aia, aiamethod=aiamethod, 
+                        input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
+                        input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
+
+                        #demreg related
+                        mc_in=mc_in, mc_rounds=mc_rounds, 
+                        reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter)
         
         if demmethod=='XRT_ITER':
+
+            print('This option not updated, please review inputs. Sorry if it breaks <3')
 
             res1 = run_iterative_wrapper(time, bl, tr, tpair[0], tpair[1], xrt=xrt, aia=aia, nustar=nustar, eis=eis,
                               dT=dT, nuenergies=nuenergies, nustar_path=nustar_path, pile_up_corr=pile_up_corr,
@@ -1532,31 +1550,32 @@ def high_temp_analysis(time, bl, tr, exposure_dict, datapath, nuenergies,
         num+=1
         
     #=========================================================================================================
-    
-    data1, timestring1 = vdr.load_DEM(time, 
-                              filename=results[0])
-    data2, timestring2 = vdr.load_DEM(time,
-                              filename=results[1])
-    data3, timestring3 = vdr.load_DEM(time, 
-                              filename=results[2])
-    data4, timestring4 = vdr.load_DEM(time, 
-                              filename=results[3])
-    data5, timestring5 = vdr.load_DEM(time, 
-                              filename=results[4])
-                       
-    consistent = vdr.compare_DEMs(data1, data2, timestring1, timestring2, 
-                                           title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT15)+'_'+str(maxT15)+'_DEM')
-    consistent = vdr.compare_DEMs(data1, data3, timestring1, timestring3,
-                                           title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT2)+'_'+str(maxT2)+'_DEM')
-    consistent = vdr.compare_DEMs(data1, data4, timestring1, timestring4,
-                                           title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT3)+'_'+str(maxT3)+'_DEM')
-    consistent = vdr.compare_DEMs(data1, data5, timestring1, timestring5,
-                                           title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
-                                           title2=str(minT4)+'_'+str(maxT4)+'_DEM')  
-                       
+
+    try:
+        data1, timestring1, time = vdr.load_DEM(results[0])
+        data2, timestring2, time = vdr.load_DEM(results[1])
+        data3, timestring3, time = vdr.load_DEM(results[2])
+        data4, timestring4, time = vdr.load_DEM(results[3])
+        data5, timestring5, time = vdr.load_DEM(results[4])
+                           
+        consistent = vdr.compare_DEMs(data1, data2, timestring1, timestring2, 
+                                               title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
+                                               title2=str(minT15)+'_'+str(maxT15)+'_DEM',
+                                                 working_dir=working_directory)
+        consistent = vdr.compare_DEMs(data1, data3, timestring1, timestring3,
+                                               title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
+                                               title2=str(minT2)+'_'+str(maxT2)+'_DEM',
+                                                 working_dir=working_directory)
+        consistent = vdr.compare_DEMs(data1, data4, timestring1, timestring4,
+                                               title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
+                                               title2=str(minT3)+'_'+str(maxT3)+'_DEM',
+                                                 working_dir=working_directory)
+        consistent = vdr.compare_DEMs(data1, data5, timestring1, timestring5,
+                                               title1=str(minT1)+'_'+str(maxT1)+'_DEM', 
+                                               title2=str(minT4)+'_'+str(maxT4)+'_DEM',
+                                                 working_dir=working_directory) 
+    except TypeError:
+        print('Issue with plotting results, moving on!')
     
     return 
                        
