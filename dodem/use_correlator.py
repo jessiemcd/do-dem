@@ -1,5 +1,6 @@
 """
-Code related to automizing (as much as possible) full-orbit DEM analysis.
+Code related to searching for pointing shifts, etc, using Reed's correlator methods. 
+
 """
 import numpy as np
 from matplotlib import pyplot as plt
