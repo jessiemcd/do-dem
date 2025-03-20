@@ -143,7 +143,8 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
     
     
 
-def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', plotMK=False, plot=True):
+def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', plotMK=False, plot=True,
+                working_dir='./'):
     """
     Applicability:
     ---------------
@@ -349,7 +350,7 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         ax.legend(fontsize = 20)
         
         if tempcomp:
-            plt.savefig('./'+timestring1+'/DEM_comparison_'+title1+'_vs_'+title2+'temp_range_comp.png')
+            plt.savefig(working_dir+timestring1+'/DEM_comparison_'+title1+'_vs_'+title2+'temp_range_comp.png')
             plt.close(fig)
         else:
             plt.savefig('DEM_comparison_'+title1+'_vs_'+title2+'.png')

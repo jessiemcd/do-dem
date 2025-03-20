@@ -412,7 +412,8 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 
-def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit'):
+def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit',
+              high_temp_analysis=False, ):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -508,20 +509,51 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                 data, bl, tr, region_input = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
                 #print('data: ', data)
                 #print(data['aia_dn_s_px'])
-                dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
+
+                if high_temp_analysis:
+                    dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
+                                                   plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
+                                                   working_directory=working_dir, #(plotresp set false in high_temp_analysis)
+                                                   default_err=0.2, path_to_dodem=path_to_dodem,
+                                                   demmethod='DEMREG', use_prior_prep=True,
+                            
+                                                   #demreg/xrt_iterative related
+                                                   rgt_fact=1.2, max_iter=30, 
+                                                   reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
+                            
+                                                   #nustar=related
+                                                   nuenergies = nuenergies, #combine_fpm hard coded in high_temp_analysis (same as below)
+                                                   datapath=datapath, gtifile=gtifile, 
+                                                   nuradius=nuradius, guess=guess, onegauss=onegauss,
+                                                   adjacent_grades=True, pile_up_corr=True,
+                                                   force_nustar=True,
+                                             
+                                                   #aia related
+                                                   load_prepped_aia=data, 
+                            
+                                                   #xrt related
+                                                   xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                                   xrt_exposure_dict = exposure_dict, plot=plot_xrt, #(this plots xrt)
+                                                   input_xrt_region="circle", input_xrt_region_dict=region_input)
+                    
+
+
+                else:
+                    dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
                                             plotMK=plotMK, minT=minT, maxT=maxT,
                                             plotresp=False, working_directory=working_dir,
                                             default_err=0.2, path_to_dodem=path_to_dodem,
                     
                                             #demreg related
                                             rgt_fact=1.2, max_iter=30,
-                                            reg_tweak=1, gloci=1, mc_in=True, mc_rounds=100, 
+                                            reg_tweak=1, mc_in=True, mc_rounds=100, 
                                             
                                             #nustar related 
                                             combine_fpm=True, nuenergies=nuenergies, 
                                             datapath=datapath, gtifile=gtifile,
                                             nuradius=nuradius, guess=guess, onegauss=onegauss,
                                             adjacent_grades=True, pile_up_corr=True,
+                                            force_nustar=True,
                     
                                             #aia related
                                             load_prepped_aia=data, 
@@ -556,30 +588,63 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                     data = datas['region'+str(i)]
                     region_input = xrt_region_inputs[i]
 
-                    dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
-                            plotMK=plotMK, minT=minT, maxT=maxT,
-                            plotresp=False, working_directory=directories[i],
-                            default_err=0.2, path_to_dodem=path_to_dodem,
-    
-                            #demreg related
-                            rgt_fact=1.2, max_iter=30,
-                            reg_tweak=1, gloci=1, mc_in=True, mc_rounds=100, 
-                            
-                            #nustar related 
-                            combine_fpm=True, nuenergies=nuenergies, 
-                            datapath=datapath, gtifile=gtifile,
-                            nuradius=nuradius, edit_regfile=False,
-                            regfile=regfile,
-                            adjacent_grades=True, pile_up_corr=True,
-                            force_nustar=True,
-    
-                            #aia related
-                            load_prepped_aia=data, 
+                    if high_temp_analysis:
+                        dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
+                                                plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
+                                                working_directory=directories[i], #(plotresp set false in high_temp_analysis)
+                                                default_err=0.2, path_to_dodem=path_to_dodem,
+                                                demmethod='DEMREG', use_prior_prep=True,
 
-                            #xrt related
-                           xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
-                            xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
-                            input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                 
+                                                #demreg/xrt_iterative related
+                                                rgt_fact=1.2, max_iter=30, 
+                                                reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
+
+                            
+                                                #nustar=related
+                                                nuenergies = nuenergies, #combine_fpm hard coded in high_temp_analysis (same as below)
+                                                datapath=datapath, gtifile=gtifile, 
+                                                nuradius=nuradius, edit_regfile=False,
+                                                regfile=regfile,
+                                                adjacent_grades=True, pile_up_corr=True,
+                                                force_nustar=True,
+
+                                                #aia related
+                                                load_prepped_aia=data, 
+
+                                                #xrt related
+                                                xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                                xrt_exposure_dict=exposure_dict, plot=plot_xrt, #(this plots xrt)
+                                                input_xrt_region="circle", input_xrt_region_dict=region_input)
+
+
+
+                                                 
+                    else:
+                        dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
+                                    plotMK=plotMK, minT=minT, maxT=maxT,
+                                    plotresp=False, working_directory=directories[i],
+                                    default_err=0.2, path_to_dodem=path_to_dodem,
+            
+                                    #demreg related
+                                    rgt_fact=1.2, max_iter=30,
+                                    reg_tweak=1, mc_in=True, mc_rounds=100, 
+                                    
+                                    #nustar related 
+                                    combine_fpm=True, nuenergies=nuenergies, 
+                                    datapath=datapath, gtifile=gtifile,
+                                    nuradius=nuradius, edit_regfile=False,
+                                    regfile=regfile,
+                                    adjacent_grades=True, pile_up_corr=True,
+                                    force_nustar=True,
+            
+                                    #aia related
+                                    load_prepped_aia=data, 
+        
+                                    #xrt related
+                                   xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                    xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
+                                    input_xrt_region="circle", input_xrt_region_dict=region_input)
 
 
 
@@ -1455,7 +1520,14 @@ def plot_with_discriminator(axes, resfiles, discriminator, options, label, param
 
     """
 
-    Takes in plot axes, a set of resultfiles from a given key/region, and selections re what parameters we would like to plot.
+    Takes in plot axes, a set of result files from a given key/region, and selections re what parameters we would like to plot.
+
+    paramx, paramy - to be plotted on the horizontal and vertical axes, respectively. Should be keys in the result file dictionaries. 
+
+    xindex, yindex - for result params that come in lists/arrays (say, [value, lowbound, highbound]), indicates which to use. If set to
+                        something other than an integer, will not be used (assume single value). 
+
+    label - uniquely identifies the key/region; used for plot labels.
 
     Also takes in DISCRIMINATOR – a value of the key/region with which we would like to separate out different cases and plot them
     on different axes. The number of axes should be equal to the number of possible values of discriminator. For recordkeeping, we 
@@ -1471,6 +1543,10 @@ def plot_with_discriminator(axes, resfiles, discriminator, options, label, param
     If startstop contains lists of paired start and stop times for flares, then:
         if Flare == True: take only times intersecting with a flare
         if Flare == False: take only times that do not intersect with a flare
+
+    update_flarecheck - set True to reevaluate the resultfiles to check if they are for time intervals intersecting with a flare. This
+                            should be done if the flarelist changes. 
+                            
     """
 
     from astropy import units as u
@@ -1493,34 +1569,41 @@ def plot_with_discriminator(axes, resfiles, discriminator, options, label, param
 
     first = 0
 
+    #If we're using a list of flaretimes to decide whether to plot contents of these resultfiles...
     if startstop:
         early_starts = startstop[0]
         late_stops = startstop[1]
 
     valuex=[]
-    valuey=[]            
+    valuey=[]   
+    #For each result...
     for r in resfiles:
-        #regiondicts=[]
+        #load in file
         with open(r, 'rb') as f:
             data = pickle.load(f)
-        #regiondicts.append(data)
+
+        #If we're checking for a flare...
         if startstop:
             time = data['time_interval']
+            #If there's already a note about whether it's a flare in the result file (and we aren't re-checking)
             if 'flare?' in data.keys() and update_flarecheck == False:
                 flarecheck = data['flare?'] 
             else:
+                #Check if this time interval intersects with a flare
                 flarecheck = check_for_flare(time, early_starts, late_stops)
+                #If set, update the result dictionary to make a note of the result.
                 if update_flarecheck:
                     data['flare?'] = flarecheck
                     with open(r, 'wb') as f:
                          # Pickle the 'data' dictionary using the highest protocol available.
                          pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
                         
+            #If this time interval does not satisfy our condition re flaring, don't plot.            
             if flarecheck != flare:
                 #print(time[0].strftime('%H-%M-%S'))
                 continue
                 
-        #print(time[0].strftime('%H-%M-%S'))    
+        #Check if x,yindex set; in either case, fetch the values needed.  
         if type(xindex) == int:
             valuex.append(data[paramx][xindex])
         else:
@@ -1531,14 +1614,18 @@ def plot_with_discriminator(axes, resfiles, discriminator, options, label, param
         else:
             valuey.append(data[paramy])
 
+    #Check to see if the discriminator is equal to any of the options.
     for o in range(0, len(options)):
+        #If so, plot it in the corresponding place.
         if discriminator == options[o]:
             ax=axes[o]
+            #If this is the first time we're plotting a result from this specific key/region, add the label to our list.
             if label not in caselabels[o]:
                 optionnumbers[o]+=1
                 caselabels[o].append(label)
                 first = 1
             thecolor = colorz[o][int(optionnumbers[o])]
+            #If this is the first time we're plotting a result from this specific key/region, plot with label
             if first:
                 ax.scatter(valuex, valuey, color=thecolor, label=label)
                 ax.set_title(options[o]+' regions, '+paramy+' vs. '+paramx)

@@ -1461,6 +1461,8 @@ def high_temp_analysis(time, bl, tr,
     mc_rounds=100
     plotresp=False
     eis=False
+
+    use_highTprep=False
     
     mc_iter=100
     
@@ -1483,6 +1485,7 @@ def high_temp_analysis(time, bl, tr,
     maxT4=6.7
     
     
+    
     #Organizing...
     temps = [[minT1, maxT1], [minT15, maxT15], [minT2, maxT2], [minT3, maxT3], [minT4, maxT4]]        
         
@@ -1493,14 +1496,18 @@ def high_temp_analysis(time, bl, tr,
         print(tpair[0], tpair[1])
         
         if num>0:
+            #After the first one (full temperature range), stop using prior files with the SAME temp range (as they
+            #likely won't exist yet) and start using the full temperature range file for all others. 
             use_highTprep=True
+            use_prior_prep=False
         
         
         if demmethod=='DEMREG':   
             res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=eis, 
                         minT=tpair[0], maxT=tpair[1],
                         dT=dT, name=name, plotresp=plotresp,
-                         plotMK=plotMK, use_prior_prep=use_prior_prep, default_err=default_err,
+                         plotMK=plotMK, use_prior_prep=use_prior_prep, use_highTprep=use_highTprep,
+                         default_err=default_err,
                          path_to_dodem=path_to_dodem, working_directory=working_directory,
                          
                         #nustar related

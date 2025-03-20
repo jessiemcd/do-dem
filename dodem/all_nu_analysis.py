@@ -413,7 +413,7 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit',
-              high_temp_analysis=False):
+              high_temp_analysis=False, ):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -515,7 +515,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                                    plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
                                                    working_directory=working_dir, #(plotresp set false in high_temp_analysis)
                                                    default_err=0.2, path_to_dodem=path_to_dodem,
-                                                   demmethod='DEMREG',
+                                                   demmethod='DEMREG', use_prior_prep=True,
                             
                                                    #demreg/xrt_iterative related
                                                    rgt_fact=1.2, max_iter=30, 
@@ -591,9 +591,9 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                     if high_temp_analysis:
                         dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
                                                 plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
-                                                working_directory=working_dir, #(plotresp set false in high_temp_analysis)
+                                                working_directory=directories[i], #(plotresp set false in high_temp_analysis)
                                                 default_err=0.2, path_to_dodem=path_to_dodem,
-                                                demmethod='DEMREG',
+                                                demmethod='DEMREG', use_prior_prep=True,
 
                                  
                                                 #demreg/xrt_iterative related
