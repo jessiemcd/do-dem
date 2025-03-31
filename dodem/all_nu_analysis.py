@@ -413,7 +413,7 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit',
-              high_temp_analysis=False, ):
+              high_temp_analysis=False, rscl=True):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -518,7 +518,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                                    demmethod='DEMREG', use_prior_prep=True,
                             
                                                    #demreg/xrt_iterative related
-                                                   rgt_fact=1.2, max_iter=30, 
+                                                   rgt_fact=1.2, max_iter=30, rscl=rscl,
                                                    reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
                             
                                                    #nustar=related
@@ -545,7 +545,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                             default_err=0.2, path_to_dodem=path_to_dodem,
                     
                                             #demreg related
-                                            rgt_fact=1.2, max_iter=30,
+                                            rgt_fact=1.2, max_iter=30, rscl=rscl,
                                             reg_tweak=1, mc_in=True, mc_rounds=100, 
                                             
                                             #nustar related 
@@ -597,7 +597,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
                                  
                                                 #demreg/xrt_iterative related
-                                                rgt_fact=1.2, max_iter=30, 
+                                                rgt_fact=1.2, max_iter=30, rscl=rscl,
                                                 reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
 
                             
@@ -627,7 +627,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                     default_err=0.2, path_to_dodem=path_to_dodem,
             
                                     #demreg related
-                                    rgt_fact=1.2, max_iter=30,
+                                    rgt_fact=1.2, max_iter=30, rscl=rscl,
                                     reg_tweak=1, mc_in=True, mc_rounds=100, 
                                     
                                     #nustar related 
@@ -649,75 +649,178 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
 
 
-def get_key_resultfiles(key, withparams=False):
+def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
+                        keydir={},
+                        withparams=False):
     
     import glob
+    print('doing ', key)
 
-    if withparams:
-        res_files = glob.glob('./compact_results/*'+key+'*withparams.pickle')
+    if fromhome:
+        if not keydir:
+            print('To get all the result files from their homes, you need to set keydir equal to the dictionary containing key info.')
+            return
+        
+        ARDict = keydir[key]
+        
+        id_dirs = ARDict['datapaths']
+        #obsids = ARDict['obsids']
+        working_dir = ARDict['working_dir']
+        # prepped_aia_dir = ARDict['prepped_aia']
+        method = ARDict['method']
+        
+        if method in ['input', 'double']:
+            directories = get_region_directories(key, method=method)
+            #all_all_time_intervals is a list... 
+            #       with entries (lists) for each directory/region
+            #             those lists have entries (lists) for each orbit
+            #                   those lists have entries for each time interval.
+            all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
+
+            res_files=[]
+            for d in range(0, len(directories)):
+                d_files=[]
+                dir_ = directories[d]
+                all_orbits_time_intervals = all_all_time_intervals[d]
+                for ot in range(0, len(all_orbits_time_intervals)):
+                    orbittimes = all_orbits_time_intervals[ot] 
+                    if not orbittimes:
+                        continue
+                    for tt in orbittimes:
+                        timestring = viz.make_timestring(tt)
+                        if withparams:
+                            files = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*withparams.pickle')
+                        else:
+                            fs = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*.pickle')
+                            files = [f for f in fs if 'withparams' not in f]
+                            
+                        try:
+                            d_files.append(files[0])
+                        except IndexError:
+                            print(key, d, timestring, files)
+                        
+                if len(directories) > 1:
+                    res_files.append(d_files)
+                else:
+                    return d_files, False
+
+            return res_files, True
+
+        
+        if method=='fit':
+            res_files=[]
+            all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True)
+            for ot in range(0, len(all_time_intervals)):
+                orbittimes = all_time_intervals[ot]  
+                for tt in orbittimes:
+                    timestring = viz.make_timestring(tt)
+                    if withparams:
+                        files = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*withparams.pickle')
+                    else:
+                        fs = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*.pickle')
+                        files = [f for f in fs if 'withparams' not in f]
+                        
+                    try:
+                        res_files.append(files[0])
+                    except IndexError:
+                        print(key, timestring, files)
+                        
+            return res_files, False
+            
     else:
-        rfs = glob.glob('./compact_results/*'+key+'*.pickle')
-        res_files = [f for f in rfs if 'withparams' not in f]
-        #print(res_files)
-        
-    res_files.sort()
-        
-    if 'region' in res_files[0]:
-        rez = []
-        zeros = [f for f in res_files if 'region_0' in f]
-        if zeros:
-            rez.append(zeros)
-        ones = [f for f in res_files if 'region_1' in f]
-        if ones:
-            rez.append(ones)
-
-
-        if zeros and ones:
-            return rez, True
+        if withparams:
+            res_files = glob.glob('./compact_results/*'+key+'*withparams.pickle')
         else:
-            #print(rez[0])
-            return rez[0], False
-
-
-    else:
-        return res_files, False
+            rfs = glob.glob('./compact_results/*'+key+'*.pickle')
+            res_files = [f for f in rfs if 'withparams' not in f]
+            #print(res_files)
+            
+        res_files.sort()
+            
+        if 'region' in res_files[0]:
+            rez = []
+            zeros = [f for f in res_files if 'region_0' in f]
+            if zeros:
+                rez.append(zeros)
+            ones = [f for f in res_files if 'region_1' in f]
+            if ones:
+                rez.append(ones)
+    
+    
+            if zeros and ones:
+                return rez, True
+            else:
+                #print(rez[0])
+                return rez[0], False
+    
+    
+        else:
+            return res_files, False
         
 
-def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
-                EMT=False, regions_return=False):
+def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
+                regions_return=False, paramssaved=True, fromhome=False, keydir={},
+                   doparam='above10s'):
+
+    """
+    set paramssaved=True to retrieve already-saved params in the dem result files 
+        (viz.get_DEM_params() does this with the save_params_file attribute set True)
+    """
     
     import glob
 
     if all:
-        res_files = glob.glob('./compact_results/*')
+        if fromhome:
+            if not keydir:
+                print('To get the result files from their homes, you need to set keydir equal to the dictionary containing key info.')
+                return
+                
+            all_res_files=[]
+            allkeys = keydir.keys()
+            for kk in allkeys:
+                res_files, tworegion = get_key_resultfiles(kk, withparams=paramssaved, fromhome=fromhome, keydir=keydir)
+                if tworegion:
+                    all_res_files.extend(res_files[0])
+                    all_res_files.extend(res_files[1])
+                else:
+                    all_res_files.extend(res_files)
+        else:
+                      
+            if paramssaved:
+                all_res_files = glob.glob('./compact_results/*withparams.pickle')
+            else:
+                rfs = glob.glob('./compact_results/*.pickle')
+                all_res_files = [f for f in rfs if 'withparams' not in f]
+            
     elif key:
-        res_files, tworegion = get_key_resultfiles(key, withparams=False)
+        res_files, tworegion = get_key_resultfiles(key, withparams=paramssaved, fromhome=fromhome, keydir=keydir)
         if tworegion:
             res=[]
             if res_files[0]:
-                res0 = extract_and_plot_above10s(res_files[0], key=key, 
-                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 0',
-                                                EMT=EMT)
+                res0 = extract_and_plot_param_histograms(res_files[0], key=key, doparam=doparam,
+                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 0')
                 res.append(res0)
                 
             if res_files[1]:
-                res1 = extract_and_plot_above10s(res_files[1], key=key, 
-                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 1',
-                                                EMT=EMT)  
+                res1 = extract_and_plot_param_histograms(res_files[1], key=key, doparam=doparam,
+                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per, plotlabel='Region 1')  
                 res.append(res1)
 
             if regions_return:
                 return res 
 
-            res_files = res_files[0] + res_files[1]
+            all_res_files = res_files[0] + res_files[1]
        
     else:
         print('Either set all=True, or select a key!')
         return
 
-    res = extract_and_plot_above10s(res_files, key=key, plot=plot, time_weighted=time_weighted, seconds_per=seconds_per)
+    #print(all_res_files)
 
-    if return_loc:
+    res = extract_and_plot_param_histograms(all_res_files, key=key, doparam=doparam, 
+                                            plot=plot, time_weighted=time_weighted, seconds_per=seconds_per)
+
+    if return_loc and key:
         with open('all_targets.pickle', 'rb') as f:
             data = pickle.load(f)
 
@@ -727,6 +830,517 @@ def get_above10s(key='', all=True, plot=False, time_weighted=False, seconds_per=
         return res, loc
     else:
         return res
+
+
+
+def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
+                                      plot=False, time_weighted=False, seconds_per=5, plotlabel='', show=False):
+
+
+    import pandas as pd
+    import astropy.time
+
+    doishi=False
+    dopeak=False
+    dolow=False
+    dohi=False
+
+    flare_res = get_saved_flares(add_stdv_flares=True)
+    early_starts = flare_res[0]
+    late_stops = flare_res[1]
+
+    if doparam=='above10s':
+        savekey = 'above_10MK'
+        lowhigh=True
+        colors1 = ['skyblue', 'aliceblue', 'lightcyan']
+        colors2 = ['purple', 'lavender', 'thistle']
+        thexlim = [1e17,1e25]
+        doishi=True
+        thexlabel='EM Integrated >10 MK'
+        thexscale='log'
+
+        thebins = np.geomspace(1e17, 1e25, 55)
+
+    if doparam=='max_temp':
+        savekey = 'max_temp'
+        lowhigh=False
+        colors1 = ['darkred', 'pink', 'lavenderblush']
+        colors2 = ['purple', 'lavender', 'thistle']
+        thexlim = [6.1,6.55]
+        dopeak=True
+        thexlabel='Peak Temperature'
+        thexscale='linear'
+
+        thebins = np.arange(6.1, 6.55, 0.01)
+
+    if doparam=='low_powers':
+        savekey = 'powerlaws'
+        lowhigh=False
+        colors1 = ['orange', 'khaki', 'lemonchiffon']
+        colors2 = ['purple', 'lavender', 'thistle'] 
+        thexlim=[1,4]
+        dolow=True
+        thexlabel='Lower Power Law'
+        thexscale='linear'
+
+        thebins = np.arange(1, 4, 0.05)
+
+    if doparam=='hi_powers':
+        savekey = 'powerlaws'
+        lowhigh=False
+        colors1 = ['red', 'khaki', 'lemonchiffon']
+        colors2 = ['purple', 'lavender', 'thistle'] 
+        thexlim=[-15,0]
+        dohi=True
+        thexlabel='Upper Power Law'
+        thexscale='linear'
+
+        thebins = np.arange(-15, 0, 0.3)
+
+    
+    
+    all_params_flares = []
+    all_params_non = []
+    all_params=[]
+    if lowhigh:
+        all_paramsl_flares = []
+        all_paramsl_non = []
+        all_paramsl=[]
+        all_paramsh_flares = []
+        all_paramsh_non = []
+        all_paramsh=[]   
+        
+    times = []
+    durations =  []
+    time1 = 0
+
+    EMTall = []
+    EMTflare = []
+    EMTnon = []
+    
+    for f in res_files:
+        #flare=False
+    
+        data, timestring, time = viz.load_DEM(f)
+        if savekey in data.keys():
+            #print('found saved')
+            param = data[savekey]
+            chanax = data['chanax']
+            EMT_thresh = data['EMT_thresh_5']
+            dn_in = data['dn_in']
+
+            
+        else:
+            res = viz.get_DEM_params(f)
+            if not res:
+                continue
+    
+            #print(res)
+        
+            m1, max1, above5_, above7_, above10_, \
+                above_peak, below_peak, above_635, below_635, \
+                   chanax, dn_in, edn_in, \
+                        powerlaws, EMT_all, EMT_thresh = res
+
+            if doparam=='above10s':
+                param = above10_
+                
+            if doparam=='max_temp':
+                param = max1
+                
+            if doparam=='low_powers' or doparam=='hi_powers':
+                param = powerlaws
+
+
+        if doparam=='low_powers':
+            param = param[0][0]
+        if doparam=='hi_powers':
+            param = param[1][0]
+            
+        times.append(time)
+        dur = (time[1]-time[0]).to(u.s)
+        if time1==0:
+            time1=time[0]
+        durations.append(dur)
+        time_mult = round(dur.value/seconds_per)
+
+        flare = check_for_flare(time, early_starts, late_stops)
+
+        #if above10_[0] > 1e24:
+        #    print(f, above10_)
+
+        if len(dn_in) <= 6:
+            print('Suspect missing nustar:')
+            print(chanax)
+            print(f)
+            continue
+
+
+    
+        if flare:
+            if time_weighted:
+
+                if lowhigh:
+                    all_params_flares.extend([param[0] for i in range(0,time_mult)])
+                    all_paramsl_flares.extend([param[1] for i in range(0,time_mult)])
+                    all_paramsh_flares.extend([param[2] for i in range(0,time_mult)])
+                else:
+                    all_params_flares.extend([param for i in range(0,time_mult)])
+                EMTflare.extend([EMT_thresh for i in range(0,time_mult)])
+            else:
+                if lowhigh:
+                    all_params_flares.append(param[0])
+                    all_paramsl_flares.append(param[1])
+                    all_paramsh_flares.append(param[2])
+                else:
+                    all_params_flares.append(param)
+                EMTflare.append(EMT_thresh)
+                
+        else:
+            if time_weighted:
+                #print(time_mult)
+                if lowhigh:
+                    all_params_non.extend([param[0] for i in range(0,time_mult)])
+                    all_paramsl_non.extend([param[1] for i in range(0,time_mult)])
+                    all_paramsh_non.extend([param[2] for i in range(0,time_mult)])
+                else:
+                    all_params_non.extend([param for i in range(0,time_mult)])
+                EMTnon.extend([EMT_thresh for i in range(0,time_mult)])
+            else:  
+                if lowhigh:
+                    all_params_non.append(param[0])
+                    all_paramsl_non.append(param[1])
+                    all_paramsh_non.append(param[2])
+                else:
+                    all_params_non.append(param)
+                EMTnon.append(EMT_thresh)
+        
+        if time_weighted:
+            if lowhigh:
+                all_params.extend([param[0] for i in range(0,time_mult)])
+                all_paramsl.extend([param[1] for i in range(0,time_mult)])
+                all_paramsh.extend([param[2] for i in range(0,time_mult)])
+            else:
+                all_params.extend([param for i in range(0,time_mult)])
+            EMTall.extend([EMT_thresh for i in range(0,time_mult)])
+        else:
+            if lowhigh:
+                all_params.append(param[0])
+                all_paramsl.append(param[1])
+                all_paramsh.append(param[2])
+            else:
+                all_params.append(param)
+            EMTall.append(EMT_thresh)
+
+    # #print(durations)
+    # for d in durations:
+    #     print(round(d.value/5))
+
+
+    #print(thebins)
+
+
+    if plot:
+
+        area_i = 100**2
+        area_m = np.pi*150**2
+        #print(area_i, area_m)
+        factor = area_m/area_i
+        factor = 1
+        
+        from matplotlib import pyplot as plt 
+        
+
+        
+        fig, axes = plt.subplots(2, 1, figsize=(15,6), tight_layout = {'pad': 1})
+
+        ax=axes[0]
+        if lowhigh:
+            ax.hist(np.array(all_paramsl_non)*factor, bins=thebins, color=colors1[1], edgecolor='black', 
+                    label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
+            ax.hist(np.array(all_paramsh_non)*factor, bins=thebins, color=colors1[2], edgecolor='black', 
+                    label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
+            
+        ax.hist(np.array(all_params_non)*factor, bins=thebins, color=colors1[0], edgecolor='black', label='Non-flare time bins', alpha=0.9)
+
+        if key:
+            ax.set_title(key+' '+plotlabel)
+        else:
+            ax.set_title('All')
+
+        ax=axes[1]
+        if lowhigh:
+            ax.hist(np.array(all_paramsl_flares)*factor, bins=thebins, color=colors2[1], edgecolor='black', 
+                    label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
+            ax.hist(np.array(all_paramsh_flares)*factor, bins=thebins, color=colors2[2], edgecolor='black', 
+                    label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
+            
+        ax.hist(np.array(all_params_flares)*factor, bins=thebins, color=colors2[0], edgecolor='black', label="Bins during flares")
+
+
+        for ax in axes:
+            ax.set_xscale(thexscale)
+            ax.set_xlim(thexlim)
+            ax.set_xlabel(thexlabel)
+            
+            if time_weighted:
+                 ax.set_ylabel('# of '+str(seconds_per)+'s intervals')
+            if doishi:
+                ax.axvline(1.8e22, color='Red')
+                ax.axvline(1.5e23, color='Red')
+                ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
+            if dopeak:
+                ax.axvline(6.505, color='Red')
+                ax.axvline(6.602, color='Red')
+                ax.axvspan(6.505, 6.602, alpha=0.3, color='Red', label='Warren (2012) Peaks')
+    
+                ax.axvline(6.301, color='cyan')
+                ax.axvline(6.415, color='cyan')
+                ax.axvspan(6.301, 6.415, alpha=0.2, color='cyan', label='Duncan (2024) Peaks')
+                
+            if dolow:
+                ax.axvline(2, color='Red')
+                ax.axvline(5, color='Red')
+                ax.axvspan(2, 5, alpha=0.3, color='Red', label='Bradshaw (2012) Indices')
+
+                ax.axvline(1.9, color='cyan')
+                ax.axvline(2.3, color='cyan')
+                ax.axvspan(1.9, 2.3, alpha=0.2, color='cyan', label='Duncan (2024) Indices')
+                
+            if dohi:
+                ax.axvline(-10, color='Red')
+                ax.axvline(-7, color='Red')
+                ax.axvspan(-10, -7, alpha=0.3, color='Red', label='Barnes (2016)a Indices')
+
+                ax.axvline(-12, color='cyan')
+                ax.axvline(-4, color='cyan')
+                ax.axvspan(-12, -4, alpha=0.2, color='cyan', label='Duncan (2024) Indices')
+            
+            if not key:
+                if doparam=='above10s':
+                    ax.set_ylim([0,4000])
+                if doparam=='max_temp':
+                    ax.set_ylim([0,6000])
+                if doparam=='low_powers':
+                    ax.set_ylim([0,3000])
+                if doparam=='hi_powers':
+                    ax.set_ylim([0,4000])
+
+            ax.legend()
+
+        
+        if time_weighted:
+            if key:
+                plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_'+doparam+'plot_'+plotlabel+'.png')
+            else:
+                plt.savefig('figures_etc/all_'+str(seconds_per)+'s_bin_time_weighted_'+doparam+'plot_'+plotlabel+'.png')
+        else:
+            if key:
+                plt.savefig('figures_etc/'+key+'_'+doparam+'_plot_'+plotlabel+'.png')
+            else:
+                plt.savefig('figures_etc/all_'+doparam+'_plot_'+plotlabel+'.png')
+
+        if not show:
+            plt.close()
+
+
+    EMT = [EMTall, EMTflare, EMTnon]
+
+    values = [all_params, all_params_flares, all_params_non]
+    averages = [np.mean(all_params), np.mean(all_params_flares), np.mean(all_params_non)]
+    
+    if lowhigh:
+        averagesl = [np.mean(all_paramsl), np.mean(all_paramsl_flares), np.mean(all_paramsl_non)]
+        averagesh = [np.mean(all_paramsh), np.mean(all_paramsh_flares), np.mean(all_paramsh_non)]
+        return values, np.array(averages), np.array(averagesl), np.array(averagesh), time1, EMT
+
+    else:
+        return values, np.array(averages), time1, EMT
+
+# def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False, seconds_per=5, plotlabel='', show=False):
+
+
+#     import pandas as pd
+#     import astropy.time
+
+#     flare_res = get_saved_flares(add_stdv_flares=True)
+#     early_starts = flare_res[0]
+#     late_stops = flare_res[1]
+    
+#     all_above10s_flares = []
+#     all_above10s_non = []
+#     all_above10s=[]
+#     all_above10ls_flares = []
+#     all_above10ls_non = []
+#     all_above10ls=[]
+#     all_above10hs_flares = []
+#     all_above10hs_non = []
+#     all_above10hs=[]    
+#     times = []
+#     durations =  []
+#     time1 = 0
+
+#     EMTall = []
+#     EMTflare = []
+#     EMTnon = []
+    
+#     for f in res_files:
+#         #flare=False
+    
+#         data, timestring, time = viz.load_DEM(f)
+#         if 'above_10MK' in data.keys():
+#             above10_ = data['above_10MK']
+#             chanax = data['chanax']
+#             EMT_thresh = data['EMT_thresh_5']
+            
+            
+#         else:
+#             res = viz.get_DEM_params(f)
+    
+#             #print(res)
+        
+#             m1, max1, above5_, above7_, above10_, \
+#                 above_peak, below_peak, above_635, below_635, \
+#                    chanax, dn_in, edn_in, \
+#                         powerlaws, EMT_all, EMT_thresh = res
+            
+#         times.append(time)
+#         dur = (time[1]-time[0]).to(u.s)
+#         if time1==0:
+#             time1=time[0]
+#         durations.append(dur)
+#         time_mult = round(dur.value/seconds_per)
+
+#         flare = check_for_flare(time, early_starts, late_stops)
+
+#         #if above10_[0] > 1e24:
+#         #    print(f, above10_)
+
+#         if len(data['dn_in']) <= 6:
+#             print('Suspect missing nustar:')
+#             print(chanax)
+#             print(f)
+#             continue
+
+
+    
+#         if flare:
+#             if time_weighted:
+#                 #print(time_mult)
+#                 #print([above10_[0] for i in range(0,time_mult)])
+#                 all_above10s_flares.extend([above10_[0] for i in range(0,time_mult)])
+#                 all_above10ls_flares.extend([above10_[1] for i in range(0,time_mult)])
+#                 all_above10hs_flares.extend([above10_[2] for i in range(0,time_mult)])
+#                 EMTflare.extend([EMT_thresh for i in range(0,time_mult)])
+#             else:
+#                 all_above10s_flares.append(above10_[0])
+#                 all_above10ls_flares.append(above10_[1])
+#                 all_above10hs_flares.append(above10_[2])
+#                 EMTflare.append(EMT_thresh)
+                
+#         else:
+#             if time_weighted:
+#                 #print(time_mult)
+#                 #print([above10_[0] for i in range(0,time_mult)])
+#                 all_above10s_non.extend([above10_[0] for i in range(0,time_mult)])
+#                 all_above10ls_non.extend([above10_[1] for i in range(0,time_mult)])
+#                 all_above10hs_non.extend([above10_[2] for i in range(0,time_mult)])
+#                 EMTnon.extend([EMT_thresh for i in range(0,time_mult)])
+#             else:  
+#                 all_above10s_non.append(above10_[0])
+#                 all_above10ls_non.append(above10_[1])
+#                 all_above10hs_non.append(above10_[2])
+#                 EMTnon.append(EMT_thresh)
+        
+#         if time_weighted:
+#             all_above10s.extend([above10_[0] for i in range(0,time_mult)])
+#             all_above10ls.extend([above10_[1] for i in range(0,time_mult)])
+#             all_above10hs.extend([above10_[2] for i in range(0,time_mult)])
+#             EMTall.extend([EMT_thresh for i in range(0,time_mult)])
+#         else:
+#             all_above10s.append(above10_[0])
+#             all_above10ls.append(above10_[1])
+#             all_above10hs.append(above10_[2])
+#             EMTall.append(EMT_thresh)
+
+#     # #print(durations)
+#     # for d in durations:
+#     #     print(round(d.value/5))
+
+
+#     if plot:
+
+#         area_i = 100**2
+#         area_m = np.pi*150**2
+#         #print(area_i, area_m)
+#         factor = area_m/area_i
+#         factor = 1
+        
+#         from matplotlib import pyplot as plt 
+        
+#         logbins = np.geomspace(1e17, 1e25, 55)
+        
+#         fig, axes = plt.subplots(2, 1, figsize=(15,6), tight_layout = {'pad': 1})
+
+#         ax=axes[0]
+#         #ax.hist(all_above10s, bins=logbins, color='green', edgecolor='black', label='All bins')
+#         ax.hist(np.array(all_above10ls_non)*factor, bins=logbins, color='aliceblue', edgecolor='black', 
+#                 label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
+#         ax.hist(np.array(all_above10hs_non)*factor, bins=logbins, color='lightcyan', edgecolor='black', 
+#                 label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
+#         ax.hist(np.array(all_above10s_non)*factor, bins=logbins, color='skyblue', edgecolor='black', label='Non-flare time bins', alpha=0.9)
+#         #ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during Reed's flares")
+#         ax.set_xscale('log')
+#         ax.set_xlim([1e17,1e25])
+#         ax.axvline(1.8e22, color='Red')
+#         ax.axvline(1.5e23, color='Red')
+#         ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
+#         if time_weighted:
+#             ax.set_ylabel('Number of '+str(seconds_per)+'s intervals')
+#         ax.set_xlabel('EM Integrated >10 MK')
+        
+#         if key:
+#             ax.set_title(key+' '+plotlabel)
+#         else:
+#             ax.set_title('All')
+#         ax.legend()
+
+#         ax=axes[1]
+#         #ax.hist(all_above10s, bins=logbins, color='green', edgecolor='black', label='All bins')
+#         ax.hist(np.array(all_above10ls_flares)*factor, bins=logbins, color='lavender', edgecolor='black', 
+#                 label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
+#         ax.hist(np.array(all_above10hs_flares)*factor, bins=logbins, color='thistle', edgecolor='black', 
+#                 label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
+#         ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during flares")
+#         ax.set_xscale('log')
+#         ax.set_xlim([1e17,1e25])
+#         ax.axvline(1.8e22, color='Red')
+#         ax.axvline(1.5e23, color='Red')
+#         ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
+#         if time_weighted:
+#             ax.set_ylabel('Number of '+str(seconds_per)+'s intervals')
+#         ax.set_xlabel('EM Integrated >10 MK')
+#         ax.legend()
+        
+#         if time_weighted:
+#             plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot_'+plotlabel+'.png')
+#         else:
+#             plt.savefig('figures_etc/'+key+'_above10splot_'+plotlabel+'.png')
+
+#         if not show:
+#             plt.close()
+
+
+#     EMT = [EMTall, EMTflare, EMTnon]
+
+#     values = [all_above10s, all_above10s_flares, all_above10s_non]
+#     averages = [np.mean(all_above10s), np.mean(all_above10s_flares), np.mean(all_above10s_non)]
+#     averagesl = [np.mean(all_above10ls), np.mean(all_above10ls_flares), np.mean(all_above10ls_non)]
+#     averagesh = [np.mean(all_above10hs), np.mean(all_above10hs_flares), np.mean(all_above10hs_non)]
+
+
+#     return values, np.array(averages), np.array(averagesl), np.array(averagesh), time1, EMT
+
 
     
 def check_for_flare(time, starts, stops):
@@ -786,179 +1400,6 @@ def get_saved_flares(add_stdv_flares=True):
 
     return [early_starts, late_stops]
 
-def extract_and_plot_above10s(res_files, key='', plot=False, time_weighted=False, seconds_per=5, plotlabel='', show=False,
-                             EMT=False):
-
-
-    import pandas as pd
-    import astropy.time
-
-    flare_res = get_saved_flares(add_stdv_flares=True)
-    early_starts = flare_res[0]
-    late_stops = flare_res[1]
-    
-    all_above10s_flares = []
-    all_above10s_non = []
-    all_above10s=[]
-    all_above10ls_flares = []
-    all_above10ls_non = []
-    all_above10ls=[]
-    all_above10hs_flares = []
-    all_above10hs_non = []
-    all_above10hs=[]    
-    times = []
-    durations =  []
-    time1 = 0
-
-    EMTall = []
-    EMTflare = []
-    EMTnon = []
-    
-    for f in res_files:
-        #flare=False
-    
-        data, timestring, time = viz.load_DEM(f)
-        times.append(time)
-        dur = (time[1]-time[0]).to(u.s)
-        if time1==0:
-            time1=time[0]
-        durations.append(dur)
-        time_mult = round(dur.value/seconds_per)
-
-        flare = check_for_flare(time, early_starts, late_stops)
-        res = viz.get_DEM_params(f)
-
-        #print(res)
-    
-        m1, max1, above5_, above7_, above10_, \
-            above_peak, below_peak, above_635, below_635, \
-               chanax, dn_in, edn_in, \
-                    powerlaws, EMT_all, EMT_thresh = res
-
-        #if above10_[0] > 1e24:
-        #    print(f, above10_)
-
-        if len(data['dn_in']) <= 6:
-            print('Suspect missing nustar:')
-            print(chanax)
-            print(f)
-            continue
-
-
-    
-        if flare:
-            if time_weighted:
-                #print(time_mult)
-                #print([above10_[0] for i in range(0,time_mult)])
-                all_above10s_flares.extend([above10_[0] for i in range(0,time_mult)])
-                all_above10ls_flares.extend([above10_[1] for i in range(0,time_mult)])
-                all_above10hs_flares.extend([above10_[2] for i in range(0,time_mult)])
-                EMTflare.extend([EMT_thresh for i in range(0,time_mult)])
-            else:
-                all_above10s_flares.append(above10_[0])
-                all_above10ls_flares.append(above10_[1])
-                all_above10hs_flares.append(above10_[2])
-                EMTflare.append(EMT_thresh)
-                
-        else:
-            if time_weighted:
-                #print(time_mult)
-                #print([above10_[0] for i in range(0,time_mult)])
-                all_above10s_non.extend([above10_[0] for i in range(0,time_mult)])
-                all_above10ls_non.extend([above10_[1] for i in range(0,time_mult)])
-                all_above10hs_non.extend([above10_[2] for i in range(0,time_mult)])
-                EMTnon.extend([EMT_thresh for i in range(0,time_mult)])
-            else:  
-                all_above10s_non.append(above10_[0])
-                all_above10ls_non.append(above10_[1])
-                all_above10hs_non.append(above10_[2])
-                EMTnon.append(EMT_thresh)
-        
-        if time_weighted:
-            all_above10s.extend([above10_[0] for i in range(0,time_mult)])
-            all_above10ls.extend([above10_[1] for i in range(0,time_mult)])
-            all_above10hs.extend([above10_[2] for i in range(0,time_mult)])
-            EMTall.extend([EMT_thresh for i in range(0,time_mult)])
-        else:
-            all_above10s.append(above10_[0])
-            all_above10ls.append(above10_[1])
-            all_above10hs.append(above10_[2])
-            EMTall.append(EMT_thresh)
-
-    # #print(durations)
-    # for d in durations:
-    #     print(round(d.value/5))
-
-
-    if plot:
-
-        area_i = 100**2
-        area_m = np.pi*150**2
-        #print(area_i, area_m)
-        factor = area_m/area_i
-        factor = 1
-        
-        from matplotlib import pyplot as plt 
-        
-        logbins = np.geomspace(1e17, 1e25, 55)
-        
-        fig, axes = plt.subplots(2, 1, figsize=(15,6), tight_layout = {'pad': 1})
-
-        ax=axes[0]
-        #ax.hist(all_above10s, bins=logbins, color='green', edgecolor='black', label='All bins')
-        ax.hist(np.array(all_above10ls_non)*factor, bins=logbins, color='aliceblue', edgecolor='black', 
-                label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
-        ax.hist(np.array(all_above10hs_non)*factor, bins=logbins, color='lightcyan', edgecolor='black', 
-                label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
-        ax.hist(np.array(all_above10s_non)*factor, bins=logbins, color='skyblue', edgecolor='black', label='Non-flare time bins', alpha=0.9)
-        #ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during Reed's flares")
-        ax.set_xscale('log')
-        ax.set_xlim([1e17,1e25])
-        ax.axvline(1.8e22, color='Red')
-        ax.axvline(1.5e23, color='Red')
-        ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
-        if time_weighted:
-            ax.set_ylabel('Number of '+str(seconds_per)+'s intervals')
-        ax.set_xlabel('EM Integrated >10 MK')
-        
-        if key:
-            ax.set_title(key+' '+plotlabel)
-        else:
-            ax.set_title('All')
-        ax.legend()
-
-        ax=axes[1]
-        #ax.hist(all_above10s, bins=logbins, color='green', edgecolor='black', label='All bins')
-        ax.hist(np.array(all_above10ls_flares)*factor, bins=logbins, color='lavender', edgecolor='black', 
-                label='Uncertainty Lowbound', alpha=0.9, linestyle='dotted')
-        ax.hist(np.array(all_above10hs_flares)*factor, bins=logbins, color='thistle', edgecolor='black', 
-                label='Uncertainty Highbound', alpha=0.9, linestyle='dashed')
-        ax.hist(np.array(all_above10s_flares)*factor, bins=logbins, color='purple', edgecolor='black', label="Bins during flares")
-        ax.set_xscale('log')
-        ax.set_xlim([1e17,1e25])
-        ax.axvline(1.8e22, color='Red')
-        ax.axvline(1.5e23, color='Red')
-        ax.axvspan(1.8e22, 1.5e23, alpha=0.3, color='Red', label='Ishikawa (2017) 95% Interval')
-        if time_weighted:
-            ax.set_ylabel('Number of '+str(seconds_per)+'s intervals')
-        ax.set_xlabel('EM Integrated >10 MK')
-        ax.legend()
-        
-        if time_weighted:
-            plt.savefig('figures_etc/'+key+'_'+str(seconds_per)+'s_bin_time_weighted_above10splot_'+plotlabel+'.png')
-        else:
-            plt.savefig('figures_etc/'+key+'_above10splot_'+plotlabel+'.png')
-
-        if not show:
-            plt.close()
-
-
-    EMT = [EMTall, EMTflare, EMTnon]
-
-    averages = [np.mean(all_above10s), np.mean(all_above10s_flares), np.mean(all_above10s_non)]
-
-
-    return all_above10s, all_above10s_flares, all_above10s_non, np.array(averages), time1, EMT
 
 
 

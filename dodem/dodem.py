@@ -27,6 +27,7 @@ import aia_dem_prep
 import xrt_dem_prep
 import nustar_dem_prep
 import visualize_dem_results as vdr
+import dem_rescale as dem_rscl
 
 
 exposure_dict={'Be_thin': [],
@@ -67,7 +68,7 @@ def dodem(time, bl, tr,
           
           #DEMREG/DEM-related
           mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
-          dem_norm0=None, nmu=40, emd_int=True, emd_ret=True):
+          dem_norm0=None, nmu=40, emd_int=True, emd_ret=True, rscl=False, rscl_factor=[]):
 
     
     """
@@ -884,7 +885,6 @@ def dodem(time, bl, tr,
             for i in np.arange(0,len(temps70)-1)])
     
 
-
 #     print('')
 #     print('DEM Inputs:')
 #     print('-Rates, Rate errors')
@@ -905,6 +905,8 @@ def dodem(time, bl, tr,
                                dem_norm0=dem_norm0, nmu=nmu)
     
     dem70o,edem70o,elogt70o,chisq70o,dn_reg70o=demres
+
+
     
     if np.any((dem70o < 0)):
         print('')
@@ -940,9 +942,11 @@ def dodem(time, bl, tr,
         #T in MK
         mkt = 10**np.array(mlogt70)/1e6
         mkt_ = 10**np.array(temps)/1e6
+        mmkt = 10**np.array(temps70)/1e6
     else:
         mkt = np.array(mlogt70)
         mkt_ = np.array(temps)
+        mmkt = np.array(temps70)
         
     #======================================================
       
@@ -954,6 +958,7 @@ def dodem(time, bl, tr,
             'plotMK': plotMK,
             'ts': mkt,
             'ts_': mkt_,
+            'mts': mmkt,
             'trmatrix': trmatrix,
             'dn_in': dn_in,
             'edn_in': edn_in,
@@ -1074,6 +1079,7 @@ def dodem(time, bl, tr,
         asymmetric_error_dn = [(dn_reg70o-min_dnouts)/dn_in, (max_dnouts-dn_reg70o)/dn_in]
         dn_reg=dn_reg70o
         edn_string = 'Uncertainties from MCMC output'
+
         
         
         outputs = {'DEM': dem,
@@ -1086,6 +1092,10 @@ def dodem(time, bl, tr,
             }
         
         data = data | outputs
+
+        if rscl:
+            data, mnrat = dem_rscl.do_rescale(data, emd_int=emd_int, rscl_factor=rscl_factor)
+            data['mnrat']=mnrat
         
         #Save to file defined at begining of function
         with open(picklefile, 'wb') as f:
@@ -1413,7 +1423,7 @@ def high_temp_analysis(time, bl, tr,
 
                        #demreg/xrt_iterative related
                        reg_tweak=1, max_iter=30, rgt_fact=1.5,
-                       mc_iter=100, chi_thresh=0.95,
+                       mc_iter=100, chi_thresh=0.95, rscl=False, 
 
                        #nustar=related
                        datapath='./', gtifile='starter_gti.fits', regfile='starter_region.reg',
@@ -1483,6 +1493,9 @@ def high_temp_analysis(time, bl, tr,
     
     minT4=5.6
     maxT4=6.7
+
+    
+    rscl_factor=[]
     
     
     
@@ -1500,6 +1513,12 @@ def high_temp_analysis(time, bl, tr,
             #likely won't exist yet) and start using the full temperature range file for all others. 
             use_highTprep=True
             use_prior_prep=False
+
+            if rscl:
+                data1, timestring1, time = vdr.load_DEM(results[0])
+                rscl_factor = data1['mnrat']
+                
+                
         
         
         if demmethod=='DEMREG':   
@@ -1533,7 +1552,7 @@ def high_temp_analysis(time, bl, tr,
 
                         #demreg related
                         mc_in=mc_in, mc_rounds=mc_rounds, 
-                        reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter)
+                        reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter, rscl=rscl, rscl_factor=rscl_factor)
         
         if demmethod=='XRT_ITER':
 

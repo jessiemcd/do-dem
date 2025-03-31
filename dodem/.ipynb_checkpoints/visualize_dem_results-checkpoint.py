@@ -42,7 +42,7 @@ def load_DEM(filename):
     
     return data, timestring, time
 
-def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
+def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     """
     Takes in DEM-output dictionary, and makes a nice plot.
     Note: to plot two DEMs at once for comparison, see compare_DEMs() below. 
@@ -139,7 +139,8 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral'):
     ax.legend(fontsize = 15)
     
     plt.savefig(title+'_DEM_plot.png')
-    plt.close(fig)
+    if not show:
+        plt.close(fig)
     
     
 
@@ -759,7 +760,24 @@ def comparison_instruments(data1, data2):
     return residuals1, indices1, residuals2, indices2, inst
         
     
-
+def checkresid(data):
+    """
+    Takes in DEM-result dictionary.
+    
+    Is the DEM-predicted value in the NuSTAR highest energy range consistent with the input value
+    (within uncertainty)? 
+    
+    If yes, return 1 (If not, return 0).
+    """
+    
+    hinu = data['dn_in'][-1]
+    hiresid = data['dn_reg'][-1]/hinu 
+    edn_lo = data['edn'][0][-1]
+    edn_hi = data['edn'][1][-1]
+    if hiresid-edn_lo <= 1 and hiresid+edn_hi >= 1:
+        return 1
+    else:
+        return 0
 
 def gaussian(x, amplitude, mean, stddev):
     return amplitude * np.exp(-((x - mean) / 4 / stddev)**2)
@@ -837,7 +855,7 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
     else:
         return 'EM Above LogT='+str(round(nTs[0], 2))+f': {res:.2e}'+' cm^(-5)'
 
-def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=False):
+def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=False, plotsavedir='./'):
     """
     For given DEM solution, find upper and lower power law slopes of rise./decay around peak. 
     
@@ -905,7 +923,11 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
         powerlaws.append((m, me, b))
         if plot:
             plt.semilogy(xdata, 10**(xdata*m+b))
-    
+
+
+    if plot:
+        plt.savefig(plotsavedir+'powerlaw_fits.png')
+        plt.close()
         
     return powerlaws    
     
@@ -937,6 +959,8 @@ def get_DEM_params(file, save_params_file=False):
     -powerlaws: fit power law index+uncertainty both above and below the DEM peak
     
     """
+
+    import os
     
 
     res = load_DEM(file)
@@ -945,7 +969,8 @@ def get_DEM_params(file, save_params_file=False):
         data, timestring, time = res
     else:
         return 
-    
+
+    #if len(data['dn_in']
     
     #MAIN DEM
     lowdem = (data['DEM']-np.array(data['edem'])[0,:])
@@ -955,7 +980,10 @@ def get_DEM_params(file, save_params_file=False):
     
     m1, condition = DEMmax(data['ts'], dem, wind=3, plot=False)
     if condition==False:
+        print('Not saving params due to peak failure:')
         print(time)
+        return
+        
     #print('DEM is a maximum at: log(T)=', m1, 'OR, ', 10**m1/1e6, ' MK')
     max1 = np.max(dem)
     
@@ -984,7 +1012,8 @@ def get_DEM_params(file, save_params_file=False):
     above10_ = [above10, above10l, above10h]
     
     
-    powerlaws = both_powerlaws(ts, dem, plot=False, fixlowerbound=True)
+    powerlaws = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=True)
     
     EMT_all = sum(dem*(10**ts))/sum(dem)/1e6
     index=14
