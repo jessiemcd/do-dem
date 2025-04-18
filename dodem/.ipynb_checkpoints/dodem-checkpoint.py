@@ -962,7 +962,8 @@ def dodem(time, bl, tr,
             'trmatrix': trmatrix,
             'dn_in': dn_in,
             'edn_in': edn_in,
-            'chanax': chanax
+            'chanax': chanax,
+            'nustar_datapath': datapath
                }
 
     #======================================================
@@ -1515,7 +1516,12 @@ def high_temp_analysis(time, bl, tr,
             use_prior_prep=False
 
             if rscl:
-                data1, timestring1, time = vdr.load_DEM(results[0])
+                try:
+                    data1, timestring1, time = vdr.load_DEM(results[0])
+                except TypeError:
+                    print('Issue with first DEM, skipping the others!')
+                    return
+                    
                 rscl_factor = data1['mnrat']
                 
                 

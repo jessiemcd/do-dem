@@ -713,6 +713,7 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
                         aia_regiondict['centerx'] = (r['centerx'].value + nushift[0])*u.arcsec
                         aia_regiondict['centery'] = (r['centery'].value + nushift[1])*u.arcsec
                         aia_regiondicts.append(aia_regiondict)
+                        print(fpm, aia_regiondict)
 
                         region=make_region(aia_regiondict, mm)
                         og_region = region.to_pixel(mm.wcs)                    
@@ -965,12 +966,13 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
             aiareg = data['aiaregdicts']
         #print(aiareg)
     
-        #orbit-specific directories
+        #make orbit-specific directories named after each OBSID
         reffile = glob.glob(working_dir+timestring+'/'+'*.evt')[0]
         obsid = reffile.split('/')[-1][2:13]
         suborbit_dir=aia_dict_dir+'orbit_'+obsid
         suborbit_directories.append(suborbit_dir)
-        #Make a new working directory for prepped data/etc if it doesn't yet exist
+        
+        #Make a new working directory for prepped data/etc for the orbit if it doesn't yet exist
         save_path = pathlib.Path(suborbit_dir)
         if not save_path.exists():
             save_path.mkdir()

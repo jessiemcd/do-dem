@@ -798,7 +798,12 @@ def DEMmax(ts, DEM, wind=2, plot=False):
 
     maxval=np.max(DEM)
     #Index of DEM maximum - first case if multiple temperature bins have same max value.
-    pind = np.where(DEM == maxval)[0][0]
+    try:
+        pind = np.where(DEM == maxval)[0][0]
+    except IndexError:
+        print('Cant find max of: ', DEM)
+        return (0, False)
+        
     maxtemp=ts[pind]
     dt = ts[pind]-ts[pind-1]
     fitrange = DEM[pind-wind:pind+wind+2]
@@ -825,7 +830,35 @@ def DEMmax(ts, DEM, wind=2, plot=False):
     
     return (popt[1], True)
 
+
+
+def DEMlocalmax(ts, DEM, plot=False):
+    """
+    Uses scipy to find all the local maxima. Plots if you want. 
     
+    Keywords
+    ---------
+    
+    ts, DEM - temperature and DEM arrays
+    
+    plot - should it?
+            
+    """
+    from scipy.signal import find_peaks
+
+    peaks, _ = find_peaks(DEM)
+    
+    if plot:
+        fig = plt.figure(figsize=(5, 5), tight_layout = {'pad': 1})
+        plt.plot(ts, DEM)
+        plt.plot(ts[peaks], DEM[peaks], "x")
+
+
+    return (len(peaks), ts[peaks], DEM[peaks])
+
+
+
+
 
 def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
     """
@@ -983,6 +1016,8 @@ def get_DEM_params(file, save_params_file=False):
         print('Not saving params due to peak failure:')
         print(time)
         return
+
+    localmax_res = DEMlocalmax(data['ts'], data['DEM'])
         
     #print('DEM is a maximum at: log(T)=', m1, 'OR, ', 10**m1/1e6, ' MK')
     max1 = np.max(dem)
@@ -1034,6 +1069,7 @@ def get_DEM_params(file, save_params_file=False):
         savefile = file.split('.p')[-2]+'_withparams.pickle'
         #print(savefile)
 
+        data['local_maxima'] = localmax_res
         data['max'] = max1
         data['max_temp'] = m1
         data['above_5MK'] = above5_
