@@ -506,8 +506,14 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
             for time in time_intervals:
 
                 print(orbit_aia_dir)
-                data, bl, tr, region_input = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
-                #print('data: ', data)
+                res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                if res is None:
+                    print('Found no AIA')
+                    continue
+                data, bl, tr, region_input = res
+                if 'region0' in data.keys():
+                    #print(data.keys())
+                    data = data['region0']
                 #print(data['aia_dn_s_px'])
 
                 if high_temp_analysis:

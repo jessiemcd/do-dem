@@ -501,6 +501,24 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
     return aiareg, m, COMxy
 
 
+def plot_rectangle(coordx, coordy, width, height, angle, map_):
+    
+    from astropy.coordinates import SkyCoord, SkyOffsetFrame
+    
+    rotation_angle = angle * u.deg
+    center_coord = SkyCoord(coordx * u.arcsec, coordy * u.arcsec, frame=map_.coordinate_frame)
+    width_ = width * u.arcsec
+    height_ = height * u.arcsec
+    offset_frame = SkyOffsetFrame(origin=center_coord, rotation=rotation_angle)
+    rectangle = SkyCoord(lon=[-1/2, 1/2] * width_, lat=[-1/2, 1/2] * height_, frame=offset_frame)
+
+    return rectangle
+
+
+
+
+
+
 
 path_to_dodem = '/Users/jmdunca2/do-dem/'
 def nuevtplot(evtA=[], evtB=[], datapath='./',
@@ -667,6 +685,8 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
                 
                     shift_comp_map.plot()
                     shift_comp_map.draw_limb()
+
+                
                     
                 ax.set_xlim(apixel_coords_x)
                 ax.set_ylim(apixel_coords_y)    
@@ -680,6 +700,24 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
                 #magixs2 orbit 1
                 #rectangle = plot_rectangle(1175, -150, 800, 800, -60, mm)
                 #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2)
+
+
+                #september 11 2017
+                #rectangle = plot_rectangle(1082, -351, 800, 800, 20, mm)
+                #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+                #february 19 2016
+                #rectangle = plot_rectangle(1104, 303, 800, 800, -15, mm)
+                #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+                #april 22 2016
+                #rectangle = plot_rectangle(1066, 184, 800, 800, -5, mm)
+                #rectangle = plot_rectangle(1153, 165, 800, 800, -5, mm)
+                #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+                #may 29 2018
+                rectangle = plot_rectangle(670, 316, 800, 800, 0, mm)
+                mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
 
                 ax = fig.add_subplot(3,2,(i+5), projection=mm)
 
@@ -737,6 +775,23 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
             else:
                 comp_map.plot()
                 #comp_map.draw_limb()
+
+            #september 11 2017
+            #rectangle = plot_rectangle(1082, -351, 800, 800, 20, mm)
+            #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+            #february 19 2016
+            #rectangle = plot_rectangle(1104, 303, 800, 800, -15, mm)
+            #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+            #april 22 2016
+            #rectangle = plot_rectangle(1066, 184, 800, 800, -5, mm)
+            #rectangle = plot_rectangle(1153, 165, 800, 800, -5, mm)
+            #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+
+            #may 29 2018
+            rectangle = plot_rectangle(670, 316, 800, 800, 0, mm)
+            mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
             
             ax.set_xlim(apixel_coords_x)
             ax.set_ylim(apixel_coords_y)
