@@ -509,19 +509,20 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
 #     print('Dust Growth 32s:', thirtytwos)
 #     print('')    
     
-    #Check for saturation, exit if there is any (exposure time limits should have taken care of this)
-    if ones > 0:
-        print('Saturation in ', regxmap.meta['ec_fw1_'], ' at ', regxmap.meta['date_obs'], ', skipping.')
-        print(ones, ' total saturated pixels.')
-        if plot:
-            fig = plt.figure(figsize=(9, 7))
-            regxmap.plot()
-            plt.savefig(saveimage+'_saturation_excluded_xrt_image.png')
-            fig = plt.figure(figsize=(9, 7))
-            reggmmap.plot()
-            plt.savefig(saveimage+'_saturation_excluded_xrt_grade_map.png')   
-            
-        return None
+    #Check for saturation, exit if there is any. (if not using grade mask)
+    if not grade_mask:
+        if ones > 0:
+            print('Saturation in ', regxmap.meta['ec_fw1_'], ' at ', regxmap.meta['date_obs'], ', skipping.')
+            print(ones, ' total saturated pixels.')
+            if plot:
+                fig = plt.figure(figsize=(9, 7))
+                regxmap.plot()
+                plt.savefig(saveimage+'_saturation_excluded_xrt_image.png')
+                fig = plt.figure(figsize=(9, 7))
+                reggmmap.plot()
+                plt.savefig(saveimage+'_saturation_excluded_xrt_grade_map.png')   
+                
+            return None
     
     
     #If we are removing bad event grades...
@@ -536,7 +537,21 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             mask = np.where(np.logical_or(rd == 2, rd > 4), 0, 1)
             #number_of_pixels = np.sum(mask)
             clean_image = mask*regxmap.data
-    
+
+
+    filter999=True
+    if filter999:
+        if np.any(regxmap.data == -999.):
+            print('-999 found - not using image.')
+            if plot:
+                fig = plt.figure(figsize=(9, 7))
+                regxmap.plot()
+                plt.savefig(saveimage+'_999_excluded_xrt_image.png')
+                fig = plt.figure(figsize=(9, 7))
+                reggmmap.plot()
+                plt.savefig(saveimage+'_999_excluded_xrt_grade_map.png')   
+                    
+                return None
         
     #======================================================
     
@@ -559,6 +574,7 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             positive_pix = regxmap.data[np.where(regxmap.data > 0)]
 
         xdnspx=np.mean(positive_pix)/dur/chipsum**2
+            
 
         if real_xrt_err:
             #Using expression from Lee et al (2017) - Kathy recommended
@@ -589,29 +605,26 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
         
         #Make the region object if it's a circle
         if input_region=='circle':
+            print(region_data)
             region = regions.CircleSkyRegion(
                 SkyCoord(*region_data['center'], frame=subm.coordinate_frame ),
                 region_data['radius']
             ) 
+        
 
-        #plot=True
-        if plot:
-            fig = plt.figure(figsize=(9, 7))
-            ax = fig.add_subplot(projection=subm)
-            subm.plot(axes=ax)
-            (region.to_pixel(subm.wcs)).plot(ax=ax, color='blue')
-            norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see           
-            plt.colorbar(norm=norm)
-            plt.savefig(saveimage+'_input_region_xrt_image.png')    
 
-        try:
-            data = get_region_data(subm, region, b_full_size=True, fill_value=-20)      
-        except ValueError:
-            print('Suspect region extends off XRT image. Run with plot=True to confirm. Quitting.')
+        data = get_region_data(subm, region, b_full_size=False, fill_value=-20) 
+        if data is None:
             return None
+        # except ValueError:
+        #     print('Suspect region extends off XRT image. Run with plot=True to confirm. Quitting.')
+        #     return None
+            
         positive_pix = data[np.where(data > 0)]
+        #print('below 0s: ', 'unique: ', np.unique(data[np.where(data < 0)]), ' total: ', data[np.where(data < 0)].size)
         xdnspx=np.mean(positive_pix)/dur/chipsum**2
         uncertainty_list = (1 + np.sqrt(positive_pix + 0.75))/dur
+        
         
         #print('Number of pixels with positive values (pre-mask):', len(positive_pix))
         #print('Number of pixels with negative values (pre-mask):', len(data[np.where(data < 0)]))
@@ -620,7 +633,9 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             
         if grade_mask:
             subgm = copy.deepcopy(xgmmap)
-            gm_data = get_region_data(subgm, region, b_full_size=True, fill_value=-20)
+            gm_data = get_region_data(subgm, region, b_full_size=False, fill_value=-20)
+            if gm_data is None:
+                return None
             
             rd=gm_data
             
@@ -632,8 +647,16 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             ones = len(np.where(rd == 1)[0])
             
             if ones > 0:
-                print('Saturation in ', regxmap.meta['ec_fw1_'], ' at ', regxmap.meta['date_obs'], ', skipping.')
+                print('Saturation in REGION in ', regxmap.meta['ec_fw1_'], ' at ', regxmap.meta['date_obs'], ', skipping.')
                 print(ones, ' total saturated pixels.')
+                if plot:
+                    fig = plt.figure(figsize=(9, 7))
+                    regxmap.plot()
+                    plt.savefig(saveimage+'_region_saturation_excluded_xrt_image.png')
+                    fig = plt.figure(figsize=(9, 7))
+                    reggmmap.plot()
+                    plt.savefig(saveimage+'_region_saturation_excluded_xrt_grade_map.png')   
+
                 return None
             
             if xmap.meta['ec_fw1_'] == 'Al_poly':
@@ -677,22 +700,45 @@ def load_xrt_filter(data, gm, bl, tr, plot, saveimage='test', exposure_lim=[],
             err_xrt = np.mean(uncertainty_list)
         
         if xdnspx > 0 and plot:
-            fig = plt.figure(figsize=(6,6))
-            ax = fig.add_subplot(projection=subm)
-            subm.plot(axes=ax)
-            (region.to_pixel(subm.wcs)).plot(ax=ax, color='blue')
-            norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see           
-            plt.colorbar(norm=norm)
-            plt.savefig(saveimage+'_input_region_xrt_image.png')
+            if np.isfinite(xdnspx):
+                fig = plt.figure(figsize=(6,6))
+                ax = fig.add_subplot(projection=subm)
+                subm.plot(axes=ax)
+                (region.to_pixel(subm.wcs)).plot(ax=ax, color='blue')
+                norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see           
+                plt.colorbar(norm=norm)
+                plt.savefig(saveimage+'_input_region_xrt_image.png')
     
     #======================================================
+
+
+    print('tr: ', tr)
+    print(subm.date)
+    print(xdnspx)
+    
+
+    if not np.isfinite(xdnspx):
+        print('Non-finite XRT emission - excluding file.')
+        if plot:
+            fig = plt.figure(figsize=(9, 7))
+            regxmap.plot()
+            plt.savefig(saveimage+'_nonfinite_excluded_xrt_image.png')
+        return
+
+    if xdnspx == 0: 
+        print('Exactly zero XRT emission - excluding file.')
+        if plot:
+                fig = plt.figure(figsize=(9, 7))
+                regxmap.plot()
+                plt.savefig(saveimage+'_zero_excluded_xrt_image.png')
+        return   
     
     if xdnspx < 0:
         print('Negative XRT emission - excluding file.')
         if plot:
                 fig = plt.figure(figsize=(9, 7))
                 regxmap.plot()
-                plt.savefig(saveimage+'_exposure_excluded_xrt_image.png')
+                plt.savefig(saveimage+'_negative_excluded_xrt_image.png')
         return        
       
     if real_xrt_err:
@@ -795,41 +841,89 @@ def get_region_data(map_obj: sunpy.map.Map,
         the provided reg.
     """
 
+    #Get array of map data
     map_data = map_obj.data
-    #print(map_obj.wcs)
-    #print(dir(map_obj))
+    #print('below 0s: ', 'unique: ', np.unique(map_data[np.where(map_data == -999.)]), ' total: ', map_data[np.where(map_data == -999.)].size)
+    #print(map_data)
+
+    
+    #Make a PixelRegion object (region defined in map_data pixel coordinates)
     reg_mask = (region.to_pixel(map_obj.wcs))
-    #print(dir(reg_mask))
+    #Make a RegionMask object (array with overlap of region on the pixel grid)
     reg_mask=reg_mask.to_mask()
-    #print(dir(reg_mask))
-    #print(reg_mask.bbox)
+
+    #Get x,y bounds of the region mask on the map_data
     xmin, xmax = reg_mask.bbox.ixmin, reg_mask.bbox.ixmax
     ymin, ymax = reg_mask.bbox.iymin, reg_mask.bbox.iymax
 
-    #Troubleshooting case where region extends outside image; for now just excluding these.
-    # print('bound values:', xmin, xmax, ymin, ymax)
+    #Cutout: the section of map_data which overlaps with the region mask.
+    #Note that for cases where the region mask extends off the map, the fill value
+    #will be used to fill in the portion of the region mask area where there are no 
+    #data values. 
+    co = reg_mask.cutout(map_data, fill_value=fill_value)
+    if co is None:
+        print('No overlap between region and XRT image! Returning.')
+        return
+
+
+    #map_obj.plot()
+
+    #Commented out - helpful plots to understand what's going on.
+    # fig, ax = plt.subplots(figsize=(6,6))
+    # plt.imshow(reg_mask)
+
+    # fig, ax = plt.subplots(figsize=(6,6))
+    # print(co.shape)
+    # plt.imshow(co)
+
+    # print('below 0s: ', 'unique: ', np.unique(co[np.where(co < 0)]), ' total: ', co[np.where(co < 0)].size)
+    # print(co)
+
+    # fig, ax = plt.subplots(figsize=(6,6))
+    # plt.imshow(map_data)
+    
+    #map_obj.plot()
+
+    #From prior troubleshooting:
+    #print('bound values:', xmin, xmax, ymin, ymax)
     # blist = [xmin, xmax, ymin, ymax]
     # xmin, xmax, ymin, ymax = [l if l>=0 else 0 for l in blist]
     
     # print('bound values:', xmin, xmax, ymin, ymax)
     
     # print('Shape of reg_mask data:', reg_mask.data.shape)
-    # print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
-    # print('Shape of map data, no change:', map_data.shape)
+    #print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
+    #print('Shape of map data, no change:', map_data.shape)
     # print('Y bound max-min, X bound max-min:', ymax-ymin, xmax-xmin)
 
-    # print(map_data.shape)
-    # print(map_data[ymin:ymax, :].shape)
+    #print(map_data.shape)
+    #print(map_data[ymin:ymax, :].shape)
+
+    #This method was the old version; it can't handle cases where the region mask extends off the map.
+    #region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
     
-    region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
+    region_data = np.where(reg_mask.data==1, co, fill_value)
+
+    # fig, ax = plt.subplots(figsize=(6,6))
+    # plt.imshow(region_data)
+
+
+    #print('below 0s: ', 'unique: ', np.unique(region_data[np.where(region_data < 0)]), ' total: ', region_data[np.where(region_data < 0)].size)
+    #print(np.unique(region_data))
 
     if b_full_size:
+        #Makes an array the size of the original map, full of the fill value.
         a = np.full(
             shape=map_data.shape,
             fill_value=fill_value,
             dtype=region_data.dtype
         )
-        a[ymin:ymax, xmin:xmax] = region_data
+        #Replaces the zone of that map with the region data.
+        try:
+            a[ymin:ymax, xmin:xmax] = region_data
+        except ValueError:
+            print('Cannot return full-image-size array w/ region data at region location, likely because the region extends off the image.')
+            return
         region_data = a
 
     return region_data      

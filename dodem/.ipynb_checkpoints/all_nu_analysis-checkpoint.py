@@ -413,7 +413,7 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit',
-              high_temp_analysis=False, rscl=True):
+              high_temp_analysis=False, rscl=True, do_no_xrt_version=False):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -457,18 +457,23 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
     aia=True
     #---------------------------------
     eis=False
-    xrt=True
     #This is where I'm putting my XRT level-1 data and grade maps:
     xrt_path=working_dir+'/XRT_for_DEM/'
-    xrt=True
+    ogxrt=True
+    #ogxrt=False
+    
     from astropy import units as u
-    exposure_dict={'Be_thin': [1*u.s, 10*u.s],
+    exposure_dict={'Be_thin': [1*u.s, 100*u.s],
                     'Be_med': [],
-                  'Al_poly': [0.1*u.s, 1*u.s]}
+                  'Al_poly': [0.1*u.s, 100*u.s]}
     #---------------------------------
     plot=False
     #---------------------------------
-    nustar=True
+    #nustar=True
+    #force_nustar=True
+    force_nustar=False
+    nustar=False
+    
     #If nustar is being used, here are the chosen energy ranges:
     nuenergies=[[2.5,3.5], [3.5,6.], [6.,10.]]
     nuradius=150
@@ -480,20 +485,22 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
     minT=5.6
     maxT=7.2
     
-    #Would you prefer to plot temperatures in MK, or the default (logT)
-    plotMK=False
     #---------------------------------
     #---------------------------------
-    
-    name=key
+
+    #name=key
+    #name=key+'_no_xrt'
+    #name=key+'_onlyaia'
+    name=key+'_aiaxrt'
     
     import dodem
     import glob
     
     for o in range(0, len(obsids)):
-    
+        xrt=ogxrt
         datapath=id_dirs[o]
         xrt_path=path_to_dodem+'other_idl/'+obsids[o]+'_coobs/XRT_for_DEM/'
+        print(xrt_path)
         if not pathlib.Path(xrt_path).is_dir():
             xrt=False
         gtifile=datapath+'event_cl/nu'+obsids[o]+'A06_gti.fits'
@@ -505,23 +512,25 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
             time_intervals = all_time_intervals[o]    
             for time in time_intervals:
 
-                print(orbit_aia_dir)
+                #print(orbit_aia_dir)
                 res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
                 if res is None:
                     print('Found no AIA')
                     continue
                 data, bl, tr, region_input = res
+                #print(region_input)
                 if 'region0' in data.keys():
                     #print(data.keys())
                     data = data['region0']
+                    region_input = region_input[0]
                 #print(data['aia_dn_s_px'])
 
                 if high_temp_analysis:
                     dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
-                                                   plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
+                                                   highT=7.2, #(minT, maxT are varied)
                                                    working_directory=working_dir, #(plotresp set false in high_temp_analysis)
                                                    default_err=0.2, path_to_dodem=path_to_dodem,
-                                                   demmethod='DEMREG', use_prior_prep=True,
+                                                   demmethod='DEMREG', use_prior_prep=False,
                             
                                                    #demreg/xrt_iterative related
                                                    rgt_fact=1.2, max_iter=30, rscl=rscl,
@@ -532,7 +541,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                                    datapath=datapath, gtifile=gtifile, 
                                                    nuradius=nuradius, guess=guess, onegauss=onegauss,
                                                    adjacent_grades=True, pile_up_corr=True,
-                                                   force_nustar=True,
+                                                   force_nustar=force_nustar,
                                              
                                                    #aia related
                                                    load_prepped_aia=data, 
@@ -545,9 +554,10 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
 
                 else:
+                    #print('xrt is: ', xrt)
                     dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
-                                            plotMK=plotMK, minT=minT, maxT=maxT,
-                                            plotresp=False, working_directory=working_dir,
+                                            minT=minT, maxT=maxT,
+                                            working_directory=working_dir,
                                             default_err=0.2, path_to_dodem=path_to_dodem,
                     
                                             #demreg related
@@ -559,18 +569,19 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                             datapath=datapath, gtifile=gtifile,
                                             nuradius=nuradius, guess=guess, onegauss=onegauss,
                                             adjacent_grades=True, pile_up_corr=True,
-                                            force_nustar=True,
+                                            force_nustar=force_nustar,
                     
                                             #aia related
                                             load_prepped_aia=data, 
         
                                             #xrt related
-                                           xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                            xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                             xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
                                             input_xrt_region="circle", input_xrt_region_dict=region_input)
         print('')
 
         if method in ['input', 'double']:
+            print('xrt is: ', xrt)
             fpm='A'
             if method=='input':
                 regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
@@ -598,10 +609,10 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
                     if high_temp_analysis:
                         dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
-                                                plotMK=plotMK, highT=7.2, #(minT, maxT are varied)
+                                                highT=7.2, #(minT, maxT are varied)
                                                 working_directory=directories[i], #(plotresp set false in high_temp_analysis)
                                                 default_err=0.2, path_to_dodem=path_to_dodem,
-                                                demmethod='DEMREG', use_prior_prep=True,
+                                                demmethod='DEMREG', use_prior_prep=False,
 
                                  
                                                 #demreg/xrt_iterative related
@@ -615,7 +626,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                                 nuradius=nuradius, edit_regfile=False,
                                                 regfile=regfile,
                                                 adjacent_grades=True, pile_up_corr=True,
-                                                force_nustar=True,
+                                                force_nustar=force_nustar,
 
                                                 #aia related
                                                 load_prepped_aia=data, 
@@ -629,9 +640,10 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
                                                  
                     else:
+                        #print('xrt is: ', xrt)
                         dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
-                                    plotMK=plotMK, minT=minT, maxT=maxT,
-                                    plotresp=False, working_directory=directories[i],
+                                    minT=minT, maxT=maxT,
+                                    working_directory=directories[i],
                                     default_err=0.2, path_to_dodem=path_to_dodem,
             
                                     #demreg related
@@ -644,7 +656,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                     nuradius=nuradius, edit_regfile=False,
                                     regfile=regfile,
                                     adjacent_grades=True, pile_up_corr=True,
-                                    force_nustar=True,
+                                    force_nustar=force_nustar,
             
                                     #aia related
                                     load_prepped_aia=data, 
@@ -659,7 +671,8 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
 def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                         keydict={},
-                        withparams=False):
+                        withparams=False,
+                       namesearchstring=''):
     
     import glob
     print('doing ', key)
@@ -697,9 +710,9 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                     for tt in orbittimes:
                         timestring = viz.make_timestring(tt)
                         if withparams:
-                            files = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*withparams.pickle')
+                            files = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*withparams.pickle')
                         else:
-                            fs = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*.pickle')
+                            fs = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                             files = [f for f in fs if 'withparams' not in f]
                             
                         try:
@@ -723,9 +736,9 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                 for tt in orbittimes:
                     timestring = viz.make_timestring(tt)
                     if withparams:
-                        files = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*withparams.pickle')
+                        files = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*withparams.pickle')
                     else:
-                        fs = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*.pickle')
+                        fs = glob.glob(working_dir+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                         files = [f for f in fs if 'withparams' not in f]
                         #print(files)
                         #print('')
@@ -739,9 +752,9 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
             
     else:
         if withparams:
-            res_files = glob.glob('./compact_results/*'+key+'*withparams.pickle')
+            res_files = glob.glob('./compact_results/*'+key+'*'+namesearchstring+'*withparams.pickle')
         else:
-            rfs = glob.glob('./compact_results/*'+key+'*.pickle')
+            rfs = glob.glob('./compact_results/*'+key+'*'+namesearchstring+'*.pickle')
             res_files = [f for f in rfs if 'withparams' not in f]
             #print(res_files)
             
@@ -770,7 +783,7 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
 
 def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
                 regions_return=False, paramssaved=True, fromhome=False, keydict={},
-                   doparam='above10s'):
+                   doparam='above10s', namesearchstring=''):
 
     """
     set paramssaved=True to retrieve already-saved params in the dem result files 
@@ -788,7 +801,8 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
             all_res_files=[]
             allkeys = keydict.keys()
             for kk in allkeys:
-                res_files, tworegion = get_key_resultfiles(kk, withparams=paramssaved, fromhome=fromhome, keydict=keydict)
+                res_files, tworegion = get_key_resultfiles(kk, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
+                                                           namesearchstring=namesearchstring)
                 if tworegion:
                     all_res_files.extend(res_files[0])
                     all_res_files.extend(res_files[1])
@@ -803,7 +817,8 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
                 all_res_files = [f for f in rfs if 'withparams' not in f]
             
     elif key:
-        res_files, tworegion = get_key_resultfiles(key, withparams=paramssaved, fromhome=fromhome, keydict=keydict)
+        res_files, tworegion = get_key_resultfiles(key, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
+                                                           namesearchstring=namesearchstring)
         if tworegion:
             res=[]
             if res_files[0]:

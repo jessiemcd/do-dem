@@ -1206,7 +1206,7 @@ def plot_grade_spectra(working_dir, timestring, fpm):
 def return_submap(datapath='./', fpm='A', specific_evt=[], 
                   bl=[], tr=[], nusmooth=True,
                   return_evt_hdr=False, plot=False,
-                     return_obsid=False):
+                     return_obsid=False, already_sunpos=False):
     """
     wrapper - convert to solar coordinates and make submap for nice plot
     """
@@ -1219,16 +1219,19 @@ def return_submap(datapath='./', fpm='A', specific_evt=[],
         #print(datapath)
         evt_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl.evt')[0]
 
-    #print(evt_file)
-    #Convert evt file to solar coordinates         
-    convert_wrapper(evt_file, clobber=False)
-    
-    #Get solar coordinates file
-    if specific_evt:
-        sun_file = specific_evt[:-4]+'_sunpos.evt'
+    if already_sunpos:
+        sun_file = evt_file
     else:
-        sun_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl_sunpos.evt')[0]
-    #print('Using solar coodinates file:', sun_file)
+        #print(evt_file)
+        #Convert evt file to solar coordinates         
+        convert_wrapper(evt_file, clobber=False)
+    
+        #Get solar coordinates file
+        if specific_evt:
+            sun_file = specific_evt[:-4]+'_sunpos.evt'
+        else:
+            sun_file = glob.glob(datapath+'/event_cl/*'+fpm+'06_cl_sunpos.evt')[0]
+        #print('Using solar coodinates file:', sun_file)
     
     with fits.open(sun_file) as hdu:
         evt_data = hdu[1].data

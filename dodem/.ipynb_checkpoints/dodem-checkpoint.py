@@ -41,7 +41,7 @@ errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
 def dodem(time, bl, tr, 
           minT=5.8, maxT=7.5, dT=0.05, 
           xrt=True, aia=True, nustar=True, eis=False,
-          plotresp=True, just_prep=False, plotMK=False, name='',
+          plotresp=False, just_prep=False, plotMK=False, name='',
           use_prior_prep=False, prior_name='', default_err=0.2, use_highTprep=False,
           path_to_dodem='./', working_directory='./',
           
@@ -352,6 +352,7 @@ def dodem(time, bl, tr,
     edens - electron density (for calculating contribution functions)
     
     """
+    #print('xrt is: ', xrt)
 
     if force_nustar and nustar==False:
         print('You set force_nustar True and nustar False – quitting.')
@@ -1470,7 +1471,6 @@ def high_temp_analysis(time, bl, tr,
     make_nustar=True
     mc_in=True
     mc_rounds=100
-    plotresp=False
     eis=False
 
     use_highTprep=False
@@ -1530,7 +1530,7 @@ def high_temp_analysis(time, bl, tr,
         if demmethod=='DEMREG':   
             res1 = dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, eis=eis, 
                         minT=tpair[0], maxT=tpair[1],
-                        dT=dT, name=name, plotresp=plotresp,
+                        dT=dT, name=name,
                          plotMK=plotMK, use_prior_prep=use_prior_prep, use_highTprep=use_highTprep,
                          default_err=default_err,
                          path_to_dodem=path_to_dodem, working_directory=working_directory,
