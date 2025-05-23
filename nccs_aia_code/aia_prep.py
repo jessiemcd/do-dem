@@ -33,7 +33,7 @@ import scipy.io as io
 #import lightcurves as lc
 #import region_fitting as rf
 
-def aia_for_DEM_NCCS(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle', clobber=False,
+def aia_for_DEM_NCCS(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle', aia_clobber=False,
                 data_dir='./'):
     """
     Finds an AIA image on the NCCS in each of the input channels shortly
@@ -62,7 +62,7 @@ def aia_for_DEM_NCCS(time, bl, tr, wav=[], plot=True, aia_path='./', method='Mid
 	
 	plot - set True to plot image maps for later reference
 	
-	clobber - set True to overwrite previously prepped files
+	aia_clobber - set True to overwrite previously prepped files
 	
 	Returns
 	--------
@@ -165,10 +165,10 @@ def aia_for_DEM_NCCS(time, bl, tr, wav=[], plot=True, aia_path='./', method='Mid
                 aprep=[]
                 if len(paths) == 1:
                     m=amaps
-                    prep_map_wrap(m, aia_path, timestring, clobber, bl, tr, ptab)
+                    prep_map_wrap(m, aia_path, timestring, aia_clobber, bl, tr, ptab)
                 else:    
                     for m in amaps:
-                        prep_map_wrap(m, aia_path, timestring, clobber, bl, tr, ptab)
+                        prep_map_wrap(m, aia_path, timestring, aia_clobber, bl, tr, ptab)
                     # #Make saved versions of the maps for input into DEM code
                     # wvn="{0:d}".format(1000+m.meta['wavelnth'])
                     # wvn=wvn[1:]
@@ -213,7 +213,7 @@ def prep_map_wrap(m, aia_path, timestring, clobber, bl, tr, ptab):
         '/'+'map_t'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_prep_'+wvn+'.fits'
     check_prepfile = glob.glob(filename)
     if bool(check_prepfile)==False or clobber==True:
-        print('PREPPING MAP')
+        print('PREPPING MAP - ', wvn, m.date.strftime('%y-%m-%d_%H-%M-%S'))
         mm = prep_this_map(m, bl, tr, ptab, filename, save=True)
 
 
@@ -236,14 +236,25 @@ def checkfile(path, time_range, wavelength):
             return obs_time
 
 
-def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=False):
+def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=True):
     """
     Takes in a map and a pointing table. AIAPREPs the map, and saves a fits version 
     if save==True. Plots the prepped map if plot==True. Returns the prepped map.
     """
-    
+
+    #import aiapy.psf
+
+    #print('deconvolving!')
+    #m = aiapy.psf.deconvolve(m)
+    #print('deconvolved')
+
     #Update the pointing information for each map
     #m_temp = update_pointing(m, pointing_table=ptab)
+
+    if m.fits_header['QUALITY'] != 0:
+        print('AIA file quality issue. Quality = ', m.fits_header['QUALITY'])
+        print('(on ', m.date, m.wavelength)
+        return
     
     try:
         m_temp = update_pointing(m, pointing_table=ptab)
@@ -252,7 +263,11 @@ def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=False):
         m.meta.pop('crpix2')
         print('CRPIX issue on ', m.date, m.wavelength)
         m_temp = update_pointing(m, pointing_table=ptab)
-
+    except ValueError:
+        if m.fits_header['QUALITY'] != 0:
+            print('AIA file quality issue. Quality = ', m.fits_header['QUALITY'])
+            print('(on ', m.date, m.wavelength)
+            return
     
     #converts lev1 map to lev1.5 map 
     #(see: https://aiapy.readthedocs.io/en/stable/api/aiapy.calibrate.register.html?highlight=register)
@@ -321,8 +336,11 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
 	DN/px/s value, error
 	
     """
-    
-    
+
+    if m.fits_header['QUALITY'] != 0:
+        print('AIA file quality issue - prepped file. Quality = ', m.fits_header['QUALITY'])
+        print('(on ', m.date, m.wavelength, ')')
+        return
     
     dur = m.meta['exptime']
     wav = m.meta['wavelnth']
@@ -383,18 +401,21 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
         #err=0.1*cor_data
         
         err = estimate_error(cor_data*(u.ct / u.pix), channel, error_table=errortab).value[0]
-        
+
+        #print(m.date, wav)
         #print('Degredation-corrected AIA DN/px: ', cor_data)
         #print('Per second: ', cor_data/dur)
         #print('Error: ', err)
         #print('Per second: ', err/dur)
+
+        
         
         return cor_data/dur, err/dur 
     
     # Get into DN/s/px for the DEM stuff
     aia_dn_s_px=cor_data/dur
     
-    #print(aia_dn_s_px)
+
 
     return aia_dn_s_px
 
@@ -506,7 +527,6 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
     import pickle
     import scipy.io as io
                  
-    clobber=aia_clobber
     
     if bool(bl) and bool(input_region):
         print("You provided both a region box and a specific region.")
@@ -542,15 +562,15 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
         
         ffp=sorted(glob.glob(aia_path+timestring+'/'+'maps_prep_*.fits'))
         #print(ffp)
-        if len(ffp)!=6 or clobber==True:
-            print('No prepped AIA data (or clobber==True), ')
+        if len(ffp)!=6 or aia_clobber==True:
+            print('No prepped AIA data (or aia_clobber==True), ')
             print('fetching some new AIA files at DEM time and converting to lev 1.5')
             if NCCS:
                 aia_for_DEM_NCCS(time, bl, tr, plot=plot, aia_path=aia_path, 
-                                    method='Middle', clobber=clobber, data_dir=data_dir)
+                                    method='Middle', aia_clobber=aia_clobber, data_dir=data_dir)
             else:
                 aia_for_DEM(time, bl, tr, plot=plot, aia_path=aia_path, method='Middle', 
-                            clobber=clobber, data_dir=data_dir)
+                            aia_clobber=aia_clobber, data_dir=data_dir)
             ffp=sorted(glob.glob(aia_path+timestring+'/'+'maps_prep_*.fits'))
             if len(ffp) > 6:
                 print('More than six files found! Please resolve.')
@@ -582,16 +602,26 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
                 wstring=str(0)+str(wav)
             deg = deg_dict[wstring]
             if real_aia_err:
-                aia_dn_s_px_, err = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
+                res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
                                                   input_aia_region_dict=input_aia_region_dict, plot=plot,
                                                   timestring=timestring, aia_path=aia_path, 
                                                   real_aia_err=real_aia_err, errortab=errortab)
-                aia_dn_s_px.append(aia_dn_s_px_)
-                aia_err_dn_s_px.append(err)
+                if res is not None:
+                    aia_dn_s_px_, err = res
+                    aia_dn_s_px.append(aia_dn_s_px_)
+                    aia_err_dn_s_px.append(err)
+                else:
+                    print("Quality issue with one of the input files: ", ffp[i])
+                    return
             else:
-                aia_dn_s_px.append(map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
+                res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
                                                   input_aia_region_dict=input_aia_region_dict, plot=plot,
-                                                  timestring=timestring, aia_path=aia_path))
+                                                  timestring=timestring, aia_path=aia_path)
+                if res is not None:
+                    aia_dn_s_px.append(res)
+                else:
+                    print("Quality issue with one of the input files: ", ffp[i])
+                    return
             
         #========================= 
             
@@ -635,14 +665,14 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
                 wstring=str(0)+str(waves[w])
             ffp=sorted(glob.glob(aia_path+timestring+'/'+'map_t*_'+wstring+'.fits'))
             #If under two files, get more
-            if len(ffp)<2 or clobber==True:
-                print('Less than two files ready to average (or clobber set); we will go prep more.')
+            if len(ffp)<2 or aia_clobber==True:
+                print('Less than two files ready to average (or aia_clobber set); we will go prep more.')
                 if NCCS:
                     aia_for_DEM_NCCS(time, bl, tr, wav=[waves[w]], plot=plot, aia_path=aia_path, 
-                                   method='Average', clobber=clobber, data_dir=data_dir)
+                                   method='Average', aia_clobber=aia_clobber, data_dir=data_dir)
                 else:
                     aia_for_DEM(time, bl, tr, wav=[waves[w]], plot=plot, aia_path=aia_path, 
-                                method='Average', clobber=clobber, sunpy_dir=sunpy_dir)
+                                method='Average', aia_clobber=aia_clobber, sunpy_dir=sunpy_dir)
                 ffp=sorted(glob.glob(aia_path+timestring+'/'+'map_t*_'+wstring+'.fits'))
                 #If still less than two files, quit.
                 if len(ffp)<2:
@@ -674,12 +704,13 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
                                                       timestring=timestring, aia_path=aia_path, 
                                                       real_aia_err=real_aia_err, errortab=errortab)
 
-                if real_aia_err:
-                    wav_dn_s_px_, err = res
-                    wav_dn_s_px.append(wav_dn_s_px_)
-                    wav_err_dn_s_px.append(err)
-                else:
-                    wav_dn_s_px.append(res)
+                if res is not None:
+                    if real_aia_err:
+                        wav_dn_s_px_, err = res
+                        wav_dn_s_px.append(wav_dn_s_px_)
+                        wav_err_dn_s_px.append(err)
+                    else:
+                        wav_dn_s_px.append(res)
 
             else:
                 for i in range(0,len(aprep)):
@@ -688,19 +719,25 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
                         print('File with no exposure time found - excluding.')
                         print('File was:', ffp[i])
                         continue
-                    res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
-                                                          input_aia_region_dict=input_aia_region_dict, plot=plot,
-                                                          timestring=timestring, aia_path=aia_path, 
-                                                          real_aia_err=real_aia_err, errortab=errortab)
-                    if real_aia_err:
-                        wav_dn_s_px_, err = res
-                        wav_dn_s_px.append(wav_dn_s_px_)
-                        wav_err_dn_s_px.append(err)
-                    else:
-                        wav_dn_s_px.append(res)
+                    res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region,
+                                         input_aia_region_dict=input_aia_region_dict,
+                                         plot=plot, timestring=timestring, 
+                                         aia_path=aia_path, real_aia_err=real_aia_err,
+                                         errortab=errortab)
+                    if res is not None:
+                        if real_aia_err:
+                            wav_dn_s_px_, err = res
+                            if np.isfinite(wav_dn_s_px_):
+                                #print('yep')
+                                wav_dn_s_px.append(wav_dn_s_px_)
+                                wav_err_dn_s_px.append(err)
+                        else:
+                            if np.isfinite(res):
+                                wav_dn_s_px.append(res)
 
                 
-             
+
+            #print(wstring, ': ', wav_dn_s_px)
             #Take the mean of all the files
             aia_dn_s_px.append(np.mean(wav_dn_s_px))
             if real_aia_err:
@@ -716,6 +753,7 @@ def load_aia(time, bl, tr, plot=True, NCCS=False, aia_exclude=[], aia_path='./',
         print('At least one aia input value was NaN - not able to make inputs.')
         print(aia_dn_s_px)
         return
+
 
     if NCCS:
         aia_resp_path = NCCS_aia_resp_path
@@ -906,8 +944,22 @@ def circle_region_wrapper(offset, rad):
 def prep_interval_dir(interval_dir, data_dir, NCCS_save_path, map_save_path,
                       NCCS_aia_resp_path, errortab, resprint=False,
                      clobber=False, aia_clobber=False):
+
+    """
+    Keywords
+    ---------
+
+    interval_dir       - location of pickle files containing aia input directories (with desired times, regions)
+    data_dir           - location of the AIA data 
+    NCCS_save_path     - place to save a local copy
+    NCCS_aia_resp_path - location of needed AIA response files
+    errortab           - location of needed AIA error tables
+    resprint           - print the contents of the input files (keys, time interval) for debugging
+    clobber            - SHOULD allow rerun of input calculation without re-prepping the files (use existing prepped files).
+    aia_clobber        - SHOULD force re-run of entire process (re-run files).
+    """
     
-    
+
     files = glob.glob(interval_dir+'/*.pickle')
     files.sort()
 
@@ -915,14 +967,14 @@ def prep_interval_dir(interval_dir, data_dir, NCCS_save_path, map_save_path,
         print(f)
         file_prep(f, data_dir, NCCS_save_path, map_save_path,
                 NCCS_aia_resp_path, errortab,
-                clobber=clobber, aia_clobber=clobber)
+                clobber=clobber, aia_clobber=aia_clobber)
     
     if resprint:
         for f in files:
             with open(f, 'rb') as f_:
-                    data = pickle.load(f_)
+                data = pickle.load(f_)
         
-            #print(data.keys())
+            print(data.keys())
             print(data['time_interval'])
 
 def file_prep(f, data_dir, NCCS_save_path, map_save_path,
@@ -946,15 +998,23 @@ def file_prep(f, data_dir, NCCS_save_path, map_save_path,
             import copy
             newdata = copy.deepcopy(data)
             for k in data.keys():
-                newdata[k] = region_prep(data[k], map_save_path, errortab, aia_clobber,
-                                    NCCS_save_path, NCCS_aia_resp_path, data_dir)
+                #print(data[k])
+                if data[k]:
+                    if 'aia_dn_s_px' in data[k] and not clobber:
+                        print('already prepped, and clobber=False, skipping.')
+                        return
+                    else:
+                        newdata[k] = region_prep(data[k], map_save_path, 
+                                                 errortab, aia_clobber,
+                                                NCCS_save_path, NCCS_aia_resp_path,
+                                                 data_dir)
  
         if newdata is not None:
             with open(f, 'wb') as f_:
                 pickle.dump(newdata, f_, pickle.HIGHEST_PROTOCOL)
 
 def region_prep(data, map_save_path, errortab, aia_clobber,
-                NCCS_save_path, NCCS_aia_resp_path, data_dir):
+                NCCS_save_path, NCCS_aia_resp_path, data_dir, plot=False):
 
     rad = data['radius']*u.arcsec
     offset = [data['centerx'], data['centery']]
@@ -962,7 +1022,7 @@ def region_prep(data, map_save_path, errortab, aia_clobber,
     
     bl, tr, input_region, input_aia_region_dict = circle_region_wrapper(offset, rad)
 
-    deminputs = load_aia(time, bl, tr, plot=False, NCCS=True, 
+    deminputs = load_aia(time, bl, tr, plot=plot, NCCS=True, 
                          aia_exclude=[], aia_path=map_save_path, 
              method='Average', one_avg=True,
              input_region=input_region, input_aia_region_dict=input_aia_region_dict, 
