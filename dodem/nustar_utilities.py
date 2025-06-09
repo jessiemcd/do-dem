@@ -23,7 +23,7 @@ from astropy import coordinates as coord
 #Adapted from: https://github.com/ianan/nustar_pysolar/blob/master/nustar_pysolar/utils.py
 
 
-def read_pha(file):
+def read_pha(file, return_dat_hdr=False):
     ''' Takes a .pha file and extracts useful information from it.
     
     Parameters
@@ -41,8 +41,11 @@ def read_pha(file):
     hdr = hdul[0].header
     hdul.close()
     engs=1.6+0.04*data['channel']
-
-    return engs, data['counts'], hdr['LIVETIME'],hdr['ONTIME']
+    
+    if return_dat_hdr:
+    	return hdul
+    else:
+    	return engs, data['counts'], hdr['LIVETIME'],hdr['ONTIME']
 
 def read_arf(file):
     ''' Takes a .arf file and extracts useful information from it.

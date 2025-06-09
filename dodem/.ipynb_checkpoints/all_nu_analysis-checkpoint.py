@@ -672,7 +672,8 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                         keydict={},
                         withparams=False,
-                       namesearchstring=''):
+                       namesearchstring='',
+                       shush=False):
     
     import glob
     print('doing ', key)
@@ -698,6 +699,8 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
             #                   those lists have entries for each time interval.
             all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
 
+
+
             res_files=[]
             for d in range(0, len(directories)):
                 d_files=[]
@@ -707,18 +710,21 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                     orbittimes = all_orbits_time_intervals[ot] 
                     if not orbittimes:
                         continue
+                        
                     for tt in orbittimes:
                         timestring = viz.make_timestring(tt)
                         if withparams:
                             files = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*withparams.pickle')
                         else:
+                            #print(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                             fs = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                             files = [f for f in fs if 'withparams' not in f]
                             
                         try:
                             d_files.append(files[0])
                         except IndexError:
-                            print(key, d, timestring, files)
+                            if not shush:
+                                print(key, d, timestring, files)
                         
                 if len(directories) > 1:
                     res_files.append(d_files)
@@ -802,7 +808,7 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
             allkeys = keydict.keys()
             for kk in allkeys:
                 res_files, tworegion = get_key_resultfiles(kk, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
-                                                           namesearchstring=namesearchstring)
+                                                           namesearchstring=kk+'_'+namesearchstring)
                 if tworegion:
                     all_res_files.extend(res_files[0])
                     all_res_files.extend(res_files[1])
@@ -819,6 +825,7 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
     elif key:
         res_files, tworegion = get_key_resultfiles(key, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
                                                            namesearchstring=namesearchstring)
+
         if tworegion:
             res=[]
             if res_files[0]:
@@ -962,7 +969,7 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
     for f in res_files:
         #print(f)
         data, timestring, time = viz.load_DEM(f)
-        
+        #print(time[0])
         
         if savekey in data.keys():
             #print('found saved')
@@ -973,8 +980,10 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
 
             
         else:
+            #print('getting params')
             res = viz.get_DEM_params(f)
             if not res:
+                print('couldnt get dem params.')
                 continue
     
             #print(res)
@@ -986,9 +995,13 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
 
             if doparam=='above10s':
                 param = above10_
+
+            if doparam=='above5s':
+                param = above5_
                 
             if doparam=='max_temp':
-                param = max1
+                param = m1
+                #print(param)
                 
             if doparam=='low_powers' or doparam=='hi_powers':
                 param = powerlaws
@@ -998,6 +1011,7 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
             param = param[0][0]
         if doparam=='hi_powers':
             param = param[1][0]
+
 
 
         #SHOULD IT BE HERE???
@@ -1092,6 +1106,8 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
     #     print(round(d.value/5))
 
 
+    #print(all_params_flares)
+    #print(all_params_non)
     #print(thebins)
 
 
@@ -1104,9 +1120,7 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
         factor = 1
         
         from matplotlib import pyplot as plt 
-        
 
-        
         fig, axes = plt.subplots(2, 1, figsize=(15,6), tight_layout = {'pad': 1})
 
         ax=axes[0]
@@ -2215,8 +2229,9 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
                     first=True
                     timestring = viz.make_timestring(tt)
                     print(timestring)
-                    files = glob.glob(dir_+'/'+timestring+'/'+'*result.pickle')
+                    files = glob.glob(dir_+'/'+timestring+'/*'+key+'_MC_'+'*result.pickle')
                     files.sort()
+                    #print(files)
                     if not files:
                         print('No DEM Result files found for ', timestring)
                         continue
@@ -2346,7 +2361,8 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
                 first=True
                 timestring = viz.make_timestring(tt)
                 print(timestring)
-                files = glob.glob(working_dir+'/'+timestring+'/'+'*result.pickle')
+                #files = glob.glob(working_dir+'/'+timestring+'/'+'*result.pickle')
+                files = glob.glob(working_dir+'/'+timestring+'/*'+key+'_MC_'+'*result.pickle')
                 files.sort()
                 if not files:
                     print('No DEM Result files found for ', timestring)
