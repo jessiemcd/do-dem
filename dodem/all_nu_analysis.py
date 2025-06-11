@@ -135,7 +135,15 @@ def omag(x):
     return int(np.floor(np.log10(np.abs(x))))
 
 
-def get_durations(datapaths, fpm='A'):
+def get_durations(datapaths, fpm='A', filepaths=False, hkpaths=[]):
+
+    """
+    If filepaths == False, expects datapaths to be links to NuSTAR data directories.
+
+    If filepaths == True, expects datapaths to lead to SPECIFIC SUNPOS EVT FILES, and hkpaths 
+        must be added to host the NuSTAR data directories. They must be corresponding
+        lists of the same length.
+    """
 
 
     #Path to top-level do-dem directory - edit for your system.
@@ -156,16 +164,23 @@ def get_durations(datapaths, fpm='A'):
     durations = []
     lvttotals = []
     total = 0.*u.min
-    for id in datapaths:
+    for d in range(0, len(datapaths)):
+        id = datapaths[d]
         #print(id)
         #Get first and last times associated with an event in the cleaned event file.
-        evt_data, hdr = nu.return_submap(datapath=id, fpm=fpm, return_evt_hdr=True)
+        if filepaths:
+            evt_data, hdr = nu.return_submap(specific_evt=id, fpm=fpm, return_evt_hdr=True, 
+                                             already_sunpos=True)
+            hk = glob.glob(hkpaths[d]+'/hk/*'+fpm+'_fpm.hk')
+        else:
+            evt_data, hdr = nu.return_submap(datapath=id, fpm=fpm, return_evt_hdr=True)
+            hk = glob.glob(id+'/hk/*'+fpm+'_fpm.hk')
+            
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         #Duration: difference between them.
         durations.append((time1-time0).to(u.min))
 
         #Load in housekeeping data
-        hk = glob.glob(id+'/hk/*'+fpm+'_fpm.hk')
         hdulist = fits.open(hk[0])
         dat = hdulist[1].data
         hdr = hdulist[1].header
@@ -1015,8 +1030,8 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
 
 
         #SHOULD IT BE HERE???
-        savefile=f.split('.p')[-2]+'_withparams.pickle'
-        data, timestring, time = viz.load_DEM(savefile)
+        #savefile=f.split('.p')[-2]+'_withparams.pickle'
+        #data, timestring, time = viz.load_DEM(savefile)
         res = check_avg_rej(time, data['nustar_datapath'], threshold=accthreshold)
         if not res[1]:
             print('For time, ', time[0].strftime('%D %H-%M-%S'), '-', 
@@ -1117,7 +1132,7 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
         area_m = np.pi*150**2
         #print(area_i, area_m)
         factor = area_m/area_i
-        factor = 1
+        #factor = 1
         
         from matplotlib import pyplot as plt 
 
@@ -1188,7 +1203,8 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
             
             if not key:
                 if doparam=='above10s':
-                    ax.set_ylim([0,4000])
+                    #ax.set_ylim([0,4000])
+                    print('')
                 if doparam=='above5s':
                     ax.set_ylim([0,4000])
                 if doparam=='max_temp':
@@ -2128,7 +2144,7 @@ def consistency_hist_plot(all_sumcons, all_sumcons_non, all_sumcons_flare, dir_,
 
     
 def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False, 
-                         fetch_for_all=False, accthreshold=95):
+                         fetch_for_all=False, accthreshold=95, return_region_quiet_max=False):
 
     """
     Retrieves different DEM result files for runs with different temperature bounds, and then makes consistency plots:
@@ -2437,6 +2453,12 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
 
             if fetch_for_all:
                 return all_sumcons, all_sumcons_non, all_sumcons_flare
+
+        if return_region_quiet_max:
+            if all_sumcons_tw_non:
+                return np.max(all_sumcons_tw_non)
+            else:
+                return
                 
 
         if time_weighted:
