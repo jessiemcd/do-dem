@@ -1,1 +1,1 @@
-This is a folder full of analysis notebooks that are useful/functional for Jessie's purposes but not intended to be public-facing examples for others. All were originally run in the do-dem directory directly (so may break if run here – take them out for use). 
+This is a folder full of analysis notebooks that are useful/functional for Jessie's purposes but not intended to be public-facing examples for others.
