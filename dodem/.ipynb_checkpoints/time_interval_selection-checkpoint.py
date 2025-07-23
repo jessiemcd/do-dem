@@ -1036,9 +1036,10 @@ def region_time_intervals(region_dirs, id_dirs, shush=True, list_=False):
     for r in region_dirs:
         all_time_intervals, all_time_intervals_list = find_all_intervals(r, shush=shush)
         if len(all_time_intervals) != len(id_dirs):
-            print('TIS failed on at least one orbit. Orbits completed: ', len(all_time_intervals))
-            print('Orbits total: ', len(id_dirs))
-            print('Region was: ', r)
+            if not shush:
+                print('TIS failed on at least one orbit. Orbits completed: ', len(all_time_intervals))
+                print('Orbits total: ', len(id_dirs))
+                print('Region was: ', r)
             fixit=True
             
         starts_reg=[]
@@ -1059,7 +1060,7 @@ def region_time_intervals(region_dirs, id_dirs, shush=True, list_=False):
         longest = starts[np.argmax(ls)]
         #Looping over # orbits in region with the most
         for i in range(0, len(longest)):
-            print('')
+            #print('')
             #Looping over regions
             for j in range(0, len(starts)):
                 #print('longest: ', longest[i])
@@ -1098,8 +1099,8 @@ def check_consec(working_dir):
     orbit=0
     for tt in all_intervals:
         time_intervals, full_interval = get_saved_intervals(timerange, custom_file=tt, return_full_range=True)
-        print('')
-        print('')
+        #print('')
+        #print('')
         print('')
         print(full_interval[0].strftime('%H-%M-%S'), full_interval[1].strftime('%H-%M-%S'))
         for i in range(0, len(time_intervals)-1):

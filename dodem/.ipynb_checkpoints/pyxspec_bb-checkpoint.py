@@ -9,6 +9,7 @@ import pathlib
 import zipfile
 
 import matplotlib.pyplot as plt
+import numpy as np
 import xspec
 
 import os
@@ -59,10 +60,36 @@ def all_srms(obsidstr):
             )
 
 
+def check_enough_10bins(hdul):
+
+    csum=np.cumsum(hdul[1])
+    thresh=10
+    firstind=0
+    indices=[]
+    for i in range(0, len(csum)):
+        if csum[i] > thresh:
+            #print(csum[i])
+            indices.append(np.s_[firstind:i])
+            firstind=i+1
+            thresh+=10
+    
+    finebins=0
+    for ii in indices:
+        #print(ii)
+        if not np.any(np.array(hdul[0][ii]) < 2.5):
+            finebins+=1
+    
+    #print(finebins)
+    return (finebins > 1), finebins
+
+
+
+
+
 def do_xspectral_fit(pha_path, expression='const*vapec',
                            model_name = 'isothermal_with_pileup',
                            fit_slope=True, slopes = {},
-                           plot=False):
+                           plot=False, dopileup=True):
 
     out_path = pha_path / 'xspec_out/'
 
@@ -77,6 +104,7 @@ def do_xspectral_fit(pha_path, expression='const*vapec',
     obsid = path_obsid(pha_path)
 
 
+
     #====================================================================
     #XSPEC time!
     #====================================================================
@@ -88,26 +116,51 @@ def do_xspectral_fit(pha_path, expression='const*vapec',
     fpmA_pileup = 'nu'+obsid+'A06_21_24_p_sr_grp.pha'
     fpmB_pha = 'nu'+obsid+'B06_0_4_p_sr_grp.pha'
     fpmB_pileup = 'nu'+obsid+'B06_21_24_p_sr_grp.pha'
+
+    #Check if there is enough of a pile-up component to use in both FPM.
+    hdul = nuutil.read_pha(fpmA_pileup, return_dat_hdr=False)
+    FPMAcheck = check_enough_10bins(hdul)
+    hdul = nuutil.read_pha(fpmB_pileup, return_dat_hdr=False)
+    FPMBcheck = check_enough_10bins(hdul)
     
-    interface.add_instrument(
-        name = 'FPM A',
-        signal_file = fpmA_pha,
-        pileup_file = fpmA_pileup)
-    interface.add_instrument(
-        name = 'FPM B',
-        signal_file = fpmB_pha,
-        pileup_file = fpmB_pileup)
+    if not np.all([FPMAcheck[0], FPMBcheck[0]]):
+        print("INSUFFICIENT PILE-UP COUNTS TO DO PILE UP FITTING - NOT INCLUDING THOSE MODELS!")
+        print("FPMA groups: ", FPMAcheck[1], '; FPMB groups: ', FPMBcheck[1])
+        model_name = model_name+'_nm_re_the_pileup'
+        dopileup=False
+    
+    if dopileup:
+        interface.add_instrument(
+            name = 'FPM A',
+            signal_file = fpmA_pha,
+            pileup_file = fpmA_pileup)
+        interface.add_instrument(
+            name = 'FPM B',
+            signal_file = fpmB_pha,
+            pileup_file = fpmB_pileup)
+    else:
+        interface.add_instrument(
+            name = 'FPM A',
+            signal_file = fpmA_pha)
+        interface.add_instrument(
+            name = 'FPM B',
+            signal_file = fpmB_pha)        
     
     interface.read_data(pha_path)
     #xspec.AllData.ignore('**-2.5 10.0-**') # Specify which energy channels to ignore.
     xspec.AllData.ignore('bad') 
     xspec.AllData.ignore('**-2.5 15.0-**') 
-    
-    pileup_models = interface.set_pileup_model('expmodgauss')
+
+    if dopileup:
+        pileup_models = interface.set_pileup_model('expmodgauss')
+        p_lim_file = DEFAULT_PILEUP_PARAMETER_FILE
+    else:
+        p_lim_file = DEFAULT_PARAMETER_FILE
+        
     model = interface.add_component(
         model_name = model_name,
         expression = expression,
-        parameter_limits_file = DEFAULT_PILEUP_PARAMETER_FILE,
+        parameter_limits_file = p_lim_file,
         out_dir = out_path)
 
     if expression=='const*(vapec+bknpower)':
@@ -118,23 +171,24 @@ def do_xspectral_fit(pha_path, expression='const*vapec',
         par1.values = 2
         par1.frozen = True
 
+        #value, fit delta, min, bot, top, max
         par2 = comp2.BreakE
-        par2.values = 6
+        par2.values = [6, 0.1, 4, 4, 20, 20]
 
         par3 = comp2.PhoIndx2
         par3.values = [2, 0.1, 0, 0, 15, 15]
 
-    
-    # Modify the pileup norm to accurately represent the grade 0-4 pileup (1.25x).
-    for instrument, pileup_model in zip(interface.instruments, pileup_models):
-            pileup_component = pileup_model.componentNames[0]
-            signal_model = interface.instruments[instrument].get_signal_model(
-                model_name)
-            pileup_model_name = interface.instruments[instrument].pileup_model_name
-            signal_model.__dict__[pileup_component].norm.link = '1.25 * ' \
-                f'{pileup_model_name}:p4'
-            signal_model.__dict__[pileup_component].norm.link = '1.25 * ' \
-                f'{pileup_model_name}:p4'
+    if dopileup:
+        # Modify the pileup norm to accurately represent the grade 0-4 pileup (1.25x).
+        for instrument, pileup_model in zip(interface.instruments, pileup_models):
+                pileup_component = pileup_model.componentNames[0]
+                signal_model = interface.instruments[instrument].get_signal_model(
+                    model_name)
+                pileup_model_name = interface.instruments[instrument].pileup_model_name
+                signal_model.__dict__[pileup_component].norm.link = '1.25 * ' \
+                    f'{pileup_model_name}:p4'
+                signal_model.__dict__[pileup_component].norm.link = '1.25 * ' \
+                    f'{pileup_model_name}:p4'
 
 
     if not slopes:

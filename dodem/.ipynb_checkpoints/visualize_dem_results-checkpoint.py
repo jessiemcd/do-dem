@@ -888,7 +888,9 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
     else:
         return 'EM Above LogT='+str(round(nTs[0], 2))+f': {res:.2e}'+' cm^(-5)'
 
-def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=False, plotsavedir='./'):
+def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, 
+                   fixlowerbound=False, upperboundplus1=True,
+                   plotsavedir='./'):
     """
     For given DEM solution, find upper and lower power law slopes of rise./decay around peak. 
     
@@ -896,6 +898,11 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
     ============================
     fixlowerbound=True: upper boundary is temp. closest to logT=6.35
     fixlowerbound=False: upper boundary is index of DEM max + 1
+
+    Upper Power Law Fit Bounds:
+    ============================
+    upperboundplus1=True: upper boundary is temp. closest to logT=6.35 + 1 temp bin.
+    upperboundplus1=False: upper boundary is temp. closest to logT=6.35 + 3 temp bin.
     
     """
 
@@ -946,8 +953,13 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
         #Fit DEM from peak to max temp
         
         #Get into log-log space for linear fit
-        ydata = np.log10(DEM[(maxdex+1):])
-        xdata = ts[(maxdex+1):]
+        if upperboundplus1:
+            thedex = maxdex+1
+        else:
+            thedex = maxdex+3
+        
+        ydata = np.log10(DEM[thedex:])
+        xdata = ts[thedex:]
         res, cov = np.polyfit(xdata, ydata, 1, cov=True)
         m, b = res
         me = np.sqrt(np.diag(cov))[0]
@@ -959,7 +971,13 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, fixlowerbound=Fal
 
 
     if plot:
-        plt.savefig(plotsavedir+'powerlaw_fits.png')
+        specialstrings='_'
+        if not fixlowerbound:
+            specialstrings = specialstrings+'maxlowerbound_'
+        if not upperboundplus1:
+            specialstrings = specialstrings+'upperboundplus3_'
+            
+        plt.savefig(plotsavedir+specialstrings+'powerlaw_fits.png')
         plt.close()
         
     return powerlaws    
@@ -1049,6 +1067,9 @@ def get_DEM_params(file, save_params_file=False):
     
     powerlaws = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
                                fixlowerbound=True)
+
+    powerlaws2 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=False, upperboundplus1=False)
     
     EMT_all = sum(dem*(10**ts))/sum(dem)/1e6
     index=14
@@ -1063,11 +1084,15 @@ def get_DEM_params(file, save_params_file=False):
            above_peak, below_peak, above_635, below_635,
            data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh)
 
-    save_params_file=True
+
     if save_params_file:
 
         savefile = file.split('.p')[-2]+'_withparams.pickle'
-        #print(savefile)
+        import os
+        
+        if os.path.exists(savefile):
+            with open(savefile, 'rb') as f:
+                data = pickle.load(f)
 
         data['local_maxima'] = localmax_res
         data['max'] = max1
@@ -1078,6 +1103,7 @@ def get_DEM_params(file, save_params_file=False):
         data['above_peak'] = above_peak
         data['below_peak'] = below_peak
         data['powerlaws'] = powerlaws
+        data['powerlaws2'] = powerlaws2
         data['EMT_all'] = EMT_all
         data['EMT_thresh_5'] = EMT_thresh
 
@@ -1412,9 +1438,7 @@ def multi_orbit_summary(all_time_intervals, working_dir, name, minT=5.6, maxT=7.
    
     plt.savefig(working_dir+'/'+wholestart+'_summary_plot.png')    
     
-    
-    
-    
+       
     
     
     

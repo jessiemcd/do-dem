@@ -254,11 +254,11 @@ def get_exposures(target_dict, dogoes=False):
             target_dict[key]['AR GOES min, max strings'] = allstrings
             target_dict[key]['orbit GOES min, max vals'] = goes_per_orbit
             target_dict[key]['orbit GOES min, max strings'] = goes_per_orbit_strings
-            print('')
+            #print('')
             all_all_goes.append(allminmax)
     
     
-    print('')
+    #print('')
     print('Total Dataset Effective Exposure: ', all_effective_exposure.to(u.h))
     print('Total Dataset Observation Duration: ', all_duration.to(u.h))
     
@@ -270,11 +270,11 @@ def get_exposures(target_dict, dogoes=False):
 
 
 
-def single_gauss_prep(key, plot=True, guess=[], make_scripts=True,
+def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
                      plotregion=[], plotgaussregions=False):
 
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
     
     ARDict = data[key]
@@ -310,12 +310,12 @@ def single_gauss_prep(key, plot=True, guess=[], make_scripts=True,
 
 
 
-def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
+def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
                       plotregion=[], write_input_regions=False,
                       plotgaussregions=False, write_regions=False):
 
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
     
     ARDict = data[key]
@@ -338,7 +338,7 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
                                             write_regions=write_regions, region_dir=working_dir)
                         
         gauss_stats.append(res)
-        print('')
+        #print('')
 
     print(gauss_stats)
 
@@ -347,7 +347,7 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
 
     data[key] = ARDict
     
-    with open('all_targets.pickle', 'wb') as f:
+    with open(file, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
@@ -358,7 +358,7 @@ def double_gauss_prep(key, plot=True, guess=[], guess2=[], sep_axis='SN', make_s
 
 
 
-def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
+def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
                       plotregion=[], write_input_regions=True,
                       plotgaussregions=False):
 
@@ -385,7 +385,7 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
     """
 
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
     
     ARDict = data[key]
@@ -409,14 +409,14 @@ def manual_prep(key, plot=True, guess=[], guess2=[], make_scripts=True,
                                             region_dir=working_dir)
                         
         region_stats.append(res)
-        print('')
+        #print('')
 
 
     ARDict['region_stats'] = region_stats
 
     data[key] = ARDict
     
-    with open('all_targets.pickle', 'wb') as f:
+    with open(file, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
@@ -593,7 +593,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
                                             xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                             xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
                                             input_xrt_region="circle", input_xrt_region_dict=region_input)
-        print('')
+        #print('')
 
         if method in ['input', 'double']:
             print('xrt is: ', xrt)
@@ -691,7 +691,7 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                        shush=False):
     
     import glob
-    print('doing ', key)
+    #print('doing ', key)
 
     if fromhome:
         if not keydict:
@@ -767,7 +767,8 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
                     try:
                         res_files.append(files[0])
                     except IndexError:
-                        print(key, timestring, files)
+                        pass
+                        #print(key, timestring, files)
                         
             return res_files, False
             
@@ -996,7 +997,7 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
             
         else:
             #print('getting params')
-            res = viz.get_DEM_params(f)
+            res = viz.get_DEM_params(f,save_params_file=True)
             if not res:
                 print('couldnt get dem params.')
                 continue
@@ -1203,8 +1204,9 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
             
             if not key:
                 if doparam=='above10s':
+                    pass
                     #ax.set_ylim([0,4000])
-                    print('')
+                    #print('')
                 if doparam=='above5s':
                     ax.set_ylim([0,4000])
                 if doparam=='max_temp':
@@ -1268,7 +1270,7 @@ def check_for_flare(time, starts, stops):
     return flare
 
 
-def get_saved_flares(add_stdv_flares=False, add_manual_flares=True):
+def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True):
 
     import pandas as pd
     import astropy.time as time
@@ -1276,7 +1278,7 @@ def get_saved_flares(add_stdv_flares=False, add_manual_flares=True):
     risefactor=0.5
     fallfactor=2
     
-    df = pd.read_csv('fpmA.csv')
+    df = pd.read_csv(flarepath+'fpmA.csv')
     starts = df['flare_start'].values
     stops = df['flare_end'].values
     num=len(starts)
@@ -1290,7 +1292,7 @@ def get_saved_flares(add_stdv_flares=False, add_manual_flares=True):
     #late_stops = [(time.Time(s)+4*u.min) for s in stops]
 
     if add_stdv_flares:
-        with open('stdv_flares.pickle', 'rb') as f:
+        with open(flarepath+'stdv_flares.pickle', 'rb') as f:
             data = pickle.load(f)
 
         flarewindows = np.array(data['stdv_flares'])
@@ -1303,7 +1305,7 @@ def get_saved_flares(add_stdv_flares=False, add_manual_flares=True):
 
 
     if add_manual_flares:
-        with open('manual_flares.pickle', 'rb') as f:
+        with open(flarepath+'manual_flares.pickle', 'rb') as f:
             data = pickle.load(f)
 
         #Not adding a rise/fall factor bc manual inspection looked for whole flare times.
@@ -1558,7 +1560,7 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
                 print(key)
                 print(dd)
                 print(ind)
-                print('')
+                #print('')
                 return
             
             evt_data, hdr, obsid = nu.return_submap(datapath=datapath, fpm='A', return_evt_hdr=True, return_obsid=True)
@@ -1903,7 +1905,7 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
             if not show:
                 plt.close()
                 
-        print('')
+        #print('')
 
 
 
@@ -2335,6 +2337,12 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
 
             if fetch_for_all:
                 return all_sumcons, all_sumcons_non, all_sumcons_flare
+
+            if return_region_quiet_max:
+                if all_sumcons_tw_non:
+                    return np.max(all_sumcons_tw_non)
+                else:
+                    return
                 
             
             if time_weighted:
@@ -2474,9 +2482,249 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
             
     
 
+def dem_respects_min_loci(data, plot=True):
+    
+    #print(data['dn_in'])
+
+    all_loci = np.zeros((len(data['chanax']), len(data['ts_'])))
+    for i in np.arange(len(data['chanax'])):
+        all_loci[i,:] =  data['dn_in'][i]/data['trmatrix'][:,i]
+    
+    min_loci = np.min(all_loci, axis=0)
+    min_loci_interp = np.interp(data['ts'],data['ts_'],min_loci)
+
+    if plot:
+        fig = plt.figure(figsize=(5, 4))
+        plt.semilogy(data['ts_'], min_loci)
+        plt.semilogy(data['ts'], data['DEM'])
+        plt.semilogy(data['ts'], min_loci_interp)
+    
+        plt.xlim(5.7,7.2)
+        plt.ylim(1e20,1e30)
+
+
+    ahhh = np.where(data['DEM'] > min_loci_interp)[0]
+
+    if len(ahhh) > 0:
+        return False
+    else:
+        return True
+
+
+def check_loci(key, keydict, searchstring='_no_xrt_'):
+
+
+    violations = []
+    
+
+    
+    res_files, tworegions = get_key_resultfiles(key, fromhome=True, shush=True,
+                        keydict=keydict,
+                        withparams=False,
+                        namesearchstring=key+searchstring)    
+
+    
+    if tworegions:
+        for j in range(0,2):
+            #label = ARDict['NOAA_ARID'][j]+'-'+key
+            resfiles = res_files[j]
+            for r in resfiles:
+                #print(r)
+                data, timestring, time = viz.load_DEM(r)
+                if not dem_respects_min_loci(data, plot=False):
+                    print('AHHHHHHHHHHHHHHHH')
+                    violations.append(r)
+                    
 
 
 
+    else:
+        for r in res_files:
+            data, timestring, time = viz.load_DEM(r)
+            if not dem_respects_min_loci(data, plot=False):
+                    print('AHHHHHHHHHHHHHHHH')
+                    violations.append(r)
 
+
+
+    return violations
+
+
+
+def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]):
+
+    res = viz.get_DEM_params(r, save_params_file=True)
+    if not res:
+        return
+
+    m1, max1, above5_, above7_, above10_, \
+        above_peak, below_peak, above_635, below_635, \
+           chanax, dn_in, edn_in, \
+                powerlaws, EMT_all, EMT_thresh = res
+
+
+    if np.logical_and(len(chanax) >= lenrange[0], len(chanax) <= lenrange[1]):
+        
+        data, timestring, time = viz.load_DEM(r)
+        flare = check_for_flare(time, early_starts, late_stops)
+        #print(flare)
+        return above10_, flare, time
+
+    else:
+        #print('Length of channels list not in range: ', lenrange)
+        #print(chanax)
+        return
+
+
+def sorted_resfiles_dict(keydict):
+
+    keys = keydict.keys()
+
+    dictz = {'all regions': {'flare files': [],
+                           'quiet files': []}
+            }
+
+    early_starts, late_stops = get_saved_flares(flarepath='./reference_files/', 
+                                                add_stdv_flares=True, add_manual_flares=True)
+
+    
+    
+    for key in keys:
+        conditions = ['onlyaia', 'aiaxrt', 'no_xrt', key+'_MC']
+        #conditions = ['onlyaia', 'no_xrt']
+        lenranges = [[6,6], [7,9], [9,9], [9,12]]
+    
+        ardict = keydict[key]
+        dictz[key+' region_0'] = {'key': key}
+        if len(ardict['loc']) == 2:
+            dictz[key+' region_1'] = {'key': key}
+            
+            
+        
+        for c in range(0, len(conditions)):
+            cc = conditions[c]
+    
+            flarefiles = []
+            quietfiles = []
+            flaretimes = []
+            quiettimes = []
+            quietxrttimes = []
+            flarexrttimes = []
+                
+            res_files_oa, tworegions = get_key_resultfiles(key, fromhome=True, 
+                                keydict=keydict,
+                                withparams=False,
+                                namesearchstring=cc,
+                                shush=True)
+    
+            if c == 3:
+                cc = 'all-inst'
+            
+            if tworegions:
+                for j in range(0,2):
+                    flarefiles = []
+                    quietfiles = []
+                    flaretimes = []
+                    quiettimes = []
+                    quietxrttimes = []
+                    flarexrttimes = []
+                    reglab = 'region_'+str(j)
+                    #label = ARDict['NOAA_ARID'][j]+'-'+key
+                    resfiles = res_files_oa[j]
+                    for r in resfiles:
+                        #print(r)
+                        res = check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=lenranges[c])
+                        if res is not None:
+                            a10, flare, time = res
+            
+                            if flare:
+                                flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                flaretimes.append(time)
+                            else:
+                                #print(r)
+                                quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                quiettimes.append(time)
+    
+                            if c == 1:
+                                if flare:
+                                    flarexrttimes.append(time)
+                                else:
+                                    quietxrttimes.append(time)
+                        
+        
+                    dictz[key+' '+reglab]['flare files '+cc] = flarefiles
+                    dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
+                    dictz[key+' '+reglab]['flare times '] = flaretimes
+                    dictz[key+' '+reglab]['quiet times '] = quiettimes
+                    if c == 1:
+                        dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
+                        dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
+    
+                    if c == 3:
+                        dictz['all regions']['flare files'].extend(flarefiles)
+                        dictz['all regions']['quiet files'].extend(quietfiles)
+                                             
+            
+            else:
+                resfiles = res_files_oa
+                reglab = 'region_0'
+                for r in resfiles:
+                    #print(r)
+                    res = check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=lenranges[c])
+                    if res is not None:
+                        a10, flare, time = res
+        
+                        if flare:
+                            flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                            flaretimes.append(time)
+                        else:
+                            #print(r)
+                            quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                            quiettimes.append(time)
+    
+                        if c == 1:
+                            if flare:
+                                flarexrttimes.append(time)
+                            else:
+                                quietxrttimes.append(time)
+                    
+        
+                dictz[key+' '+reglab]['flare files '+cc] = flarefiles
+                dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
+                dictz[key+' '+reglab]['flare times '] = flaretimes
+                dictz[key+' '+reglab]['quiet times '] = quiettimes
+                if c == 1:
+                    dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
+                    dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
+    
+                if c == 3:
+                        dictz['all regions']['flare files'].extend(flarefiles)
+                        dictz['all regions']['quiet files'].extend(quietfiles)
+
+    print(dictz.keys())
+    return dictz
+
+
+def print_stats(dictt):
+
+    print(dictt['key'])
+    print('Flare-time only-AIA DEMS: ', len(dictt['flare files onlyaia']))
+    print('Quiet-time only-AIA DEMS: ', len(dictt['quiet files onlyaia']))
+    print('Flare-time AIA+XRT DEMS: ', len(dictt['flare files aiaxrt']))
+    print('Quiet-time AIA+XRT DEMS: ', len(dictt['quiet files aiaxrt']))    
+    print('Flare-time AIA+NuSTAR DEMS: ', len(dictt['flare files no_xrt']))
+    print('Quiet-time AIA+NuSTAR DEMS: ', len(dictt['quiet files no_xrt'])) 
+    print('Flare-time All-instrument DEMS: ', len(dictt['flare files all-inst']))
+    print('Quiet-time All-instrument DEMS: ', len(dictt['quiet files all-inst']))  
+
+    totxrt = len(dictt['flare files aiaxrt']) + len(dictt['quiet files aiaxrt'])
+    totany = len(dictt['flare files all-inst']) + len(dictt['quiet files all-inst'])
+
+    #print('flare xrt times ', len(dictt['flare xrt times ']))
+    #print('quiet xrt times ', len(dictt['quiet xrt times ']))
+    #print('')
+
+
+    return (totany > 0), (totxrt > 0)
     
     
