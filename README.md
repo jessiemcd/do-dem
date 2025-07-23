@@ -2,11 +2,10 @@
 
 NOTE: UNDER CONSTRUCTION - If you're interested in using these tools, please talk to me!
 
+For specifics on the analysis published in Duncan et al. (2024) (https://iopscience.iop.org/article/10.3847/1538-4357/ad37f7), see the Duncan_et_al_2024_Process folder.
+
+
 Code to prepare data from NuSTAR and other instruments for use in DEM analysis, do DEMs (either using DEMREG or xrt_dem_iterative2), and visualize results.
-
-For specifics on what was done in the May 29 2018 AR DEM analysis, see the Duncan_et_al_2024_Process folder.
-
-For information on how to get this going on your own machine, see below.
 
 Requirements:
 - Python packages: numpy, matplotlib, sunpy, astropy, aiapy, scipy, regions
@@ -27,7 +26,7 @@ Pre-DEM Procedure:
 
 - Download NuSTAR data from HEASARC https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl
   - Unpack files in data directories (bash: gunzip -r (path to OBSID-named directory))
-  - Run initial pipeline (with pixpos correction) - if you don't know how to do this, contact Jessie or any other NuSTAR Heliophysics Team member. 
+  - Run initial pipeline (with pixpos correction, solar-specific keywords) - if you don't know how to do this, contact me (Jessie) or any other NuSTAR Heliophysics Team member. 
 - If desired, search for, download, and prep XRT data to level 1.
   - IDL procedure lets_get_this_xrt.pro (in other_idl) will allow you to do this via a search for XRT images at the same time and with an interesecting FOV with NuSTAR. Make sure to check the documentation for information about needed databases through SSWDB.
   - Or, do it your own way – information can be found in https://xrt.cfa.harvard.edu/resources/documents/XAG/XAG.pdf. You will need level 1 data, and the XRT grade maps as well as the data files.
@@ -36,4 +35,4 @@ Examples:
 - **getting_started.ipynb**: Initial DEM process example notebook (examples with and without XRT, with and without NuSTAR pile-up correction)
 - **getting_started-xrt_iterative.ipynb**: Similar, but using xrt_dem_iterative2.pro instead of DEMREG
 - **time_interval_selection.ipynb**: Example of how to select time intervals within a longer interval (or entire NuSTAR orbit) in order to do time-resolved DEM analysis while ensuring sufficient NuSTAR statistics in your highest energy range. 
-- COMING SOON: examples of how to do... variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them to remove a non-thermal component...), others - have a request? Contact Jessie.
+- COMING SOON: examples of how to do... variable temperature range DEMs, DEMs where you insert your own PHA files (like if you modify them to remove a non-thermal component...), others - have a request? Reach out!
