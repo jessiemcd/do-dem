@@ -7,10 +7,10 @@ import time_interval_selection as tis
 
 import pickle
 
-key = "26-jul-16_1"
+key = "27-jul-16_1"
 
 with open('all_targets.pickle', 'rb') as f:
     data = pickle.load(f)
 
-index = 3
+index = 0
 tis.one_orbit_tis_wrapper(key, data, index, method='manual_regions')

@@ -12,7 +12,6 @@ python ./scripts/run_tis_80710205001.py >  tis_out_80710205001.txt &
 python ./scripts/run_tis_80710206001.py >  tis_out_80710206001.txt &
 python ./scripts/run_tis_80710207001.py >  tis_out_80710207001.txt &
 python ./scripts/run_tis_80710208001.py >  tis_out_80710208001.txt &
-python ./scripts/run_tis_80710209001.py >  tis_out_80710209001.txt &
 wait
 
 echo "all orbit scripts finished"

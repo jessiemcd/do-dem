@@ -13,4 +13,4 @@ with open('all_targets.pickle', 'rb') as f:
     data = pickle.load(f)
 
 index = 2
-tis.one_orbit_tis_wrapper(key, data, index, method='manual_regions')
+tis.one_orbit_tis_wrapper(key, data, index, method='singlegauss')
