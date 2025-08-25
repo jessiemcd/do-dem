@@ -104,6 +104,9 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         #cen1_ = cen1
         #cen2_ = cen2
 
+        if write_input_regions:
+            inputcens=[]
+
         if plot:
             #fig = plt.figure(figsize=(6,6))
             ax = fig.add_subplot(122, projection=nustar_map)
@@ -111,32 +114,32 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
             nustar_map.draw_limb()
             levels = np.array([5, 10, 30, 50, 70, 90, 95])*u.percent 
             nustar_map.draw_contours(levels, axes=ax, alpha=1, zorder=1)
-            if plotregion:
-                num=0
-                if write_input_regions:
-                    inputcens=[]
-                for r in plotregion:
-                    center = SkyCoord( *(r['centerx'], r['centery'])*u.arcsec, frame=nustar_map.coordinate_frame)
-                    region = CircleSkyRegion(
-                            center = center,
-                            radius = r['radius'] * u.arcsec
-                        )
-                    og_region = region.to_pixel(nustar_map.wcs)
+            
+        if plotregion:
+            num=0
+            for r in plotregion:
+                center = SkyCoord( *(r['centerx'], r['centery'])*u.arcsec, frame=nustar_map.coordinate_frame)
+                region = CircleSkyRegion(
+                        center = center,
+                        radius = r['radius'] * u.arcsec
+                    )
+                og_region = region.to_pixel(nustar_map.wcs)
+                if plot:
                     og_region.plot(axes=ax, color='green', ls='--', lw=3)
 
-                    if write_input_regions:
-                        midway = time0 + (time1-time0).to(u.s).value/2*u.s
-                        write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
-                        num+=1
-                        inputcens.append(center)
+                if write_input_regions:
+                    midway = time0 + (time1-time0).to(u.s).value/2*u.s
+                    write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
+                    num+=1
+                    inputcens.append(center)
 
         num=0
         worldcens=[]
         for cen in [cen1_, cen2_]:
 
             cen1_world = nustar_map.pixel_to_world(cen[0]*u.pix, cen[1]*u.pix)
-            print(cen1_world.Tx, cen1_world.Ty)
-            print('')
+            #print(cen1_world.Tx, cen1_world.Ty)
+            #print('')
             if plot:
                 ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                          label='Center')
@@ -200,8 +203,8 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         if plot:
             ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                      label='Center')
-            print(cen1_world.Tx, cen1_world.Ty)
-            print('')
+            #print(cen1_world.Tx, cen1_world.Ty)
+            #print('')
             if plotgaussregions:
                 region = CircleSkyRegion(
                         center = cen1_world,

@@ -300,7 +300,7 @@ def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
 
     data[key] = ARDict
     
-    with open('all_targets.pickle', 'wb') as f:
+    with open(file, 'wb') as f:
              # Pickle the 'data' dictionary using the highest protocol available.
              pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
@@ -364,6 +364,7 @@ def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
 
     """
     key - key for all target dictionary (where to get information about the nustar data, region, etc)
+    file - file containing all target directory
     plot - set True for plots to be made in general
     guess, guess2 - for tweaking the double gaussian fit used for context. Not related to final regions 
                     saved, etc. Optional. 
@@ -427,7 +428,7 @@ def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 
-def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='fit',
+def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, 
               high_temp_analysis=False, rscl=True, do_no_xrt_version=False):
 
     """
@@ -440,7 +441,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
     #Path to top-level do-dem directory - edit for your system.
     path_to_dodem = '/Users/jmdunca2/do-dem/'
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
 
     ARDict = data[key]
@@ -449,6 +450,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
     obsids = ARDict['obsids']
     working_dir = ARDict['working_dir']
     prepped_aia_dir = ARDict['prepped_aia']
+    method=ARDict['method']
     if method=='double':
         gauss_stats = ARDict['gauss_stats']
         sep_axis = gauss_stats[0][0]
@@ -457,7 +459,7 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
         
 
     if method in ['input', 'double']:
-        directories = get_region_directories(key, method=method)
+        directories = get_region_directories(key, targets_file=file, method=method)
         all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
 
     if method=='fit':
@@ -684,21 +686,22 @@ def do_key_dem(key, missing_last=False, missing_orbit=4, plot_xrt=True, method='
 
 
 
-def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
-                        keydict={},
+def get_key_resultfiles(key, file, fromhome=False,
                         withparams=False,
                        namesearchstring='',
                        shush=False):
+
+
     
     import glob
     #print('doing ', key)
 
     if fromhome:
-        if not keydict:
-            print('To get all the result files from their homes, you need to set keydict equal to the dictionary containing key info.')
-            return
         
-        ARDict = keydict[key]
+        with open(file, 'rb') as f:
+            data = pickle.load(f)
+
+        ARDict = data[key]
         
         id_dirs = ARDict['datapaths']
         #obsids = ARDict['obsids']
@@ -707,7 +710,7 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
         method = ARDict['method']
         
         if method in ['input', 'double']:
-            directories = get_region_directories(key, method=method)
+            directories = get_region_directories(key, targets_file=file, method=method)
             #all_all_time_intervals is a list... 
             #       with entries (lists) for each directory/region
             #             those lists have entries (lists) for each orbit
@@ -803,7 +806,7 @@ def get_key_resultfiles(key, fromhome=False, where='./compact_results/',
             return res_files, False
         
 
-def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
+def get_dem_params(key='', file='./all_targets.pickle', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
                 regions_return=False, paramssaved=True, fromhome=False, keydict={},
                    doparam='above10s', namesearchstring=''):
 
@@ -823,7 +826,7 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
             all_res_files=[]
             allkeys = keydict.keys()
             for kk in allkeys:
-                res_files, tworegion = get_key_resultfiles(kk, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
+                res_files, tworegion = get_key_resultfiles(kk, file, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
                                                            namesearchstring=kk+'_'+namesearchstring)
                 if tworegion:
                     all_res_files.extend(res_files[0])
@@ -839,7 +842,7 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
                 all_res_files = [f for f in rfs if 'withparams' not in f]
             
     elif key:
-        res_files, tworegion = get_key_resultfiles(key, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
+        res_files, tworegion = get_key_resultfiles(key, file, withparams=paramssaved, fromhome=fromhome, keydict=keydict, 
                                                            namesearchstring=namesearchstring)
 
         if tworegion:
@@ -872,7 +875,7 @@ def get_dem_params(key='', all=True, plot=False, time_weighted=False, seconds_pe
                                             plot=plot, time_weighted=time_weighted, seconds_per=seconds_per)
 
     if return_loc and key:
-        with open('all_targets.pickle', 'rb') as f:
+        with open(file, 'rb') as f:
             data = pickle.load(f)
 
         ARDict = data[key]
@@ -898,7 +901,8 @@ def extract_and_plot_param_histograms(res_files, key='', doparam='above10s',
     dolow=False
     dohi=False
 
-    flare_res = get_saved_flares(add_stdv_flares=True, add_manual_flares=True)
+    flare_res = get_saved_flares(flarepath='./reference_files/', 
+                                 add_stdv_flares=True, add_manual_flares=True)
     early_starts = flare_res[0]
     late_stops = flare_res[1]
 
@@ -1415,12 +1419,12 @@ def make_orbit_plots(working_dir, key, minT=5.6, maxT=7.2, show=False):
 
 
 
-def get_region_directories(key, method='input'):
+def get_region_directories(key, targets_file='./all_targets.pickle', method='input'):
 
     import glob
     import os
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(targets_file, 'rb') as f:
         data = pickle.load(f)
 
     ARDict = data[key]
@@ -1449,19 +1453,19 @@ def get_region_directories(key, method='input'):
     return directories
 
 
-def do_stdv_analysis(key, method='input', show=True):
+def do_stdv_analysis(key, file, method='input', show=True):
 
     import nustar_utilities as nuutil
     import glob
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
 
     ARDict = data[key]
     
     id_dirs = ARDict['datapaths']
     obsids = ARDict['obsids']
-    directories = get_region_directories(key, method=method)
+    directories = get_region_directories(key, targets_file=file, method=method)
 
     all_newwindows=[]
 
@@ -1518,8 +1522,9 @@ def do_stdv_analysis(key, method='input', show=True):
 
 
 
-def make_summary_lcs(key, method='input', show=True, goes=True,
-                    accthreshold=95):
+def make_summary_lcs(key, file, flarepath='./reference_files/',
+                     method='input', show=True, goes=True,
+                    accthreshold=95, pre_dem_nustar_only=False):
 
     
     from matplotlib import pyplot as plt
@@ -1534,13 +1539,13 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
     nustar_acc_color='xkcd:apple'
     nustar_cts_color=['xkcd:sky blue', 'xkcd:cerulean', 'xkcd:periwinkle', 'xkcd:cyan']
 
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
 
     ARDict = data[key]
     
     id_dirs = ARDict['datapaths']
-    directories = get_region_directories(key, method=method)
+    directories = get_region_directories(key, targets_file=file, method=method)
 
     for dd in directories:
     
@@ -1552,8 +1557,9 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
             datapath=id_dirs[ind]
         
             time_intervals = all_time_intervals[ind]
-            vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key)   
-            time_intervals = vals['result_time_intervals']
+            if not pre_dem_nustar_only:
+                vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key)   
+                time_intervals = vals['result_time_intervals']
             
             if not time_intervals:
                 print('This key/region/orbit had no sucessful DEMs.')
@@ -1582,91 +1588,91 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
             plt.subplots_adjust(hspace=0)
             
             
-            
-            # AIA PLOTS + NuSTAR DEM INPUT PLOTS + >10 MK EM plots #======================================================================
-            
-            lw=2
-            times = [t[0].datetime for t in time_intervals]
-            midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in time_intervals]
-            
-            
-            starttime = (time_intervals[0][0]-120*u.s).datetime
-            stoptime = (time_intervals[-1][1]+120*u.s).datetime
-            
-            times_ = copy.deepcopy(times)
-            times_.append(time_intervals[-1][1].datetime)
-            
-            
-            dn_ins = vals['dn_ins']
-            chanaxs = vals['chanaxs']
-            
-            allcolors = lc.make_colors(10)
-            
-            ax=axes[0]
-            normin=1
-            for i in range(0, 6):  
-                aiavals = [din[i] for din in dn_ins] 
-                label = chanaxs[0][i]
-                color = allcolors[i]
-                normvals = np.array(aiavals)/np.max(aiavals)
-                if np.min(normvals) < normin:
-                    normin=np.min(normvals)
-                ax.stairs(normvals, times_, linewidth=lw, color=color, 
-                          label=label,
-                         baseline=None)
-            
-            ax.set_ylim([normin*0.95, 1.01])
-            
-            ax=axes[1]
-            normin=1
-            for i in range(0, 3): 
-                ii = (i+1)*-1
-                aiavals = [din[ii] for din in dn_ins] 
-                label = chanaxs[0][ii]
-                color = allcolors[ii]
-                normvals = np.array(aiavals)/np.max(aiavals)
-                if np.min(normvals) < normin:
-                    normin=np.min(normvals)
-                ax.stairs(normvals, times_, linewidth=lw, color=color, 
-                          label=label,
-                         baseline=None)
-            
-            ax.set_ylim([normin*0.95, 1.01])
-    
-    
-            ax=axes[5]
-            above10s=np.array(vals['above10s'])
-            above10s_=above10s[:,0]
-            label='Total EM >10 MK'
-            ylabel='EM (cm^-5)'
-            color='Blue'
-            ax.stairs(above10s_, times_, linewidth=lw, color=color, 
-                          label=label,
-                         baseline=None)
-            
-            quantity_low=above10s[:,1]
-            quantity_high=above10s[:,2]
-            
-            error=True
-            if error:
-                lp = np.hstack([quantity_low, quantity_low[-1]])
-                hp = np.hstack([quantity_high, quantity_high[-1]])
-    
-                fill = ax.fill_between(times_, lp, hp, step="post", 
-                                     color=color, alpha=0.1) 
-            
-            ax.set_ylabel(ylabel)
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-            ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
-            ax.set_yscale('log')
-            
-            comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017) 95%']
-            comparisonbar=True
-            if comparisonbar:
-                ax.axhspan(comp_band[0], comp_band[1], color='brown', alpha=0.5, label=comp_band[2])   
-                ax.legend()
-            
-            
+            if not pre_dem_nustar_only:
+                # AIA PLOTS + NuSTAR DEM INPUT PLOTS + >10 MK EM plots #======================================================================
+                
+                lw=2
+                times = [t[0].datetime for t in time_intervals]
+                midtimes=[(t[0]+(t[1]-t[0]).to(u.s)/2).datetime for t in time_intervals]
+                
+                
+                starttime = (time_intervals[0][0]-120*u.s).datetime
+                stoptime = (time_intervals[-1][1]+120*u.s).datetime
+                
+                times_ = copy.deepcopy(times)
+                times_.append(time_intervals[-1][1].datetime)
+                
+                
+                dn_ins = vals['dn_ins']
+                chanaxs = vals['chanaxs']
+                
+                allcolors = lc.make_colors(10)
+                
+                ax=axes[0]
+                normin=1
+                for i in range(0, 6):  
+                    aiavals = [din[i] for din in dn_ins] 
+                    label = chanaxs[0][i]
+                    color = allcolors[i]
+                    normvals = np.array(aiavals)/np.max(aiavals)
+                    if np.min(normvals) < normin:
+                        normin=np.min(normvals)
+                    ax.stairs(normvals, times_, linewidth=lw, color=color, 
+                              label=label,
+                             baseline=None)
+                
+                ax.set_ylim([normin*0.95, 1.01])
+                
+                ax=axes[1]
+                normin=1
+                for i in range(0, 3): 
+                    ii = (i+1)*-1
+                    aiavals = [din[ii] for din in dn_ins] 
+                    label = chanaxs[0][ii]
+                    color = allcolors[ii]
+                    normvals = np.array(aiavals)/np.max(aiavals)
+                    if np.min(normvals) < normin:
+                        normin=np.min(normvals)
+                    ax.stairs(normvals, times_, linewidth=lw, color=color, 
+                              label=label,
+                             baseline=None)
+                
+                ax.set_ylim([normin*0.95, 1.01])
+        
+        
+                ax=axes[5]
+                above10s=np.array(vals['above10s'])
+                above10s_=above10s[:,0]
+                label='Total EM >10 MK'
+                ylabel='EM (cm^-5)'
+                color='Blue'
+                ax.stairs(above10s_, times_, linewidth=lw, color=color, 
+                              label=label,
+                             baseline=None)
+                
+                quantity_low=above10s[:,1]
+                quantity_high=above10s[:,2]
+                
+                error=True
+                if error:
+                    lp = np.hstack([quantity_low, quantity_low[-1]])
+                    hp = np.hstack([quantity_high, quantity_high[-1]])
+        
+                    fill = ax.fill_between(times_, lp, hp, step="post", 
+                                         color=color, alpha=0.1) 
+                
+                ax.set_ylabel(ylabel)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+                ax.set_yscale('log')
+                
+                comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017) 95%']
+                comparisonbar=True
+                if comparisonbar:
+                    ax.axhspan(comp_band[0], comp_band[1], color='brown', alpha=0.5, label=comp_band[2])   
+                    ax.legend()
+                
+                
             
             #==================================================================================================================================
             # Mark times where mean accepted events level over course of time interval is below threshold
@@ -1676,7 +1682,7 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
                 if not checkacc:
                     midtime = tr[0] + (tr[1]-tr[0]).to(u.s).value/2*u.s
                     for ax in axes:
-                        ax.axvline(midtime.datetime, color=nustar_acc_color, lw=10)
+                        ax.axvline(midtime.datetime, color='aqua', lw=10, zorder=-1)
 
 
 
@@ -1846,7 +1852,7 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
             plot_stdv_flares=True
             
             if plot_flares:
-                flare_res = get_saved_flares()
+                flare_res = get_saved_flares(flarepath=flarepath)
                 early_starts = flare_res[0]
                 late_stops = flare_res[1]
 
@@ -1856,7 +1862,8 @@ def make_summary_lcs(key, method='input', show=True, goes=True,
                         ax.set_xlim(timerange[0], timerange[1])
 
                 if plot_stdv_flares:
-                    flare_res = get_saved_flares(add_stdv_flares=True, add_manual_flares=True)
+                    flare_res = get_saved_flares(flarepath=flarepath, 
+                                                 add_stdv_flares=True, add_manual_flares=True)
                     early_starts = flare_res[0]
                     late_stops = flare_res[1]
                     for j in range(0, len(early_starts)):
@@ -2145,7 +2152,7 @@ def consistency_hist_plot(all_sumcons, all_sumcons_non, all_sumcons_flare, dir_,
 
 
     
-def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False, 
+def plot_temp_consistency(key='', file='all_targets.pickle', time_weighted=True, seconds_per=5, show=False, 
                          fetch_for_all=False, accthreshold=95, return_region_quiet_max=False):
 
     """
@@ -2183,7 +2190,7 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
     early_starts = flare_res[0]
     late_stops = flare_res[1]
     
-    with open('all_targets.pickle', 'rb') as f:
+    with open(file, 'rb') as f:
         data = pickle.load(f)
     
     ARDict = data[key]
@@ -2202,7 +2209,7 @@ def plot_temp_consistency(key='', time_weighted=True, seconds_per=5, show=False,
         
     
     if method in ['input', 'double']:
-        directories = get_region_directories(key, method=method)
+        directories = get_region_directories(key, targets_file=file, method=method)
         #all_all_time_intervals is a list... 
         #       with entries (lists) for each directory/region
         #             those lists have entries (lists) for each orbit
@@ -2511,15 +2518,18 @@ def dem_respects_min_loci(data, plot=True):
         return True
 
 
-def check_loci(key, keydict, searchstring='_no_xrt_'):
+def check_loci(key, file, searchstring='_no_xrt_'):
+
+    """
+    file: contains targets directory (indexed by key)
+    """
 
 
     violations = []
     
 
     
-    res_files, tworegions = get_key_resultfiles(key, fromhome=True, shush=True,
-                        keydict=keydict,
+    res_files, tworegions = get_key_resultfiles(key, file, fromhome=True, shush=True,
                         withparams=False,
                         namesearchstring=key+searchstring)    
 
@@ -2551,7 +2561,20 @@ def check_loci(key, keydict, searchstring='_no_xrt_'):
 
 
 
-def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]):
+def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6], 
+                                     accthreshold=95, shush=False):
+
+    data, timestring, time = viz.load_DEM(r)
+    res = check_avg_rej(time, data['nustar_datapath'], threshold=accthreshold)
+    if not res[1]:
+        if not shush:
+            print('For time, ', time[0].strftime('%D %H-%M-%S'), '-', 
+                  time[1].strftime('%D %H-%M-%S'), ' mean accepted events, ', 
+                  res[0], ' below threshold, ', accthreshold)
+
+        acc=False
+    else:
+        acc=True
 
     res = viz.get_DEM_params(r, save_params_file=True)
     if not res:
@@ -2568,7 +2591,7 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         data, timestring, time = viz.load_DEM(r)
         flare = check_for_flare(time, early_starts, late_stops)
         #print(flare)
-        return above10_, flare, time
+        return above10_, flare, time, acc
 
     else:
         #print('Length of channels list not in range: ', lenrange)
@@ -2576,7 +2599,11 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         return
 
 
-def sorted_resfiles_dict(keydict):
+def sorted_resfiles_dict(file, accthreshold=95):
+
+
+    with open(file, 'rb') as f:
+        keydict = pickle.load(f)
 
     keys = keydict.keys()
 
@@ -2602,17 +2629,9 @@ def sorted_resfiles_dict(keydict):
             
         
         for c in range(0, len(conditions)):
-            cc = conditions[c]
-    
-            flarefiles = []
-            quietfiles = []
-            flaretimes = []
-            quiettimes = []
-            quietxrttimes = []
-            flarexrttimes = []
-                
-            res_files_oa, tworegions = get_key_resultfiles(key, fromhome=True, 
-                                keydict=keydict,
+            
+            cc = conditions[c]               
+            res_files_oa, tworegions = get_key_resultfiles(key, file, fromhome=True, 
                                 withparams=False,
                                 namesearchstring=cc,
                                 shush=True)
@@ -2628,34 +2647,42 @@ def sorted_resfiles_dict(keydict):
                     quiettimes = []
                     quietxrttimes = []
                     flarexrttimes = []
+                    rejfiles = []
+                    rejtimes = []
                     reglab = 'region_'+str(j)
                     #label = ARDict['NOAA_ARID'][j]+'-'+key
                     resfiles = res_files_oa[j]
                     for r in resfiles:
                         #print(r)
-                        res = check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=lenranges[c])
+                        res = check_file_instruments_and_flare(r, early_starts, late_stops, 
+                                                               accthreshold=accthreshold, lenrange=lenranges[c])
                         if res is not None:
-                            a10, flare, time = res
-            
-                            if flare:
-                                flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
-                                flaretimes.append(time)
-                            else:
-                                #print(r)
-                                quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
-                                quiettimes.append(time)
-    
-                            if c == 1:
+                            a10, flare, time, acc = res
+                            if acc:
                                 if flare:
-                                    flarexrttimes.append(time)
+                                    flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                    flaretimes.append(time)
                                 else:
-                                    quietxrttimes.append(time)
+                                    #print(r)
+                                    quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                    quiettimes.append(time)
+        
+                                if c == 1:
+                                    if flare:
+                                        flarexrttimes.append(time)
+                                    else:
+                                        quietxrttimes.append(time)
+                            else:
+                                rejfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                rejtimes.append(time)
                         
         
                     dictz[key+' '+reglab]['flare files '+cc] = flarefiles
                     dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
                     dictz[key+' '+reglab]['flare times '] = flaretimes
                     dictz[key+' '+reglab]['quiet times '] = quiettimes
+                    dictz[key+' '+reglab]['rejected times'] = rejtimes
+                    dictz[key+' '+reglab]['rejected files'] = rejfiles                 
                     if c == 1:
                         dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                         dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
@@ -2666,33 +2693,48 @@ def sorted_resfiles_dict(keydict):
                                              
             
             else:
+                flarefiles = []
+                quietfiles = []
+                flaretimes = []
+                quiettimes = []
+                quietxrttimes = []
+                flarexrttimes = []
+                rejfiles = []
+                rejtimes = []
                 resfiles = res_files_oa
                 reglab = 'region_0'
                 for r in resfiles:
                     #print(r)
-                    res = check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=lenranges[c])
+                    res = check_file_instruments_and_flare(r, early_starts, late_stops, 
+                                                           accthreshold=accthreshold, lenrange=lenranges[c])
                     if res is not None:
-                        a10, flare, time = res
-        
-                        if flare:
-                            flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
-                            flaretimes.append(time)
-                        else:
-                            #print(r)
-                            quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
-                            quiettimes.append(time)
-    
-                        if c == 1:
+                        a10, flare, time, acc = res
+                        if acc:
                             if flare:
-                                flarexrttimes.append(time)
+                                flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                flaretimes.append(time)
                             else:
-                                quietxrttimes.append(time)
+                                #print(r)
+                                quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                                quiettimes.append(time)
+        
+                            if c == 1:
+                                if flare:
+                                    flarexrttimes.append(time)
+                                else:
+                                    quietxrttimes.append(time)
+
+                        else:
+                            rejfiles.append(r.split('.p')[-2]+'_withparams.pickle')
+                            rejtimes.append(time)
                     
         
                 dictz[key+' '+reglab]['flare files '+cc] = flarefiles
                 dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
                 dictz[key+' '+reglab]['flare times '] = flaretimes
                 dictz[key+' '+reglab]['quiet times '] = quiettimes
+                dictz[key+' '+reglab]['rejected times'] = rejtimes
+                dictz[key+' '+reglab]['rejected files'] = rejfiles 
                 if c == 1:
                     dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                     dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
@@ -2716,7 +2758,8 @@ def print_stats(dictt):
     print('Quiet-time AIA+NuSTAR DEMS: ', len(dictt['quiet files no_xrt'])) 
     print('Flare-time All-instrument DEMS: ', len(dictt['flare files all-inst']))
     print('Quiet-time All-instrument DEMS: ', len(dictt['quiet files all-inst']))  
-
+    print('Rejected Times: ', len(dictt['rejected files']))
+  
     totxrt = len(dictt['flare files aiaxrt']) + len(dictt['quiet files aiaxrt'])
     totany = len(dictt['flare files all-inst']) + len(dictt['quiet files all-inst'])
 
