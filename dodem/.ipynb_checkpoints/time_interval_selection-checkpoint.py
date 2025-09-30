@@ -27,7 +27,7 @@ def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False, manualreg
 
         if tworegion:
             templatefile = where+'run_tis_template_tworegion.py'
-        if manualregion:
+        elif manualregion:
             templatefile = where+'run_tis_template_manualregion.py'
         else:
            templatefile = where+'run_tis_template.py'
@@ -189,6 +189,9 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
     if method=='doublegauss':
 
         gauss_stats = ARDict['gauss_stats']
+
+        print(gauss_stats)
+        print(gauss_stats[index])
         
         id = id_dirs[index]
         sep_axis, guess, guess2, fast_min_factors = gauss_stats[index]
@@ -219,8 +222,10 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
         id = id_dirs[index]
         fast_min_factors = ARDict['region_stats'][index]
 
+        #Finds regionfiles (for FPMA)
         regionfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
         regionfiles.sort()
+        #print(regionfiles)
         
         evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
@@ -241,7 +246,7 @@ def one_orbit_tis_wrapper(key, all_targets, index, method='singlegauss', use_set
                     print('already got it')
 
             regionfile = regionfiles[i]
-            print('file: ', i, regionfile)
+            #print('file: ', i, regionfile)
 
             res = find_time_intervals_plus(id, timerange, working_dir_reg, erange=erange, 
                                lctype=lctype, fast_min_factor=fmf, countmin=countmin,
@@ -416,7 +421,7 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
     Workflow:
 
     - 1. Using FAST method, find first time interval with sufficient counts (target: actual desired 
-    minimum X a factor to correct for some events occuring outside the chosen region).  
+    minimum times a factor to correct for some events occuring outside the chosen region).  
     
     - 2. Using SLOW method, check PROPOSED TIME INTERVAL
         - if it has sufficient counts, update start time to end of new interval, and start again at 1. 
@@ -465,6 +470,10 @@ def find_time_intervals_plus(datapath, timerange, working_dir, countmin=10, eran
                     just one FPM to satisfy requirements. This obviously slows down the time interval selection process, but
                     is useful when you know you're going to need to make those products anyway and would prefer to do it at this
                     step. 
+
+
+    regionfile - 
+    
     """
 
     #print('Twogauss set to: ', twogauss)
@@ -757,8 +766,8 @@ def check_interval_slow(time_int, erange, datapath, obsid, nustar_path, centroid
 
     if regionfile:
         regfile=regionfile
-        edit_regfile=False
         #manual entry of region overrides everything else
+        edit_regfile=False
         centroid_region=False
         twogauss=False
         onegauss=False

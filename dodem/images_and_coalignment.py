@@ -208,12 +208,13 @@ def plot_rectangle(coordx, coordy, width, height, angle, map_):
 
 
 
-def get_orbit_aiamaps(aia_dir, id_dirs, wave=94):
+def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
 
     import sunpy.map
     from aiapy.calibrate.util import get_correction_table, get_pointing_table
     from aiapy.calibrate import register, update_pointing, degradation, estimate_error
 
+    files=[]
     aiamaps = []
     for id in id_dirs:
         print(id)
@@ -223,6 +224,7 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94):
         files = glob.glob(aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+'*')
         print(start)
         print(files)
+        files.append(files[0])
         amap=sunpy.map.Map(files[0])
         #ptab = get_pointing_table(amap.date - 12 * u.h, amap.date + 12 * u.h)
         #m_temp = update_pointing(amap, pointing_table=ptab)
@@ -236,7 +238,10 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94):
     
         aiamaps.append(m)
 
-    return aiamaps
+    if return_files:
+        return files
+    else:
+        return aiamaps
 
 
 
@@ -310,7 +315,8 @@ def find_direction_dirs(working_dir, sep_axis):
 
 
 def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps, nushift=[20,0],
-                               method='input', shush=False, sep_axis=''):
+                               method='input', shush=False, sep_axis='', show=True, pick_region=False,
+                               regionind=0):
 
     """
     Takes a given orbit (orbit_ind) for a given AR observation which has completed time interval selection.
@@ -334,7 +340,8 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
         all_all_time_intervals, fixit = tis.region_time_intervals(region_dirs, id_dirs, shush=shush)
 
         #return all_all_time_intervals
-
+        
+        #If there is more than one region:
         if len(all_all_time_intervals) > 1:
             #Get a list of the first interval from this orbit for each region.
             #(with placeholders for missing TIS results, see above).
@@ -353,17 +360,22 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
                         else:
                             copyintervals.append('')
     
-                            
-            #Find the longest of the first intervals across all regions. Use that time interval for plotting.      
-            durations = [(fi[1]-fi[0]).to(u.s).value for fi in first_intervals]
-            maxint = np.argmax(durations)
-            time_interval = first_intervals[maxint]
-            region_dir = region_dirs[maxint]
-        else:
-            time_interval = all_all_time_intervals[0][0][0]
+            if pick_region:
+                time_interval = first_intervals[regionind]
+                region_dir = region_dirs[regionind]
+            else:
+                #Find the longest of the first intervals across all regions. Use that time interval for plotting.      
+                durations = [(fi[1]-fi[0]).to(u.s).value for fi in first_intervals]
+                maxint = np.argmax(durations)
+                time_interval = first_intervals[maxint]
+                region_dir = region_dirs[maxint]
+                
+        #Else, i.e. there is only one region:
+        else:                
+            time_interval = all_all_time_intervals[0][orbit_ind][0]
             region_dir = region_dirs[0]
 
-    #print(time_interval[0], time_interval[1])
+    print(region_dir)
 
     if method=='fit':
         all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=shush)
@@ -375,7 +387,7 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
     obsid=obsids[orbit_ind]
     #Plot NuSTAR over AIA, and save an aia regions file in the corresponding region+time interval directory
     dict, file = nu_aia_coalign(time_interval, working_dir, nushift, save_dict=True, input_aia=aiamaps[orbit_ind],
-                            regionmethod=method, obsid=obsid, region_dir=region_dir)
+                            regionmethod=method, obsid=obsid, region_dir=region_dir, show=show)
 
     if (method in ['input', 'double']) and (len(region_dirs) > 1):
         #For all the other regions, copy the generated aia region file into their first time interval directories, as we
@@ -392,13 +404,13 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
                 regcopy = r+timestring+'/'+timestring+'_aia_region.pickle'
                 status = subprocess.call('cp '+file+' '+regcopy, shell=True)
 
-
+    return dict
 
 def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
                    obsid='', region_dir='',
                    input_aia=[], 
                    grade='0_4', justCOM=False, save_dict=False,
-                  savefigdir=[]):
+                  savefigdir=[], show=True):
     """
     nushift in x, y arcseconds.
     
@@ -410,6 +422,7 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
     timestring = time[0].strftime('%H-%M-%S')
     stopstring = time[1].strftime('%H-%M-%S')
     timestring=timestring+'_'+stopstring
+    print(timestring)
 
     if regionmethod=='fit':
         regionfileA = glob.glob(working_dir+timestring+'/'+'*A*sunpos*.reg')
@@ -424,8 +437,13 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
             
         fpm='A' #WHEN DOING MANUAL INPUT, REGIONS ARE THE SAME!
         if regionmethod=='input':
-            regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
-            regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            #regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            #regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
+            regionfileA = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
+            regionfileB = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
+            print(regionfileA)
+            print(regionfileB)
+            
         if regionmethod=='double':
             regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
             regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
@@ -435,10 +453,11 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
     
     specific_time_evt.sort()      
         
-        
+    #print(regionfileA)
 
     regiondictA = [regfile_to_regdict(rA, time) for rA in regionfileA]
     regiondictB = [regfile_to_regdict(rB, time) for rB in regionfileB]
+
 
     #print(regiondictA)
     #print(regionfileA)
@@ -472,13 +491,13 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
               savefigdir=savefigdir, AIA94=True, input_aia=input_aia,
               regiondictA=regiondictA, regiondictB=regiondictB,
              regionsave=False, #regionsavename=regionsavename, 
-                             overlimb=True, nushift=nushift) 
+                             overlimb=True, nushift=nushift, show=show)
     else:
         m, nu_smap, aiareg, COMxy = nuevtplot(evtA=evtA, evtB=evtB,
               savefigdir=savefigdir, AIA94=True,
               regiondictA=regiondictA, regiondictB=regiondictB,
              regionsave=False, #regionsavename=regionsavename, 
-                             overlimb=True, nushift=nushift)  
+                             overlimb=True, nushift=nushift, show=show) 
 
 
     if save_dict:
@@ -527,7 +546,7 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
               regiondictA=[], regiondictB=[], 
               regionsave=False, regionsavename='region',
               starter_region=path_to_dodem+'starter_region.reg',
-             overlimb=False):
+             overlimb=False, show=True):
     """
     Previously called "orbitplot".
     
@@ -716,9 +735,15 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
                 #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
 
                 #may 29 2018
-                rectangle = plot_rectangle(670, 316, 800, 800, 0, mm)
-                mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+                #rectangle = plot_rectangle(670, 316, 800, 800, 0, mm)
+                #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
 
+
+                #may 29 2018
+                #rectangle = plot_rectangle(670, 316, 800, 800, 0, mm)
+                #mm.draw_quadrangle(rectangle, axes=ax, edgecolor="red", linestyle="--", linewidth=2, alpha=0.3)
+                
+                
                 ax = fig.add_subplot(3,2,(i+5), projection=mm)
 
                 if overlimb:                
@@ -822,6 +847,7 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
 
         fpms = ['A','B']
         regiondicts = [regiondictA, regiondictB]
+        #print('RDs:', regiondicts)
         evts=[evtA, evtB]
         for i in [0,1]:
             fpm=fpms[i]
@@ -851,7 +877,10 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
     
 
 
+    
     plt.savefig(savefigdir+'/Both_FPM_images_'+timestring+evt[bloc+3:-4]+'.png')
+    if not show:
+        plt.close()
 
     if AIA94:
         if nushift:
@@ -859,9 +888,6 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
         else:            
             return m, nu_smap, regiondict, COMxy
         #return m
-
-
-
 
 
 

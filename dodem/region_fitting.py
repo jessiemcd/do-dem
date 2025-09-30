@@ -57,11 +57,68 @@ def plot_file_region(evt_file, time0, time1, regfile):
             center = center,
             radius = rad
         )
+
+    print(offset, rad)
+    
     og_region = region.to_pixel(submap.wcs)
     og_region.plot(axes=ax, color='green', ls='--', lw=3)
 
     plt.savefig(Path(evt_file).parent.as_posix()+'/'+Path(evt_file).parts[-1][0:-4]+'_input_file_region.png')
     plt.close(fig)
+
+
+
+def full_orbit_regfile_correction(regfile, evtfile, time0, time1, regRAunit='hourangle',
+                                 newname='new_reg_file'):
+    """
+    Using a region file that was made for a whole orbit for a shorter time interval
+    will introduce a shift due to the differing observation times (i.e. the fact that
+    the two intervals have different midpoints. This is because the time interval is 
+    used to convert between solar coordinates and RA/DEC as NuSTAR expects. 
+
+    Here we read in a region file made for a full orbit, extract its coordinates, 
+    make a region object, and then save a new region file for the input time range time0, time1.
+
+    regfile - region file made for whole orbit
+    evtfile - full-orbit evt file
+    time0, time1 - shorter desired time interval
+    regRAunit - usually 'hourangle'
+    newname - new file name minus the .reg extension
+    
+    
+    """
+
+    #Open full orbit NuSTAR .evt file
+    with fits.open(evtfile) as hdu:
+        evt_data = hdu[1].data
+        hdr = hdu[1].header
+
+    #NuSTAR orbit start time, stoptime: 
+    time0_file = nuutil.convert_nustar_time(hdr['TSTART'])
+    time1_file = nuutil.convert_nustar_time(hdr['TSTOP'])
+
+    #Find midpoint of time interval
+    midway = time0 + (time1-time0).to(u.s).value/2*u.s
+
+    #Get offset, rad from full-orbit region file
+    offset, rad = read_regfile(regfile, time0_file, time1_file, regRAunit)
+
+    #Make region object
+    nustar_map = nustar.map.make_sunpy(evt_data, hdr)
+    region = CircleSkyRegion(
+                center = coord.SkyCoord(offset[0], offset[1], frame=nustar_map.coordinate_frame),
+                radius = rad
+            )
+
+    #Write new region file
+    newfile = write_regfile(regfile, midway, region, newfile=newname)
+    print(newfile)
+    
+
+    return newfile
+
+
+
     
 
 def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='hourangle',

@@ -23,10 +23,13 @@ def abs_dif_cord(cord):
 def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=False, plotfile='',
                 guess=[], guess2=[], plotregion=[], write_input_regions=False,
                  plotgaussregions=False, 
-                 write_regions=False, region_dir='./'):
+                 write_regions=False, region_dir='./',
+                sep_axis='EW'):
     """Takes in a nustar .evt file and fits one (or two) 2D gaussians 
     to the distribution of data once made into a sunpy map.
     """
+
+
 
     obsid = file.split('/')[-1][2:13]
     fpm = file.split('/')[-1][13]
@@ -81,7 +84,7 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         if plotmoments:
             #Take moments     
             m = moments(boxdata)
-            print(m)
+            #print(m)
             mmt=gaussian(*m)
             plt.contour(xs, ys, mmt(*np.indices(boxdata.shape)), cmap=plt.cm.Reds)
 
@@ -95,14 +98,12 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         
         cen1 = paramsl[1:3]
         cen2 = paramsl[6:8]
-        #print(cen1, cen2)
+        print('centers:', cen1, cen2)
 
         #x and y flipped vs. the way the fit output has it.
         cen1_ = [xbox[0]+cen1[1], ybox[0]+cen1[0]]
         cen2_ = [xbox[0]+cen2[1], ybox[0]+cen2[0]]
 
-        #cen1_ = cen1
-        #cen2_ = cen2
 
         if write_input_regions:
             inputcens=[]
@@ -129,21 +130,20 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
 
                 if write_input_regions:
                     midway = time0 + (time1-time0).to(u.s).value/2*u.s
-                    write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
+                    nf_ = write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
                     num+=1
                     inputcens.append(center)
 
         num=0
         worldcens=[]
         for cen in [cen1_, cen2_]:
-
             cen1_world = nustar_map.pixel_to_world(cen[0]*u.pix, cen[1]*u.pix)
             #print(cen1_world.Tx, cen1_world.Ty)
-            #print('')
+            worldcens.append(cen1_world)
+            
             if plot:
                 ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                          label='Center')
-
                 if plotgaussregions:
                     region = CircleSkyRegion(
                             center = cen1_world,
@@ -152,19 +152,26 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
                     og_region = region.to_pixel(nustar_map.wcs)
                     og_region.plot(axes=ax, color='red', ls='--', lw=3)
 
-                if write_regions:
-                    midway = time0 + (time1-time0).to(u.s).value/2*u.s
-                    region = CircleSkyRegion(
-                            center = cen1_world,
-                            radius = 150 * u.arcsec
-                        )
-                    
-                    write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_'+str(num))
-                    num+=1
-                    
-            #print(cen1_world.Tx, cen1_world.Ty)
-            
-            worldcens.append(cen1_world)
+
+        relevant_centers=[]
+        for w in worldcens:
+            if sep_axis=='EW':
+                relevant_centers.append(w.Tx.value)
+            elif sep_axis=='SN':
+                relevant_centers.append(w.Ty.value)
+
+        worldcens = [worldcens[ag] for ag in np.argsort(relevant_centers)]
+
+        if write_regions:
+            midway = time0 + (time1-time0).to(u.s).value/2*u.s
+            for cen1_world in worldcens:
+                region = CircleSkyRegion(
+                        center = cen1_world,
+                        radius = 150 * u.arcsec
+                    )
+        
+                write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_'+str(num))
+                num+=1       
             
         if plot:    
             ax.set_xlim((cen1_[0]-boxsize), (cen1_[0]+boxsize))
@@ -516,7 +523,7 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
         res = nu_fit_gauss(s, twogaussians=True, boxsize=200, plot=plot, plotmoments=False, guess=guess, guess2=guess2,
                           plotregion=plotregion, write_input_regions=write_input_regions, 
                            plotgaussregions=plotgaussregions, write_regions=write_regions,
-                          region_dir=region_dir)
+                          region_dir=region_dir, sep_axis=sep_axis)
         params, worldcens, nustar_map, time0, time1 = res
         separation = abs_dif_cord(worldcens)
         print('Separation between double centers: ', separation)

@@ -135,7 +135,7 @@ def omag(x):
     return int(np.floor(np.log10(np.abs(x))))
 
 
-def get_durations(datapaths, fpm='A', filepaths=False, hkpaths=[]):
+def get_durations(datapaths, fpm='B', filepaths=False, hkpaths=[]):
 
     """
     If filepaths == False, expects datapaths to be links to NuSTAR data directories.
@@ -358,19 +358,17 @@ def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', 
 
 
 
-def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
-                      plotregion=[], write_input_regions=True,
+def manual_prep(key, file, plot=True, make_scripts=True,
+                      inputregion=[], write_input_regions=True,
                       plotgaussregions=False):
 
     """
     key - key for all target dictionary (where to get information about the nustar data, region, etc)
     file - file containing all target directory
     plot - set True for plots to be made in general
-    guess, guess2 - for tweaking the double gaussian fit used for context. Not related to final regions 
-                    saved, etc. Optional. 
 
     make_scripts - set True with you've finalized your regions and are ready to write corresponding scripts for TIS
-    plotregion - list of region dictionaries, of the form:
+    inputregion - list of region dictionaries, of the form:
                     
                     plotregion = [{'centerx': 950, 'centery': -325, 'radius': 150},
                                {'centerx': 900, 'centery': -50, 'radius': 150}]
@@ -384,6 +382,8 @@ def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
 
     
     """
+    guess=[]
+    guess2=[]
 
 
     with open(file, 'rb') as f:
@@ -405,7 +405,7 @@ def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
         res = g2d.per_orbit_manual_params(id_dirs[i], guess=guess, guess2=guess2, plot=plot,
-                                           plotregion=plotregion, plotgaussregions=plotgaussregions,
+                                           plotregion=inputregion, plotgaussregions=plotgaussregions,
                                             write_input_regions=write_input_regions,
                                             region_dir=working_dir)
                         
@@ -428,8 +428,14 @@ def manual_prep(key, file, plot=True, guess=[], guess2=[], make_scripts=True,
 
 
 
-def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, 
-              high_temp_analysis=False, rscl=True, do_no_xrt_version=False):
+def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, plot_aia=False,
+               use_prepped_aia=True,
+              high_temp_analysis=False, rscl=True, 
+               do_no_xrt_version=False,
+               do_onlyaia_version=False,
+               do_aiaxrt_version=False,
+              aia_region_dict={}, input_time_intervals=[],
+              pick_region=False, regionind=0):
 
     """
     Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
@@ -449,7 +455,8 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
     id_dirs = ARDict['datapaths']
     obsids = ARDict['obsids']
     working_dir = ARDict['working_dir']
-    prepped_aia_dir = ARDict['prepped_aia']
+    if use_prepped_aia:
+        prepped_aia_dir = ARDict['prepped_aia']
     method=ARDict['method']
     if method=='double':
         gauss_stats = ARDict['gauss_stats']
@@ -458,9 +465,16 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
         sep_axis = ''
         
 
+
     if method in ['input', 'double']:
-        directories = get_region_directories(key, targets_file=file, method=method)
-        all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
+        directories = get_region_directories(key, targets_file=file)
+        print('1',directories)
+        all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)        
+        if pick_region:
+            directories = [directories[regionind]]
+            print('2', directories)
+
+        
 
     if method=='fit':
         onegauss=True
@@ -468,7 +482,15 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
         all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
                                                                         missing_last=missing_last, missing_orbit=missing_orbit)
 
-
+    
+    if input_time_intervals:
+        if method in ['input', 'double']:
+             all_all_time_intervals = input_time_intervals
+        
+        if method=='fit':  
+            all_time_intervals = input_time_intervals
+        
+    
     #What instruments are you using?
     #---------------------------------
     aia=True
@@ -477,7 +499,6 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
     #This is where I'm putting my XRT level-1 data and grade maps:
     xrt_path=working_dir+'/XRT_for_DEM/'
     ogxrt=True
-    #ogxrt=False
     
     from astropy import units as u
     exposure_dict={'Be_thin': [1*u.s, 100*u.s],
@@ -486,10 +507,10 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
     #---------------------------------
     plot=False
     #---------------------------------
-    #nustar=True
-    #force_nustar=True
-    force_nustar=False
-    nustar=False
+    nustar=True
+    force_nustar=True
+    #force_nustar=False
+    #nustar=False
     
     #If nustar is being used, here are the chosen energy ranges:
     nuenergies=[[2.5,3.5], [3.5,6.], [6.,10.]]
@@ -505,11 +526,23 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
     #---------------------------------
     #---------------------------------
 
-    #name=key
-    #name=key+'_no_xrt'
-    #name=key+'_onlyaia'
-    name=key+'_aiaxrt'
-    
+    name=key
+
+    if do_no_xrt_version:
+        name=key+'_no_xrt'
+        ogxrt=False
+        
+    if do_onlyaia_version:
+        name=key+'_onlyaia'
+        ogxrt=False
+        force_nustar=False
+        nustar=False
+
+    if do_aiaxrt_version:
+        name=key+'_aiaxrt'
+        force_nustar=False
+        nustar=False
+        
     import dodem
     import glob
     
@@ -521,27 +554,47 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
         if not pathlib.Path(xrt_path).is_dir():
             xrt=False
         gtifile=datapath+'event_cl/nu'+obsids[o]+'A06_gti.fits'
-        orbit_aia_dir = prepped_aia_dir+'/orbit_'+obsids[o]+'/'
+        if use_prepped_aia:
+            orbit_aia_dir = prepped_aia_dir+'/orbit_'+obsids[o]+'/'
         obsid=obsids[o]
 
         if method=='fit':
             guess = ARDict['gauss_stats'][o][0]
-            time_intervals = all_time_intervals[o]    
+            time_intervals = all_time_intervals[o] 
+            #If downloading new AIA, put it in DEM folder.
+            sunpy_dir=working_dir
             for time in time_intervals:
 
-                #print(orbit_aia_dir)
-                res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
-                if res is None:
-                    print('Found no AIA')
-                    continue
-                data, bl, tr, region_input = res
-                #print(region_input)
-                if 'region0' in data.keys():
-                    #print(data.keys())
-                    data = data['region0']
-                    region_input = region_input[0]
-                #print(data['aia_dn_s_px'])
+                if use_prepped_aia:
+                    #print(orbit_aia_dir)
+                    sunpy_dir=working_dir
+                    res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                    if res is None:
+                        print('Found no AIA')
+                        continue
+                    else:
+                        data, bl, tr, region_input = res
+                        #print(region_input)
+                        if 'region0' in data.keys():
+                            #print(data.keys())
+                            data = data['region0']
+                            region_input = region_input[0]
+                        #print(data['aia_dn_s_px'])
+                        input_aia_region=[]
+                        input_aia_region_dict=[]
 
+                else:
+                    fetch_cutout=True
+                    data=[]
+                    input_aia_region="circle"
+                    input_aia_region_dict={'center': [aia_region_dict[o]['centerx'], aia_region_dict[o]['centery']],
+                                           'radius': aia_region_dict[o]['radius']*u.arcsec
+                                            }
+                    region_input=input_aia_region_dict
+                    bl, tr = [aia_region_dict[o]['centerx']-(300*u.arcsec), aia_region_dict[o]['centery']-(300*u.arcsec)], \
+                            [aia_region_dict[o]['centerx']+(300*u.arcsec), aia_region_dict[o]['centery']+(300*u.arcsec)]
+     
+                
                 if high_temp_analysis:
                     dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
                                                    highT=7.2, #(minT, maxT are varied)
@@ -561,7 +614,9 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
                                                    force_nustar=force_nustar,
                                              
                                                    #aia related
-                                                   load_prepped_aia=data, 
+                                                   load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                                   input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                                   real_aia_err=True, fetch_cutout=fetch_cutout,
                             
                                                    #xrt related
                                                    xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
@@ -589,7 +644,9 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
                                             force_nustar=force_nustar,
                     
                                             #aia related
-                                            load_prepped_aia=data, 
+                                            load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                            input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                            real_aia_err=True, fetch_cutout=fetch_cutout, plot_aia=plot_aia,
         
                                             #xrt related
                                             xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
@@ -606,6 +663,8 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
                 regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
                 
             regfiles.sort()
+            if pick_region:
+                regfiles = [regfiles[regionind]]
             
             for i in range(0, len(directories)):
                 #Time intervals for this region, orbit
@@ -613,16 +672,33 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
 
                 regfile = regfiles[i]
                 print(directories[i], regfiles[i])
+                #If downloading new AIA, put it in DEM folder.
+                sunpy_dir = directories[i]
 
 
                 for time in time_intervals:
-                    res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
-                    if res is None:
-                        print('Found no AIA')
-                        continue
-                    datas, bl, tr, xrt_region_inputs = res
-                    data = datas['region'+str(i)]
-                    region_input = xrt_region_inputs[i]
+                    if use_prepped_aia:
+                        res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
+                        if res is None:
+                            print('Found no AIA')
+                            continue
+                        datas, bl, tr, xrt_region_inputs = res
+                        data = datas['region'+str(i)]
+                        region_input = xrt_region_inputs[i]
+                    else:
+                        fetch_cutout=True
+                        data=[]
+                        aia_region_dict_=aia_region_dict[o][i]
+                        input_aia_region="circle"
+                        input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
+                                               'radius': aia_region_dict_['radius']*u.arcsec
+                                                }
+                        region_input=input_aia_region_dict
+                        apdw = 300
+                        bl, tr = [aia_region_dict_['centerx']-(apdw*u.arcsec), aia_region_dict_['centery']-(apdw*u.arcsec)], \
+                                [aia_region_dict_['centerx']+(apdw*u.arcsec), aia_region_dict_['centery']+(apdw*u.arcsec)]
+
+
 
                     if high_temp_analysis:
                         dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
@@ -646,14 +722,14 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
                                                 force_nustar=force_nustar,
 
                                                 #aia related
-                                                load_prepped_aia=data, 
+                                                load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                                input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                                real_aia_err=True, fetch_cutout=fetch_cutout,
 
                                                 #xrt related
                                                 xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                                 xrt_exposure_dict=exposure_dict, plot=plot_xrt, #(this plots xrt)
                                                 input_xrt_region="circle", input_xrt_region_dict=region_input)
-
-
 
                                                  
                     else:
@@ -676,7 +752,9 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True,
                                     force_nustar=force_nustar,
             
                                     #aia related
-                                    load_prepped_aia=data, 
+                                    load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                    input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                    real_aia_err=True, fetch_cutout=fetch_cutout, plot_aia=plot_aia,
         
                                     #xrt related
                                    xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
@@ -710,7 +788,7 @@ def get_key_resultfiles(key, file, fromhome=False,
         method = ARDict['method']
         
         if method in ['input', 'double']:
-            directories = get_region_directories(key, targets_file=file, method=method)
+            directories = get_region_directories(key, targets_file=file)
             #all_all_time_intervals is a list... 
             #       with entries (lists) for each directory/region
             #             those lists have entries (lists) for each orbit
@@ -1419,7 +1497,7 @@ def make_orbit_plots(working_dir, key, minT=5.6, maxT=7.2, show=False):
 
 
 
-def get_region_directories(key, targets_file='./all_targets.pickle', method='input'):
+def get_region_directories(key, targets_file='./all_targets.pickle'):
 
     import glob
     import os
@@ -1429,6 +1507,9 @@ def get_region_directories(key, targets_file='./all_targets.pickle', method='inp
 
     ARDict = data[key]
     working_dir = ARDict['working_dir']
+
+    method = ARDict['method']
+    #print(method)
     
     if method=='fit':
         directories=[working_dir]
@@ -1453,7 +1534,7 @@ def get_region_directories(key, targets_file='./all_targets.pickle', method='inp
     return directories
 
 
-def do_stdv_analysis(key, file, method='input', show=True):
+def do_stdv_analysis(key, file, show=True):
 
     import nustar_utilities as nuutil
     import glob
@@ -1465,7 +1546,8 @@ def do_stdv_analysis(key, file, method='input', show=True):
     
     id_dirs = ARDict['datapaths']
     obsids = ARDict['obsids']
-    directories = get_region_directories(key, targets_file=file, method=method)
+    method = ARDict['method']
+    directories = get_region_directories(key, targets_file=file)
 
     all_newwindows=[]
 
@@ -1523,7 +1605,8 @@ def do_stdv_analysis(key, file, method='input', show=True):
 
 
 def make_summary_lcs(key, file, flarepath='./reference_files/',
-                     method='input', show=True, goes=True,
+                     #method='input', 
+                     show=True, goes=True,
                     accthreshold=95, pre_dem_nustar_only=False):
 
     
@@ -1545,7 +1628,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
     ARDict = data[key]
     
     id_dirs = ARDict['datapaths']
-    directories = get_region_directories(key, targets_file=file, method=method)
+    directories = get_region_directories(key, targets_file=file)
 
     for dd in directories:
     
@@ -1957,12 +2040,14 @@ def check_avg_rej(tr, datapath, threshold=95):
     rej_sample=rej_sample[keepinds]
     evsumA=acc_sample/(acc_sample+rej_sample)*100
 
+
+    #print(len(evsumA))
         
     res = lc.get_a_nustar_lightcurve(erange_evtdataB, hdrB, lvdataB, lvhdrB, timebin=10, livetime_corr=True, event_stats=True)
     times_converted, countrate, lvt, counts, acc_sample, rej_sample, all_sample = res
 
 
-    keepinds = np.nonzero(np.logical_and(times_converted > tr[0], times_converted < tr[1]))
+    #keepinds = np.nonzero(np.logical_and(times_converted > tr[0], times_converted < tr[1]))
 
     acc_sample=acc_sample[keepinds]
     rej_sample=rej_sample[keepinds]
@@ -1970,6 +2055,8 @@ def check_avg_rej(tr, datapath, threshold=95):
     evsumB=acc_sample/(acc_sample+rej_sample)*100
 
 
+    #print(len(evsumB))
+    
     evsum = (np.array(evsumA)+np.array(evsumB))/2.
     
     meanevsum = np.mean(evsum)
@@ -2209,7 +2296,7 @@ def plot_temp_consistency(key='', file='all_targets.pickle', time_weighted=True,
         
     
     if method in ['input', 'double']:
-        directories = get_region_directories(key, targets_file=file, method=method)
+        directories = get_region_directories(key, targets_file=file)
         #all_all_time_intervals is a list... 
         #       with entries (lists) for each directory/region
         #             those lists have entries (lists) for each orbit
@@ -2562,19 +2649,19 @@ def check_loci(key, file, searchstring='_no_xrt_'):
 
 
 def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6], 
-                                     accthreshold=95, shush=False):
+                                     checkacc=True, accthreshold=95, shush=False):
 
     data, timestring, time = viz.load_DEM(r)
-    res = check_avg_rej(time, data['nustar_datapath'], threshold=accthreshold)
-    if not res[1]:
-        if not shush:
-            print('For time, ', time[0].strftime('%D %H-%M-%S'), '-', 
-                  time[1].strftime('%D %H-%M-%S'), ' mean accepted events, ', 
-                  res[0], ' below threshold, ', accthreshold)
-
-        acc=False
-    else:
-        acc=True
+    acc=True
+    if checkacc:
+        res = check_avg_rej(time, data['nustar_datapath'], threshold=accthreshold)
+        if not res[1]:
+            if not shush:
+                print('For time, ', time[0].strftime('%D %H-%M-%S'), '-', 
+                      time[1].strftime('%D %H-%M-%S'), ' mean accepted events, ', 
+                      res[0], ' below threshold, ', accthreshold)
+    
+            acc=False
 
     res = viz.get_DEM_params(r, save_params_file=True)
     if not res:
@@ -2599,7 +2686,7 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         return
 
 
-def sorted_resfiles_dict(file, accthreshold=95):
+def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
 
 
     with open(file, 'rb') as f:
@@ -2655,7 +2742,8 @@ def sorted_resfiles_dict(file, accthreshold=95):
                     for r in resfiles:
                         #print(r)
                         res = check_file_instruments_and_flare(r, early_starts, late_stops, 
-                                                               accthreshold=accthreshold, lenrange=lenranges[c])
+                                                               checkacc=checkacc, accthreshold=accthreshold, 
+                                                               lenrange=lenranges[c])
                         if res is not None:
                             a10, flare, time, acc = res
                             if acc:
@@ -2706,7 +2794,8 @@ def sorted_resfiles_dict(file, accthreshold=95):
                 for r in resfiles:
                     #print(r)
                     res = check_file_instruments_and_flare(r, early_starts, late_stops, 
-                                                           accthreshold=accthreshold, lenrange=lenranges[c])
+                                                           checkacc=checkacc, accthreshold=accthreshold, 
+                                                           lenrange=lenranges[c])
                     if res is not None:
                         a10, flare, time, acc = res
                         if acc:

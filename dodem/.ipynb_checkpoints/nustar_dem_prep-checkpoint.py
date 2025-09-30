@@ -93,7 +93,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     timestring=timestring+'_'+stopstring
     #print(timestring)
     
-    #Make time interval directory if it ddoessn't yet exist.
+    #Make time interval directory if it doesn't yet exist.
     save_path = pathlib.Path(nustar_path) / timestring
     if not save_path.exists():
         save_path.mkdir()
@@ -213,7 +213,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     
     if pile_up_corr:
         evt_files_unphys = glob.glob(nustar_path+timestring+'/*'+fpm+'06_21_24_p_cl.evt')
-        print('len evt files unphys: ', len(evt_files_unphys))
+        #print('len evt files unphys: ', len(evt_files_unphys))
         if len(evt_files_unphys) !=1:
             print('Failed to find or make grade 21-24 .evt files, cant do pile-up correction. Not using NuSTAR.')
             return
@@ -281,10 +281,22 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
 
             
     else:
-        newregfile=regfile
+        orbit_correct = True
+        if orbit_correct:
+
+            print(regfile)
+            print('NEW FILE NAME:', nustar_path+timestring+'/'+regfile.split('.')[0].split('/')[-1]+'_'+timestring)
+            evt_correct = glob.glob(datapath+'/event_cl/nu*'+fpm+'06_cl_sunpos.evt')[0]
+            newregfile = rf.full_orbit_regfile_correction(regfile, evt_correct, 
+                                                      time[0], time[1], regRAunit='hourangle',
+                                 newname=nustar_path+timestring+'/'+regfile.split('.')[0].split('/')[-1]+'_'+timestring)
+        
+        else:
+            newregfile=regfile
+            
         plot_region=True
         if plot_region:
-            rf.plot_file_region(sun_file[0], time[0], time[1], regfile)
+            rf.plot_file_region(sun_file[0], time[0], time[1], newregfile)
 
 
 
@@ -315,6 +327,8 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         return percent
     else:
         return newregfile
+
+
     
 def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shush=False):
     """
@@ -573,7 +587,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     #DEM interval duration
     dur = (time[1]-time[0]).to(u.s).value
     
-    #Make time interval directory if it ddoessn't yet exist.
+    #Make time interval directory if it doesn't yet exist.
     save_path = pathlib.Path(nustar_path) / timestring
     if not save_path.exists():
         save_path.mkdir()

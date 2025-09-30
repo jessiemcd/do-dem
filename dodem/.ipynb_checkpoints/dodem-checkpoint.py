@@ -35,8 +35,8 @@ exposure_dict={'Be_thin': [],
               'Al_poly': []}
 
 #edit to point to the correct paths for your system.
-sunpy_dir='/Users/jessieduncan/sunpy/', 
-errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt',
+sunpy_dir='/Users/jmdunca2/sunpy/'
+errortab='/Users/jmdunca2/ssw/sdo/aia/response/aia_V3_error_table.txt'
 
 def dodem(time, bl, tr, 
           minT=5.8, maxT=7.5, dT=0.05, 
@@ -57,9 +57,9 @@ def dodem(time, bl, tr,
           input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False, plot_xrt=False,
           
           #AIA-related
-          real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Middle', 
+          real_aia_err=False, aia_clobber=False, aia_path='./', aia_exclude=[], aiamethod='Average', 
           input_aia_region=[], input_aia_region_dict=[], plot_aia=False,
-          sunpy_dir=sunpy_dir, load_prepped_aia=[],
+          sunpy_dir=sunpy_dir, load_prepped_aia=[], fetch_cutout=False,
           errortab=errortab,
           
           #EIS-related
@@ -549,7 +549,8 @@ def dodem(time, bl, tr,
                 res = aia_dem_prep.load_aia(time, bl, tr, plot=plot_aia, aia_exclude=aia_exclude, aia_path=working_directory, 
                                             method=aiamethod, input_region=input_aia_region, aia_clobber=aia_clobber,
                                             input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
-                                           sunpy_dir=sunpy_dir,errortab=errortab,path_to_dodem=path_to_dodem)
+                                           sunpy_dir=sunpy_dir, errortab=errortab, path_to_dodem=path_to_dodem,
+                                           fetch_cutout=fetch_cutout)
                 if res is None:
                     print('Something is wrong; Not using AIA.')
                     print('')
@@ -1440,10 +1441,10 @@ def high_temp_analysis(time, bl, tr,
                        xrt_factor=2, input_xrt_region=[], input_xrt_region_dict=[], real_xrt_err=False,
 
                        #aia related
-                        load_prepped_aia=[],
+                       load_prepped_aia=[], sunpy_dir=sunpy_dir,
                        aia_exclude=[], aia_clobber=False,
-                        aiamethod='Average', input_aia_region=[], input_aia_region_dict=[],
-                       real_aia_err=False):
+                       aiamethod='Average', input_aia_region=[], input_aia_region_dict=[],
+                       real_aia_err=False, fetch_cutout=False):
    
     
     """
@@ -1552,9 +1553,9 @@ def high_temp_analysis(time, bl, tr,
                         real_xrt_err=real_xrt_err,
 
                         #aia related 
-                        load_prepped_aia=load_prepped_aia, aiamethod=aiamethod, 
+                        load_prepped_aia=load_prepped_aia, aiamethod=aiamethod, sunpy_dir=sunpy_dir,
                         input_aia_region=input_aia_region, aia_clobber=aia_clobber, 
-                        input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err,
+                        input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err, fetch_cutout=fetch_cutout,
 
                         #demreg related
                         mc_in=mc_in, mc_rounds=mc_rounds, 

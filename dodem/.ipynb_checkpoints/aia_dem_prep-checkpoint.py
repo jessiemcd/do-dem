@@ -54,12 +54,12 @@ Preparing AIA Data for DEM: IDL/other helpers
 """
 
 #AIA Error table - set path to location in your system.
-errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt'
-
+errortab='/Users/jmdunca2/ssw/sdo/aia/response/aia_V3_error_table.txt'
+jsoc_email='jessie.m.duncan@nasa.gov'
 
 
 def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Middle',
-            input_region=[], input_aia_region_dict=[], real_aia_err=False, aia_clobber=False,
+            input_region=[], input_aia_region_dict=[], real_aia_err=False, aia_clobber=False, fetch_cutout=False,
              path_to_dodem='./',
             sunpy_dir='/Users/jessieduncan/sunpy/', 
              errortab='/Users/jessieduncan/ssw/sdo/aia/response/aia_V3_error_table.txt'):
@@ -133,7 +133,8 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     save_path = pathlib.Path(aia_path) / timestring
     if not save_path.exists():
         save_path.mkdir()
-         
+
+
     
     #====================================================================================== 
     if method=='Middle':
@@ -143,10 +144,11 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         #=========================
         
         ffp=sorted(glob.glob(aia_path+timestring+'/'+'maps_prep_*.fits'))
-        #print(ffp)
+        print(ffp)
         if len(ffp)!=6 or clobber==True:
             print('No prepped AIA data (or clobber==True), fetching some new AIA files at DEM time and converting to lev 1.5')
-            aia_for_DEM(time, bl, tr, plot=plot, aia_path=aia_path, method='Middle', clobber=clobber, sunpy_dir=sunpy_dir)
+            aia_for_DEM(time, bl, tr, plot=plot, aia_path=aia_path, method='Middle', 
+                        clobber=clobber, sunpy_dir=sunpy_dir, fetch_cutout=fetch_cutout)
             ffp=sorted(glob.glob(aia_path+timestring+'/'+'maps_prep_*.fits'))
             if len(ffp) > 6:
                 print('More than six files found! Please resolve.')
@@ -265,7 +267,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
             if len(ffp)<2 or clobber==True:
                 print('Less than two files ready to average (or clobber set); we will go prep more.')
                 aia_for_DEM(time, bl, tr, wav=[waves[w]], plot=plot, aia_path=aia_path, method='Average', 
-                            clobber=clobber, sunpy_dir=sunpy_dir)
+                            clobber=clobber, sunpy_dir=sunpy_dir, fetch_cutout=fetch_cutout)
                 ffp=sorted(glob.glob(aia_path+timestring+'/'+'map_t*_'+wstring+'.fits'))
                 #If still less than two files, quit.
                 if len(ffp)<2:
@@ -280,6 +282,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
             #Get data from each map
             wav_dn_s_px=[]
             wav_err_dn_s_px=[]
+            plotstop=plot
             for i in range(0,len(aprep)):
                 m = aprep[i]
                 if m.exposure_time == 0*u.s:
@@ -289,15 +292,16 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
                 deg = degs[w]
                 if real_aia_err:
                     wav_dn_s_px_, err = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
-                                                      input_aia_region_dict=input_aia_region_dict, plot=plot,
+                                                      input_aia_region_dict=input_aia_region_dict, plot=plotstop,
                                                       timestring=timestring, aia_path=aia_path, 
                                                       real_aia_err=real_aia_err, errortab=errortab)
                     wav_dn_s_px.append(wav_dn_s_px_)
                     wav_err_dn_s_px.append(err)
                 else:
                     wav_dn_s_px.append(map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region,
-                                                  input_aia_region_dict=input_aia_region_dict, plot=plot,
+                                                  input_aia_region_dict=input_aia_region_dict, plot=plotstop,
                                                   timestring=timestring, aia_path=aia_path))
+                plotstop=False
 
                 
              
@@ -370,8 +374,141 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
 
 
 
+def cutout_prep(time, bl, tr, wav=94, aia_path='./',
+               sample_every=45*u.s, clobber=False, sunpy_dir='./'):
+
+    """
+    –Download a single full disk image, then do standard prep to level 1.5, then make a submap. 
+    –Download all cutout files (with tracking, no registering), make map sequence from them.
+    –Reproject all cutout maps to the original level 1.5 submap, taking into account the need to use
+    use_spherical_screen (in case of off-disk components) and re-assign the metadata after reprojecting.
+    –Save resulting maps individually.
+    """
+
+
+
+    timestring = time[0].strftime('%H-%M-%S')
+    stopstring = time[1].strftime('%H-%M-%S')
+    timestring=timestring+'_'+stopstring
+
+
+    #Cutouts fail dramatically with Tracking = True if the center of the cutout is off the disk.
+    #Here, we scooch the other edge back farther onto the disk for cases where one side of the 
+    #cutout box goes a certain ways off the limb.
+    # print(bl)
+    # print(tr)
+
+    
+    for tt in [0,1]:
+        if np.abs(tr[tt].value) > 1200:
+            # print(tr[tt])
+            tr[tt] = 1200*tr[tt]/tr[tt].value
+            # print(tr[tt])
+            #bl[tt]-=200*u.arcsec
+        if np.abs(bl[tt].value) > 1200:
+            bl[tt] = 1200*bl[tt]/bl[tt].value
+            #tr[tt]+=200*u.arcsec
+
+    # print(bl)
+    # print(tr)
+    # print(tr[0]-(tr[0]-bl[0])/2, tr[1]-(tr[1]-bl[1])/2)
+
+    bottom_left = SkyCoord(bl[0], bl[1], obstime=time[0], observer="earth", frame="helioprojective")
+    top_right = SkyCoord(tr[0], tr[1], obstime=time[0], observer="earth", frame="helioprojective")
+    cutout = a.jsoc.Cutout(bottom_left, top_right=top_right, tracking=False)
+
+    #Get single full-disk for region adjustment selection
+    query = Fido.search(
+        a.Time(time[0], time[0] + 12*u.s),
+        a.Wavelength(wav*u.angstrom),
+        a.jsoc.Series.aia_lev1_euv_12s,
+        a.jsoc.Notify(jsoc_email),
+    )
+    
+    files = Fido.fetch(query, path=sunpy_dir)
+    files.sort()   
+
+    if not files:
+        #Get single full-disk for region adjustment selection
+        query = Fido.search(
+            a.Time(time[1]-12*u.s, time[1]),
+            a.Wavelength(wav*u.angstrom),
+            a.jsoc.Series.aia_lev1_euv_12s,
+            a.jsoc.Notify(jsoc_email),
+        )
+        
+        files = Fido.fetch(query, path=sunpy_dir)
+        files.sort()         
+
+    #Get single full-disk to level 1.5
+    m=sunpy.map.Map(files[0])
+    
+    ptab = get_pointing_table(m.date - 12 * u.h, m.date + 12 * u.h)
+    amap = update_pointing(m, pointing_table=ptab)
+    
+    try:
+        m = register(amap)
+    except TypeError:
+        amap.meta.pop('crpix1')
+        amap.meta.pop('crpix2')
+        print('CRPIX issue on ', files)
+        m = register(amap)
+    
+
+    #Make submap of full disk map that's the shape of the cutouts we want
+    bottom_left2 = SkyCoord(bl[0], bl[1], frame=m.coordinate_frame)
+    top_right2 = SkyCoord(tr[0], tr[1], frame=m.coordinate_frame)
+    msub = m.submap(bottom_left=bottom_left2, top_right=top_right2)
+
+
+    fig = plt.figure(figsize=(6,6))
+    ax = fig.add_subplot(projection=msub)
+    msub.plot(axes=ax)
+    #(region.to_pixel(subm.wcs)).plot(ax=ax, color='red')
+    norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see
+    plt.colorbar(norm=norm)
+    wvn="{0:d}".format(1000+m.meta['wavelnth'])
+    plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+wvn+'_input_region_aia_image.png')
+    
+
+    query = Fido.search(
+        a.Time(time[0], time[1]),
+        #a.Wavelength(171*u.angstrom),
+        a.Wavelength(wav*u.angstrom), 
+        a.Sample(sample_every),
+        a.jsoc.Series.aia_lev1_euv_12s,
+        a.jsoc.Notify(jsoc_email),
+        a.jsoc.Segment.image,
+        cutout,
+    )
+    
+    
+    files_c = Fido.fetch(query, path=sunpy_dir)
+    files_c.sort()
+    
+    aia_sequence = sunpy.map.Map(files_c, sequence=True)
+    
+    from sunpy.coordinates import propagate_with_solar_surface, Helioprojective
+    
+    aia_sequence_aligned_list = []
+    with propagate_with_solar_surface():
+        for mm in aia_sequence:
+            with Helioprojective.assume_spherical_screen(mm.observer_coordinate):
+                wvn="{0:d}".format(1000+mm.meta['wavelnth'])
+                wvn=wvn[1:]
+                filename = aia_path+timestring+'/map_t'+mm.date.strftime('%y-%m-%d_%H-%M-%S')+'_prep_'+wvn+'.fits'
+                checkfile = glob.glob(filename)
+                if bool(checkfile)==False or clobber==True:
+                    print('PREPPING MAP')
+                    nm = mm.reproject_to(msub.wcs)
+                    nm.meta = mm.meta    
+                    nm.save(filename, overwrite='True')
+
+
+
+
 def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle', clobber=False,
-                sunpy_dir='/Users/jessieduncan/sunpy/'):
+                sunpy_dir='/Users/jessieduncan/sunpy/', fetch_cutout=False):
     """
     Finds and downloads an AIA image in each of six channels shortly
     after the chosen time. Doesn't return anything– just downloads files.
@@ -396,6 +533,10 @@ def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle',
 	plot - set True to plot image maps for later reference
 	
 	clobber - set True to overwrite previously prepped files
+
+    fetch_cutout - set True to use bl, tr to request cutout AIA maps (rather than full-disk).
+                    The prep process is different here too, as standard prep from levels 1-1.5
+                    doesn't work for cutouts. 
 	
 	Returns
 	--------
@@ -418,7 +559,6 @@ def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle',
     print(wav)
     if bool(wav):
         waves=wav
-    in_dir = sunpy_dir
     fulldisk=True
     
     if method=='Middle':
@@ -428,105 +568,111 @@ def aia_for_DEM(time, bl, tr, wav=[], plot=True, aia_path='./', method='Middle',
         
     if method=='Average':
         time_range = time
-        sample_every=45*u.s
+        sample_every=10*u.s
         files=1
 
-    checker=0
-    print('Waves:', waves)
-    for w in waves:
-        if method=='Middle':
-            #Check for ANY files in the short time range selected around the midpoint of the full input time range
-            files = lc.gather_aia_files(
-                in_dir,
-                time_range, 
-                w,
-                fulldisk,
+
+    if fetch_cutout:
+        for wav in waves:
+            cutout_prep(time_range, bl, tr, wav=wav, aia_path=aia_path,
+                       sample_every=sample_every, clobber=clobber, sunpy_dir=sunpy_dir)
+    else:
+        checker=0
+        print('Waves:', waves)
+        for w in waves:
+            if method=='Middle':
+                #Check for ANY files in the short time range selected around the midpoint of the full input time range
+                files = lc.gather_aia_files(
+                    sunpy_dir,
+                    time_range, 
+                    w,
+                    fulldisk,
+                    )
+                #print(files)
+                if files != []:
+                    one_of_each.append(sunpy_dir+files[0])
+            if files == [] or method=='Average':
+                #If there are no files (Middle method) or if we're using the 'Average' method, look for all files in
+                #the short time range (in Middle case) or full time range (in Average case).
+                query = Fido.search(
+                    a.Instrument.aia,
+                    a.Physobs.intensity,
+                    a.Wavelength(w*u.angstrom),
+                    a.Time(time_range[0],time_range[1]),
+                    a.Sample(sample_every)
                 )
-            #print(files)
-            if files != []:
-                one_of_each.append(in_dir+files[0])
-        if files == [] or method=='Average':
-            #If there are no files (Middle method) or if we're using the 'Average' method, look for all files in
-            #the short time range (in Middle case) or full time range (in Average case).
-            query = Fido.search(
-                a.Instrument.aia,
-                a.Physobs.intensity,
-                a.Wavelength(w*u.angstrom),
-                a.Time(time_range[0],time_range[1]),
-                a.Sample(sample_every)
-            )
-            print(query)
-            if method=='Average' or query.file_num == 1:
-                print('LOOKING FOR + DOWNLOADING FILES')
-                #If we're averaging (or if the query returns only one file), download them all.
-                files = Fido.fetch(query, max_conn=1)
-                count=1
-                while files.errors != [] and count < 4:
-                    files = Fido.fetch(query[0], max_conn=1)
-                    count+=1
-                if count == 4:
-                    print('Failed to download this AIA file 4 times:')
-                    print(query[0])
-                    return
-                if method=='Middle':
-                    one_of_each.append(files[0])
-            
-            if method=='Middle' and query.file_num > 1:
-                #If we're not averaging, and there's more than one file, just download the first one.
-                files = Fido.fetch(query[0][0], max_conn=1)
-                count=1
-                while files.errors != [] and count < 4:
+                print(query)
+                if method=='Average' or query.file_num == 1:
+                    print('LOOKING FOR + DOWNLOADING FILES')
+                    #If we're averaging (or if the query returns only one file), download them all.
+                    files = Fido.fetch(query, max_conn=1)
+                    count=1
+                    while files.errors != [] and count < 4:
+                        files = Fido.fetch(query[0], max_conn=1)
+                        count+=1
+                    if count == 4:
+                        print('Failed to download this AIA file 4 times:')
+                        print(query[0])
+                        return
+                    if method=='Middle':
+                        one_of_each.append(files[0])
+                
+                if method=='Middle' and query.file_num > 1:
+                    #If we're not averaging, and there's more than one file, just download the first one.
                     files = Fido.fetch(query[0][0], max_conn=1)
-                    count+=1
-                if count == 4:
-                    print('Failed to download this AIA file 4 times:')
-                    print(query[0][0])
-                    return
-
-                one_of_each.append(files[0])
-                
-            if method=='Average':
-                #aiaprep all the maps for this wavelength, and save them for later!
-                amaps=sunpy.map.Map(files)
-                
-                #Only load the pointing table once
-                if checker == 0:
-                    ptab = get_pointing_table(amaps[0].date - 12 * u.h, amaps[0].date + 12 * u.h)
-                    checker+=1
+                    count=1
+                    while files.errors != [] and count < 4:
+                        files = Fido.fetch(query[0][0], max_conn=1)
+                        count+=1
+                    if count == 4:
+                        print('Failed to download this AIA file 4 times:')
+                        print(query[0][0])
+                        return
+    
+                    one_of_each.append(files[0])
                     
-                # aiaprep the images, may take a while to run
-                aprep=[]
-                for m in amaps:
-                    #Make saved versions of the maps for input into DEM code
-                    wvn="{0:d}".format(1000+m.meta['wavelnth'])
-                    wvn=wvn[1:]
-                    filename=aia_path+timestring+'/'+'map_t'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_prep_'+wvn+'.fits'
-                    checkfile = glob.glob(filename)
-                    if bool(checkfile)==False or clobber==True:
-                        print('PREPPING MAP')
-                        mm = prep_this_map(m, bl, tr, ptab, filename, save=True)
-
-    if method=='Middle':
-        
-        #sort into order based on file name (e.g. 94A will be last)
-        ffa=sorted(one_of_each)
-        amaps=sunpy.map.Map(ffa)
-
-        # Get the wavelengths of the maps, get index of sort for this list of maps and reorder
-        #(New order is increasing wavelength, ie 94A is first)
-        wvn0 = [m.meta['wavelnth'] for m in amaps]
-        srt_id = sorted(range(len(wvn0)), key=wvn0.__getitem__)
-        amaps = [amaps[i] for i in srt_id]
-
-        ptab = get_pointing_table(amaps[0].date - 12 * u.h, amaps[0].date + 12 * u.h)
-
-        # aiaprep the images, may take a while to run
-        for m in amaps:
-            #Make saved versions of the maps for input into DEM code
-            wvn="{0:d}".format(1000+m.meta['wavelnth'])
-            wvn=wvn[1:]
-            filename=aia_path+timestring+'/'+'maps_prep_'+wvn+'.fits'
-            mm = prep_this_map(m, bl, tr, ptab, filename, save=True, plot=plot)
+                if method=='Average':
+                    #aiaprep all the maps for this wavelength, and save them for later!
+                    amaps=sunpy.map.Map(files)
+                    
+                    #Only load the pointing table once
+                    if checker == 0:
+                        ptab = get_pointing_table(amaps[0].date - 12 * u.h, amaps[0].date + 12 * u.h)
+                        checker+=1
+                        
+                    # aiaprep the images, may take a while to run
+                    aprep=[]
+                    for m in amaps:
+                        #Make saved versions of the maps for input into DEM code
+                        wvn="{0:d}".format(1000+m.meta['wavelnth'])
+                        wvn=wvn[1:]
+                        filename=aia_path+timestring+'/'+'map_t'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_prep_'+wvn+'.fits'
+                        checkfile = glob.glob(filename)
+                        if bool(checkfile)==False or clobber==True:
+                            print('PREPPING MAP')
+                            mm = prep_this_map(m, bl, tr, ptab, filename, save=True)
+    
+        if method=='Middle':
+            
+            #sort into order based on file name (e.g. 94A will be last)
+            ffa=sorted(one_of_each)
+            amaps=sunpy.map.Map(ffa)
+    
+            # Get the wavelengths of the maps, get index of sort for this list of maps and reorder
+            #(New order is increasing wavelength, ie 94A is first)
+            wvn0 = [m.meta['wavelnth'] for m in amaps]
+            srt_id = sorted(range(len(wvn0)), key=wvn0.__getitem__)
+            amaps = [amaps[i] for i in srt_id]
+    
+            ptab = get_pointing_table(amaps[0].date - 12 * u.h, amaps[0].date + 12 * u.h)
+    
+            # aiaprep the images, may take a while to run
+            for m in amaps:
+                #Make saved versions of the maps for input into DEM code
+                wvn="{0:d}".format(1000+m.meta['wavelnth'])
+                wvn=wvn[1:]
+                filename=aia_path+timestring+'/'+'maps_prep_'+wvn+'.fits'
+                mm = prep_this_map(m, bl, tr, ptab, filename, save=True, plot=plot)
 
 
 
@@ -534,10 +680,34 @@ def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=False):
     """
     Takes in a map and a pointing table. AIAPREPs the map, and saves a fits version 
     if save==True. Plots the prepped map if plot==True. Returns the prepped map.
+
+    Note that this only works for a full disk AIA map. 
+    
     """
+
+    if m.fits_header['QUALITY'] != 0:
+        print('AIA file quality issue. Quality = ', m.fits_header['QUALITY'])
+        print('(on ', m.date, m.wavelength)
+        return
     
     #Update the pointing information for each map
-    m_temp = update_pointing(m, pointing_table=ptab)
+    #m_temp = update_pointing(m, pointing_table=ptab)
+    try:
+        print('here')
+        m_temp = update_pointing(m, pointing_table=ptab)
+        print('now here')
+    except TypeError:
+        m.meta.pop('crpix1')
+        m.meta.pop('crpix2')
+        print('CRPIX issue on ', m.date, m.wavelength)
+        m_temp = update_pointing(m, pointing_table=ptab)
+    except ValueError:
+        if m.fits_header['QUALITY'] != 0:
+            print('AIA file quality issue. Quality = ', m.fits_header['QUALITY'])
+            print('(on ', m.date, m.wavelength)
+            return
+
+            
     #converts lev1 map to lev1.5 map 
     #(see: https://aiapy.readthedocs.io/en/stable/api/aiapy.calibrate.register.html?highlight=register)
     m = register(m_temp)
@@ -546,26 +716,26 @@ def prep_this_map(m, bl, tr, ptab, filename, save=True, plot=False):
     top_right = SkyCoord(tr[0]+100*u.arcsec,tr[1]+100*u.arcsec, frame=m.coordinate_frame)
     mm = m.submap(bottom_left=bottom_left, top_right=top_right)
     
-    if plot:
-        #plot them to see
-        fig = plt.figure(figsize=(9, 7))
-        mm.plot() #cmap=cm.get_cmap('Spectral_r'))
+    # if plot:
+    #     #plot them to see
+    #     fig = plt.figure(figsize=(9, 7))
+    #     mm.plot() #cmap=cm.get_cmap('Spectral_r'))
         
-        coords = SkyCoord(
-            Tx=(bl[0], tr[0])*u.arcsec,
-            Ty=(bl[1], tr[1])*u.arcsec,
-            frame=mm.coordinate_frame,
-        )
+    #     coords = SkyCoord(
+    #         Tx=(bl[0], tr[0])*u.arcsec,
+    #         Ty=(bl[1], tr[1])*u.arcsec,
+    #         frame=mm.coordinate_frame,
+    #     )
 
 
-        mm.draw_quadrangle(
-            coords,
-            edgecolor="blue",
-            linestyle="-",
-            linewidth=2
-        )
+    #     mm.draw_quadrangle(
+    #         coords,
+    #         edgecolor="blue",
+    #         linestyle="-",
+    #         linewidth=2
+    #     )
         
-        plt.savefig(str(m.meta['wavelnth'])+'_aia_image.png')
+    #     plt.savefig(str(m.meta['wavelnth'])+'_aia_image.png')
     
     if save:
         #Make saved versions of the maps for input into DEM code
@@ -606,8 +776,6 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
 	
     """
     
-    
-    
     dur = m.meta['exptime']
     wav = m.meta['wavelnth']
     
@@ -641,8 +809,8 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
                 region_data['radius']
             )            
 
-        data = rf.get_region_data(subm, region, b_full_size=True)
-        data_mean = np.mean(data[np.where(data > 0)])
+        #data = rf.get_region_data(subm, region, b_full_size=True)
+        #data_mean = np.mean(data[np.where(data > 0)])
         
         if plot:
             fig = plt.figure(figsize=(6,6))
@@ -652,7 +820,11 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
             norm = colors.PowerNorm(0.5, 0, 1e3) # Define a different normalization to make it easier to see
             plt.colorbar(norm=norm)
             wvn="{0:d}".format(1000+m.meta['wavelnth'])
-            plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+wvn+'_input_region_aia_image.png')
+            plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_input_region_aia_image.png')
+
+        data = rf.get_region_data(subm, region, b_full_size=True)
+        data_mean = np.mean(data[np.where(data > 0)])
+
     
     channel = wav * u.angstrom
     
