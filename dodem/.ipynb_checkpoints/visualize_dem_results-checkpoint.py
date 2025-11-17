@@ -983,7 +983,7 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True,
     return powerlaws    
     
       
-def get_DEM_params(file, save_params_file=False):
+def get_DEM_params(file, save_params_file=False, inputs_only=False):
     
     """
     For a given dem results file, fetch assorted DEM result parameters 
@@ -1022,6 +1022,9 @@ def get_DEM_params(file, save_params_file=False):
         return 
 
     #if len(data['dn_in']
+    if inputs_only:
+        return (data['chanax'], data['dn_in'], data['edn_in'])
+        
     
     #MAIN DEM
     lowdem = (data['DEM']-np.array(data['edem'])[0,:])
@@ -1115,12 +1118,16 @@ def get_DEM_params(file, save_params_file=False):
     
 
     
-def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
+def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name,
+                        inputs_only=False):
     
     """
     For a list of time intervals (and other characteristic parameters, allowing us to find your existing DEM output 
     pickle files), get the DEM output parameters for every file and compile into
     lists which are then saved to a nice output dictionary.
+
+    If inputs_only is set True, look for dem inputs files (saved before doing DEM) and do a similar process for only 
+    values calculable from inputs only. 
     
     """
     
@@ -1146,7 +1153,28 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name):
 
     result_time_intervals=[]
 
+    if inputs_only:
+        for t in time_intervals:
+            timestring=make_timestring(t)
+            file=working_dir+\
+                    timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_inputs.pickle'
+            params=get_DEM_params(file, inputs_only=True)
+            if params is None:
+                #Moving on if there's no DEM result file
+                continue
+            chanax, dn_in, edn_in = params
+            result_time_intervals.append(t)
+            chanaxs.append(chanax)
+            dn_ins.append(dn_in)
+            edn_ins.append(edn_in)
+            
+        vals = {'chanaxs': chanaxs,
+                 'dn_ins': dn_ins,
+                  'edn_ins': edn_ins,
+                  'result_time_intervals': result_time_intervals}
+        return vals
 
+    
     for t in time_intervals:
         timestring=make_timestring(t)
         #print(timestring)

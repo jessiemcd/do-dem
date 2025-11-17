@@ -14,6 +14,14 @@ import images_and_coalignment as iac
 import nustar_dem_prep as nu
 
 
+def get_nustar_orbit_times(datapath):
+
+    import nustar_utilities as nuutil
+
+    evt_data, hdr = nu.return_submap(datapath=datapath, fpm='A', return_evt_hdr=True)
+    time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
+    
+    return time0, time1
 
 
 def goes_string(flux):
@@ -428,24 +436,64 @@ def manual_prep(key, file, plot=True, make_scripts=True,
 
 
 
-def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, plot_aia=False,
+def do_key_dem(key, file, 
+               missing_last=False, missing_orbit=4, 
+               plot_xrt=True, plot_aia=False,
                use_prepped_aia=True,
-              high_temp_analysis=False, rscl=True, 
+               high_temp_analysis=False, rscl=True, 
                do_no_xrt_version=False,
                do_onlyaia_version=False,
                do_aiaxrt_version=False,
               aia_region_dict={}, input_time_intervals=[],
-              pick_region=False, regionind=0):
+              pick_region=False, regionind=0,
+              save_inputs_file=False):
 
     """
-    Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
+    Keywords:
+    -----------
+    
+    key - obs. key (indexes dictionary contained in file)
+    file - saved by AR_inventory, contains dictionary of information about each included observation
+    
+    high_temp_analysis - set to do multiple DEMs, varying the temperature bounds at the high side
+    rscl - set True to do the rscl process
+    
+    missing_last - Set missing_last=True to trim time interval list to exclude the last interval in an orbit (missing_orbit)
     (useful due to some NCCS AIA data intervals slightly shorter than NuSTAR intervals). 
+    missing_orbit - the orbit for which to apply missing_last
+    
+    plot_aia, plot_xrt - passed to dodem, make plots of data for reference/troubleshooting.
+    do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version - set each True to do this kind of DEM. Only one should be set, or else they
+                                                                override eachother in order. 
+                                                                
+    save_inputs_file - Set to save DEM inputs, but NOT do DEM. Only works with high_temp_analysis=False (direct dodem call)
+    
+    AIA OPTIONS
+    use_prepped_aia - set True to use the AIA inputs saved in the file listed in the information dictionary for this key under 
+                        the key 'prepped_aia'.
+                       This is typically the method used with NCCS-output AIA files.
+     * if ^ False *
+    aia_region_dict - set to dictionary of AIA regions to download + prep AIA data while doing dem (new cutout implementation)
+    pick_region - set True to choose only one region to do DEMs of, within the above list.
+    regionind - the index of the region chosen (only used if pick_region = True)
+    
+    input_time_intervals - set to list of chosen time intervals to override the list of all available time intervals found via TIS.
+    
+    
+    
+    Other Notes:
+    
     
     """
 
 
     #Path to top-level do-dem directory - edit for your system.
-    path_to_dodem = '/Users/jmdunca2/do-dem/'
+    path_to_dodem = '/Users/jessieduncan/do-dem/'
+    
+    #Empty, so function call later doesn't fail even if these aren't updated. 
+    input_aia_region=""
+    input_aia_region_dict={}
+    fetch_cutout=False
 
     with open(file, 'rb') as f:
         data = pickle.load(f)
@@ -527,6 +575,10 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
     #---------------------------------
 
     name=key
+    
+    if len(np.where([do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version])[0]) > 1:
+        print('Please choose only one of do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version.')
+        return
 
     if do_no_xrt_version:
         name=key+'_no_xrt'
@@ -583,7 +635,7 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                         input_aia_region=[]
                         input_aia_region_dict=[]
 
-                else:
+                elif aia_region_dict:
                     fetch_cutout=True
                     data=[]
                     input_aia_region="circle"
@@ -593,7 +645,13 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                     region_input=input_aia_region_dict
                     bl, tr = [aia_region_dict[o]['centerx']-(300*u.arcsec), aia_region_dict[o]['centery']-(300*u.arcsec)], \
                             [aia_region_dict[o]['centerx']+(300*u.arcsec), aia_region_dict[o]['centery']+(300*u.arcsec)]
-     
+                else:
+                    print('Did not specify a working AIA method.')
+                    bl, tr = [], []
+                    data = []
+                    region_input=[]
+                    aia=False
+                    
                 
                 if high_temp_analysis:
                     dodem.high_temp_analysis(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name2=name,
@@ -631,6 +689,7 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                                             minT=minT, maxT=maxT,
                                             working_directory=working_dir,
                                             default_err=0.2, path_to_dodem=path_to_dodem,
+                                            save_inputs_file=save_inputs_file,
                     
                                             #demreg related
                                             rgt_fact=1.2, max_iter=30, rscl=rscl,
@@ -685,7 +744,8 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                         datas, bl, tr, xrt_region_inputs = res
                         data = datas['region'+str(i)]
                         region_input = xrt_region_inputs[i]
-                    else:
+                        
+                    elif aia_region_dict:
                         fetch_cutout=True
                         data=[]
                         aia_region_dict_=aia_region_dict[o][i]
@@ -697,6 +757,12 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                         apdw = 300
                         bl, tr = [aia_region_dict_['centerx']-(apdw*u.arcsec), aia_region_dict_['centery']-(apdw*u.arcsec)], \
                                 [aia_region_dict_['centerx']+(apdw*u.arcsec), aia_region_dict_['centery']+(apdw*u.arcsec)]
+                    else:
+                        print('Did not specify a working AIA method.')
+                        bl, tr = [], []
+                        data = []
+                        region_input=[]
+                        aia=False
 
 
 
@@ -733,11 +799,12 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
 
                                                  
                     else:
-                        #print('xrt is: ', xrt)
+                        print('xrt is: ', xrt)
                         dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
                                     minT=minT, maxT=maxT,
                                     working_directory=directories[i],
                                     default_err=0.2, path_to_dodem=path_to_dodem,
+                                    save_inputs_file=save_inputs_file,
             
                                     #demreg related
                                     rgt_fact=1.2, max_iter=30, rscl=rscl,
@@ -760,7 +827,6 @@ def do_key_dem(key, file, missing_last=False, missing_orbit=4, plot_xrt=True, pl
                                    xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                     xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
                                     input_xrt_region="circle", input_xrt_region_dict=region_input)
-
 
 
 
@@ -1352,8 +1418,17 @@ def check_for_flare(time, starts, stops):
     return flare
 
 
-def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True):
+def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True,
+                      specific_key_file=[]):
 
+    
+    if specific_key_file:
+        with open(specific_key_file, 'rb') as f:
+            data = pickle.load(f)
+        early_starts, late_stops = data['early_starts'], data['late_stops']
+        
+        return [early_starts, late_stops]
+        
     import pandas as pd
     import astropy.time as time
 
@@ -1604,10 +1679,11 @@ def do_stdv_analysis(key, file, show=True):
 
 
 
-def make_summary_lcs(key, file, flarepath='./reference_files/',
+def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_flares=False,
                      #method='input', 
                      show=True, goes=True,
-                    accthreshold=95, pre_dem_nustar_only=False):
+                    accthreshold=95, pre_dem_nustar_only=False,
+                    use_inputs_only=False):
 
     
     from matplotlib import pyplot as plt
@@ -1641,7 +1717,8 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
         
             time_intervals = all_time_intervals[ind]
             if not pre_dem_nustar_only:
-                vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key)   
+                vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key,
+                                               inputs_only=use_inputs_only)   
                 time_intervals = vals['result_time_intervals']
             
             if not time_intervals:
@@ -1691,20 +1768,21 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
                 
                 allcolors = lc.make_colors(10)
                 
-                ax=axes[0]
-                normin=1
-                for i in range(0, 6):  
-                    aiavals = [din[i] for din in dn_ins] 
-                    label = chanaxs[0][i]
-                    color = allcolors[i]
-                    normvals = np.array(aiavals)/np.max(aiavals)
-                    if np.min(normvals) < normin:
-                        normin=np.min(normvals)
-                    ax.stairs(normvals, times_, linewidth=lw, color=color, 
-                              label=label,
-                             baseline=None)
-                
-                ax.set_ylim([normin*0.95, 1.01])
+                if not use_inputs_only:
+
+                    ax=axes[0]
+                    normin=1
+                    for i in range(0, 6):  
+                        aiavals = [din[i] for din in dn_ins] 
+                        label = chanaxs[0][i]
+                        color = allcolors[i]
+                        normvals = np.array(aiavals)/np.max(aiavals)
+                        if np.min(normvals) < normin:
+                            normin=np.min(normvals)
+                        ax.stairs(normvals, times_, linewidth=lw, color=color, 
+                                  label=label,
+                                   baseline=None)
+                    ax.set_ylim([normin*0.95, 1.01])
                 
                 ax=axes[1]
                 normin=1
@@ -1721,33 +1799,34 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
                              baseline=None)
                 
                 ax.set_ylim([normin*0.95, 1.01])
-        
-        
+                
                 ax=axes[5]
-                above10s=np.array(vals['above10s'])
-                above10s_=above10s[:,0]
-                label='Total EM >10 MK'
-                ylabel='EM (cm^-5)'
-                color='Blue'
-                ax.stairs(above10s_, times_, linewidth=lw, color=color, 
+                if not use_inputs_only:
+                    ax=axes[5]
+                    above10s=np.array(vals['above10s'])
+                    above10s_=above10s[:,0]
+                    label='Total EM >10 MK'
+                    ylabel='EM (cm^-5)'
+                    color='Blue'
+                    ax.stairs(above10s_, times_, linewidth=lw, color=color, 
                               label=label,
                              baseline=None)
                 
-                quantity_low=above10s[:,1]
-                quantity_high=above10s[:,2]
+                    quantity_low=above10s[:,1]
+                    quantity_high=above10s[:,2]
                 
-                error=True
-                if error:
-                    lp = np.hstack([quantity_low, quantity_low[-1]])
-                    hp = np.hstack([quantity_high, quantity_high[-1]])
+                    error=True
+                    if error:
+                        lp = np.hstack([quantity_low, quantity_low[-1]])
+                        hp = np.hstack([quantity_high, quantity_high[-1]])
         
-                    fill = ax.fill_between(times_, lp, hp, step="post", 
+                        fill = ax.fill_between(times_, lp, hp, step="post", 
                                          color=color, alpha=0.1) 
                 
-                ax.set_ylabel(ylabel)
-                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
-                ax.set_yscale('log')
+                    ax.set_ylabel(ylabel)
+                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+                    ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=10))
+                    ax.set_yscale('log')
                 
                 comp_band=[1.8e22, 1.5e23, 'Ishikawa (2017) 95%']
                 comparisonbar=True
@@ -1932,10 +2011,15 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
                         
             
             plot_flares=True
-            plot_stdv_flares=True
+            if not specific_region_flares:
+                plot_stdv_flares=True
+                specific_key_file=[]
+            else:
+                plot_stdv_flares=False
+                specific_key_file=ARDict['flarefile']
             
             if plot_flares:
-                flare_res = get_saved_flares(flarepath=flarepath)
+                flare_res = get_saved_flares(flarepath=flarepath, specific_key_file=specific_key_file)
                 early_starts = flare_res[0]
                 late_stops = flare_res[1]
 
@@ -1961,7 +2045,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
 
 
             #Plot SAAs and Pointing Shifts #====================================================================================================
-            plot_badtimes=True
+            plot_badtimes=False
             if plot_badtimes:
                 import use_correlator as uc
                 import astropy.time
@@ -1989,14 +2073,16 @@ def make_summary_lcs(key, file, flarepath='./reference_files/',
             leg4 = axes[4].legend()
             leg5 = axes[5].legend()
             
+            for ax in axes:
+                ax.set_xlim(timerange[0], timerange[1])
             
-            plt.savefig(dd+obsid+'_lc_summary.png', transparent=False)
+            
+            plt.savefig(dd+obsid+'_lc_summary_new.png', transparent=False)
 
             if not show:
                 plt.close()
                 
         #print('')
-
 
 
 def check_avg_rej(tr, datapath, threshold=95):

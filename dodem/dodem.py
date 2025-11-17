@@ -41,7 +41,8 @@ errortab='/Users/jmdunca2/ssw/sdo/aia/response/aia_V3_error_table.txt'
 def dodem(time, bl, tr, 
           minT=5.8, maxT=7.5, dT=0.05, 
           xrt=True, aia=True, nustar=True, eis=False,
-          plotresp=False, just_prep=False, plotMK=False, name='',
+          plotresp=False, just_prep=False, save_inputs_file=False,
+          plotMK=False, name='',
           use_prior_prep=False, prior_name='', default_err=0.2, use_highTprep=False,
           path_to_dodem='./', working_directory='./',
           
@@ -167,6 +168,9 @@ def dodem(time, bl, tr,
     ---------------------------------------
     
     just_prep - for whatever combination of instruments used, return the DEM inputs after they are prepped (don't
+                actually do a DEM). 
+
+    save_inputs_file - for whatever combination of instruments used, save a pickle file with the DEM inputs (don't
                 actually do a DEM). 
     
     NuSTAR-related 
@@ -361,8 +365,9 @@ def dodem(time, bl, tr,
     if mc_in==True and just_prep==True:
         print('We will not get to DEMReg MCMC since we are exiting with data products for input elsewhere')
     
-    if aia==False and xrt==False:
-        print('Not set up to do a DEM without EITHER aia or xrt!')
+    if not np.any([aia, xrt, just_prep, save_inputs_file]):
+        print('Not set up to actually do a DEM without EITHER aia or xrt!')
+        print('If you just want to prep NuSTAR, set just_prep (returns inputs) or save_inputs_file.')
         return
             
     print('Start Time: ', time[0])
@@ -750,7 +755,22 @@ def dodem(time, bl, tr,
         #======================================================
         #Define the temperatures which will be used as DEM input 
         #+ make unified response matrix:
+        
+        if not np.any([aia, xrt]):
+            #NuSTAR ONLY TR matrix prep - note only for saving inputs!!
+            temps = nu_logt
+            nt=len(temps)
+            trmatrix=np.zeros((nt,nf))
+            added=0
+            #If including, add NuSTAR responses to response matrix
+            if nustar==True:
+                #Interpolate NuSTAR response at input temperatures
+                for i in range(0, len(nutrs)):
+                    intp_ntresp=10**np.interp(temps,nu_logt,np.log10(nu_tresp[:,i]))
+                    trmatrix[:,(added+i)]=intp_ntresp
+                added+=len(nutrs)
 
+        
 
         if aia: 
             #Temperatures to use: AIA response temperatures
@@ -812,15 +832,12 @@ def dodem(time, bl, tr,
     
     #======================================================        
     # Set up some colours for plotting
+    nnn=0
     if nustar:
-        clrs = make_DEM_colors(aia=aia, aia_exclude=aia_exclude, xrt=xrt, xrt_exclude=xrt_exclude,
-                                        nustar=nustar, nustar_number=len(nutrs),
-                                        eis=eis, eis_exclude=eis_exclude)
-    else:
-        clrs = make_DEM_colors(aia=aia, aia_exclude=aia_exclude, xrt=xrt, xrt_exclude=xrt_exclude,
-                                        nustar=nustar, eis=eis, eis_exclude=eis_exclude)
-            
-
+        nnn = len(nutrs)
+    clrs = make_DEM_colors(aia=aia, aia_exclude=aia_exclude, xrt=xrt, xrt_exclude=xrt_exclude,
+                                    nustar=nustar, nustar_number=nnn,
+                                    eis=eis, eis_exclude=eis_exclude)
     #======================================================
     
     
@@ -887,6 +904,61 @@ def dodem(time, bl, tr,
             for i in np.arange(0,len(temps70)-1)])
     
 
+
+    #======================================================
+    #Get temperatures sorted for when we plot
+    
+    if plotMK == True:
+        #T in MK
+        mkt = 10**np.array(mlogt70)/1e6
+        mkt_ = 10**np.array(temps)/1e6
+        mmkt = 10**np.array(temps70)/1e6
+    else:
+        mkt = np.array(mlogt70)
+        mkt_ = np.array(temps)
+        mmkt = np.array(temps70)
+        
+    #======================================================
+
+                
+    #======================================================
+    
+      
+    #Save inputs (outputs added later)
+    data = {'time_interval': time,
+            'nuenergies': nuenergies,
+            'nufpm': fpm,
+            'temp_interval': [minT, maxT],
+            'plotMK': plotMK,
+            'ts': mkt,
+            'ts_': mkt_,
+            'mts': mmkt,
+            'trmatrix': trmatrix,
+            'dn_in': dn_in,
+            'edn_in': edn_in,
+            'chanax': chanax,
+            'nustar_datapath': datapath
+               }
+    
+    
+    if save_inputs_file:
+        inputsfile = working_directory+\
+                        timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+'_'+name+'_inputs.pickle'
+        #Save to file
+        with open(inputsfile, 'wb') as f:
+            # Pickle the 'data' dictionary using the highest protocol available.
+            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+        return
+        
+        
+        
+    if not np.any([aia, xrt]):
+    	print("No NuSTAR only DEMs, returning!")
+    	return
+
+    #======================================================
+
+    
 #     print('')
 #     print('DEM Inputs:')
 #     print('-Rates, Rate errors')
@@ -937,38 +1009,7 @@ def dodem(time, bl, tr,
             
     #======================================================
     
-    #======================================================
-    #Get temperatures sorted for when we plot
-    
-    if plotMK == True:
-        #T in MK
-        mkt = 10**np.array(mlogt70)/1e6
-        mkt_ = 10**np.array(temps)/1e6
-        mmkt = 10**np.array(temps70)/1e6
-    else:
-        mkt = np.array(mlogt70)
-        mkt_ = np.array(temps)
-        mmkt = np.array(temps70)
-        
-    #======================================================
-      
-    #Save inputs (outputs added later)
-    data = {'time_interval': time,
-            'nuenergies': nuenergies,
-            'nufpm': fpm,
-            'temp_interval': [minT, maxT],
-            'plotMK': plotMK,
-            'ts': mkt,
-            'ts_': mkt_,
-            'mts': mmkt,
-            'trmatrix': trmatrix,
-            'dn_in': dn_in,
-            'edn_in': edn_in,
-            'chanax': chanax,
-            'nustar_datapath': datapath
-               }
 
-    #======================================================
     #Do MCMC if set (& plot, & finish)
     
 #     fig = plt.figure(figsize=(9, 12), tight_layout = {'pad': 1})
