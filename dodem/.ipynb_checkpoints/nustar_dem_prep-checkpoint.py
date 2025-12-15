@@ -1173,7 +1173,7 @@ def edit_gti(gti_file, newstart, newstop, newfile):
 
     
 
-def plot_grade_spectra(working_dir, timestring, fpm):
+def plot_grade_spectra(working_dir, timestring, fpm, return_spec=False):
 
     """
     Wrapper to plot spectra.
@@ -1181,29 +1181,32 @@ def plot_grade_spectra(working_dir, timestring, fpm):
     
     #unphysical grades
     arf_files_unphys, rmf_files_unphys, pha_files_unphys = find_nuproducts(working_dir, timestring, fpm,
-                                                                               special_pha=False, grade='21_24')
+                                                                               special_pha=False, grade='21_24', shush=True)
     engs,cnts_u,lvtm,ontim=nuutil.read_pha(pha_files_unphys[0]) 
 
     #Grade 0 files: 
 
-    arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0')
-    engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
+    # arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0')
+    # engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
     
-    fig=plt.figure(figsize=(10,5))
-    plt.plot(engs, (cnts-0.25*cnts_u), label='corr')
-    plt.plot(engs, cnts, label='og grade 0')
-    plt.plot(engs, cnts_u, label='unphys')
-    plt.yscale('log')
-    plt.xlim([0,13])
-    plt.legend()
-    plt.savefig(working_dir+timestring+'/'+timestring+fpm+'pile_up.png')
-    plt.close(fig)
+    # fig=plt.figure(figsize=(10,5))
+    # plt.plot(engs, (cnts-0.25*cnts_u), label='corr')
+    # plt.plot(engs, cnts, label='og grade 0')
+    # plt.plot(engs, cnts_u, label='unphys')
+    # plt.yscale('log')
+    # plt.xlim([0,13])
+    # plt.legend()
+    # plt.savefig(working_dir+timestring+'/'+timestring+fpm+'pile_up.png')
+    # plt.close(fig)
 
 
     #Grade 0-4 files: 
     
-    arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0')
+    arf_files, rmf_files, pha_files = find_nuproducts(working_dir, timestring, fpm, grade='0_4', shush=True)
     engs,cnts,lvtm,ontim=nuutil.read_pha(pha_files[0])
+
+    if return_spec:
+        return engs, cnts, cnts_u
     
     fig=plt.figure(figsize=(10,5))
     plt.plot(engs, (cnts-(5./4)*cnts_u), label='corr')
@@ -1213,7 +1216,9 @@ def plot_grade_spectra(working_dir, timestring, fpm):
     plt.xlim([0,13])
     plt.legend()
     plt.savefig(working_dir+timestring+'/'+timestring+fpm+'_adjacent_pile_up.png')   
-    plt.close(fig)
+    #plt.close(fig)
+
+
 
 
 

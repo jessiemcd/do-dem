@@ -998,10 +998,17 @@ def get_saved_intervals(timerange, lctype='grade0', basedir='./', countmin=10, e
 
 
 
-def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orbit=0):
+def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orbit=0,
+                      return_files=False):
 
     """
-    Just to take a look at all the intervals found for all the suborbits.
+    Just to take a look at all the intervals found for all the orbits.
+
+    Returns:
+    ---------
+    all_time_intervals - a list with, for every "*intervals.pickle" file (assumed: for every sucessful-TIS orbit)
+                            a list of the time intervals it contains.
+    all_time_intervals_list - a "1D" list of all the time intervals in every orbit. 
     
     """
     
@@ -1027,6 +1034,10 @@ def find_all_intervals(working_dir, shush=False, missing_last=False, missing_orb
         orbit+=1
         if shush==False:
             print('')
+
+    if return_files:
+        return all_time_intervals, all_time_intervals_list, all_intervals 
+        
         
     return all_time_intervals, all_time_intervals_list
 
@@ -1036,6 +1047,15 @@ def region_time_intervals(region_dirs, id_dirs, shush=True, list_=False):
     """
     Wrapper for find_all_intervals that deals with the case that TIS may have suceeded/failed for different
     sets of orbits for different regions (when using more than one region). 
+
+    Returns:
+    ---------
+    all_all_time_intervals - a list with an entry for every region, each containing:
+                                        a list with an entry for every "*intervals.pickle" file 
+                                        (assumed: for every sucessful-TIS orbit), each containing:
+                                                a list of the time intervals it contains.
+                                                
+    fixit - True if at least one orbit failed in some region.  
     """
     #Find all time intervals for each region and make a big nested list
     all_all_time_intervals=[]

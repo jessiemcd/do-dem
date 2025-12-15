@@ -290,31 +290,31 @@ def aia_search_fido(midtime):
     return m
 
 
-def find_region_dirs(working_dir):
+# def find_region_dirs(working_dir):
     
-    region_dirs = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
-    region_dirs.sort()
+#     region_dirs = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
+#     region_dirs.sort()
     
-    return region_dirs
+#     return region_dirs
 
-def find_direction_dirs(working_dir, sep_axis):
+# def find_direction_dirs(working_dir, sep_axis):
 
-    if sep_axis=='EW':
-        directions = ['east', 'west']
-    elif sep_axis=='SN':
-        directions = ['south', 'north']
+#     if sep_axis=='EW':
+#         directions = ['east', 'west']
+#     elif sep_axis=='SN':
+#         directions = ['south', 'north']
 
-    region_dirs = []
-    for d in directions:
-        region_dirs.append(working_dir+d+'/')
+#     region_dirs = []
+#     for d in directions:
+#         region_dirs.append(working_dir+d+'/')
     
-    return region_dirs
+#     return region_dirs
 
 
     
 
 
-def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps, nushift=[20,0],
+def per_orbit_region_adjustment(ARDict, orbit_ind, aiamaps, nushift=[20,0],
                                method='input', shush=False, sep_axis='', show=True, pick_region=False,
                                regionind=0):
 
@@ -326,18 +326,26 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
     Do this for every orbit, then run make_all_aia_dicts() to make aia region files for all time intervals 
     in all orbits (ready for upload to the NCCS, or wherever AIA data is being prepped based on region inputs. 
     """
+
+    working_dir = ARDict['working_dir']
+    id_dirs = ARDict['datapaths']
+    obsids = ARDict['obsids']
+    region_dirs = ARDict['directories']
+    all_all_time_intervals = ARDict['per_region_all_time_intervals']
+
+    #print(region_dirs)
     
     import copy
-    import time_interval_selection as tis
+    #import time_interval_selection as tis
 
     if method=='input' or method =='double':
         #Find the top level directory for each region
-        if method=='input':
-            region_dirs = find_region_dirs(working_dir)
-        if method=='double':
-            region_dirs = find_direction_dirs(working_dir, sep_axis)
-            #print(region_dirs)
-        all_all_time_intervals, fixit = tis.region_time_intervals(region_dirs, id_dirs, shush=shush)
+        # if method=='input':
+        #     region_dirs = find_region_dirs(working_dir)
+        # if method=='double':
+        #     region_dirs = find_direction_dirs(working_dir, sep_axis)
+        #     #print(region_dirs)
+        # all_all_time_intervals, fixit = tis.region_time_intervals(region_dirs, id_dirs, shush=shush)
 
         #return all_all_time_intervals
         
@@ -351,16 +359,18 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
             except IndexError:
                 first_intervals=[]
                 copyintervals = []
-                if fixit:
-                    intervals = [at[orbit_ind] for at in all_all_time_intervals]
-                    for intr in intervals:
-                        if intr:
-                            first_intervals.append(intr[0])
-                            copyintervals.append(intr[0])
-                        else:
-                            copyintervals.append('')
+                #if fixit:
+                intervals = [at[orbit_ind] for at in all_all_time_intervals]
+                for intr in intervals:
+                    if intr:
+                        first_intervals.append(intr[0])
+                        copyintervals.append(intr[0])
+                    else:
+                        first_intervals.append([])
+                        copyintervals.append('')
     
             if pick_region:
+                #print(first_intervals)
                 time_interval = first_intervals[regionind]
                 region_dir = region_dirs[regionind]
             else:
@@ -375,10 +385,11 @@ def per_orbit_region_adjustment(working_dir, id_dirs, obsids, orbit_ind, aiamaps
             time_interval = all_all_time_intervals[0][orbit_ind][0]
             region_dir = region_dirs[0]
 
-    print(region_dir)
+    #print(region_dir)
 
     if method=='fit':
-        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=shush)
+        all_time_intervals = all_all_time_intervals[0]
+        #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=shush)
         time_interval = all_time_intervals[orbit_ind][0]
         #irrelevant in this case:
         region_dir=''
@@ -441,8 +452,8 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
             #regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
             regionfileA = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
             regionfileB = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
-            print(regionfileA)
-            print(regionfileB)
+            #print(regionfileA)
+            #print(regionfileB)
             
         if regionmethod=='double':
             regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')

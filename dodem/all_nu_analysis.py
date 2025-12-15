@@ -7,7 +7,6 @@ path_to_dodem = '/Users/jmdunca2/do-dem/'
 from sys import path as sys_path
 sys_path.append(path_to_dodem+'/dodem/')
 
-import time_interval_selection as tis
 import visualize_dem_results as viz
 import gauss2D as g2d
 import images_and_coalignment as iac
@@ -305,6 +304,7 @@ def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
 
 
     ARDict['gauss_stats'] = gauss_stats
+    ARDict['directories']=[working_dir]
 
     data[key] = ARDict
     
@@ -313,6 +313,7 @@ def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
              pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
     if make_scripts:
+        import time_interval_selection as tis
         #where: where to find templates + place scripts.
         tis.make_tis_scripts(obsids, key, where='./scripts/')  
 
@@ -353,6 +354,19 @@ def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', 
 
     ARDict['gauss_stats'] = gauss_stats
 
+    sep_axis = gauss_stats[0][0]
+    if sep_axis=='EW':
+        directions = ['east', 'west']
+    elif sep_axis=='SN':
+        directions = ['south', 'north']
+    
+    directories=[]    
+    for r in directions:
+        directories.append(working_dir+'/'+r+'/')
+
+    ARDict['directories'] = directories
+    
+
     data[key] = ARDict
     
     with open(file, 'wb') as f:
@@ -360,6 +374,7 @@ def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', 
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
     if make_scripts:
+        import time_interval_selection as tis
         ##where: where to find templates + place scripts.
         tis.make_tis_scripts(obsids, key, where='./scripts/', tworegion=True)   
     
@@ -423,13 +438,25 @@ def manual_prep(key, file, plot=True, make_scripts=True,
 
     ARDict['region_stats'] = region_stats
 
+    import glob
+    import os
+    directories = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
+    directories.sort()
+
+    print('dirs', directories)
+
+    ARDict['directories'] = directories
+
     data[key] = ARDict
+
+    print(ARDict)
     
     with open(file, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL) 
 
     if make_scripts:
+        import time_interval_selection as tis
         ##where: where to find templates + place scripts.
         tis.make_tis_scripts(obsids, key, where='./scripts/', manualregion=True)  
     
@@ -472,8 +499,12 @@ def do_key_dem(key, file,
     use_prepped_aia - set True to use the AIA inputs saved in the file listed in the information dictionary for this key under 
                         the key 'prepped_aia'.
                        This is typically the method used with NCCS-output AIA files.
-     * if ^ False *
+     * if ^ False: *
     aia_region_dict - set to dictionary of AIA regions to download + prep AIA data while doing dem (new cutout implementation)
+                        fit method: expects a 1D list of dictionaries for each orbit.
+                        other methods: expects a nested list: regions, then orbits.
+
+                            
     pick_region - set True to choose only one region to do DEMs of, within the above list.
     regionind - the index of the region chosen (only used if pick_region = True)
     
@@ -515,20 +546,25 @@ def do_key_dem(key, file,
 
 
     if method in ['input', 'double']:
-        directories = get_region_directories(key, targets_file=file)
-        print('1',directories)
-        all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)        
+        directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
+        #print('1',directories)
+        all_all_time_intervals = ARDict['per_region_all_time_intervals']
+        #, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)        
         if pick_region:
             directories = [directories[regionind]]
-            print('2', directories)
+            all_all_time_intervals = [all_all_time_intervals[regionind]]
+            
+            #print('2', directories)
+            print(regionind, all_all_time_intervals)
 
         
 
     if method=='fit':
         onegauss=True
         regfile=path_to_dodem+'starter_region.reg'
-        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
-                                                                        missing_last=missing_last, missing_orbit=missing_orbit)
+        all_time_intervals = ARDict['per_region_all_time_intervals'][0]
+        #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
+        #                                                                missing_last=missing_last, missing_orbit=missing_orbit)
 
     
     if input_time_intervals:
@@ -724,7 +760,8 @@ def do_key_dem(key, file,
             regfiles.sort()
             if pick_region:
                 regfiles = [regfiles[regionind]]
-            
+
+            #for each region (note: with pick_region, only the one region)
             for i in range(0, len(directories)):
                 #Time intervals for this region, orbit
                 time_intervals = all_all_time_intervals[i][o]
@@ -736,6 +773,7 @@ def do_key_dem(key, file,
 
 
                 for time in time_intervals:
+                    print(time)
                     if use_prepped_aia:
                         res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
                         if res is None:
@@ -748,7 +786,8 @@ def do_key_dem(key, file,
                     elif aia_region_dict:
                         fetch_cutout=True
                         data=[]
-                        aia_region_dict_=aia_region_dict[o][i]
+                        aia_region_dict_=aia_region_dict[i][o]
+                        print(aia_region_dict_)
                         input_aia_region="circle"
                         input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
                                                'radius': aia_region_dict_['radius']*u.arcsec
@@ -852,14 +891,16 @@ def get_key_resultfiles(key, file, fromhome=False,
         working_dir = ARDict['working_dir']
         # prepped_aia_dir = ARDict['prepped_aia']
         method = ARDict['method']
+        directories = ARDict['directories']
         
         if method in ['input', 'double']:
-            directories = get_region_directories(key, targets_file=file)
+            #directories = get_region_directories(key, targets_file=file)
             #all_all_time_intervals is a list... 
             #       with entries (lists) for each directory/region
             #             those lists have entries (lists) for each orbit
             #                   those lists have entries for each time interval.
-            all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
+            all_all_time_intervals = ARDict['per_region_all_time_intervals']
+            #all_all_time_intervals , fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
 
 
 
@@ -881,7 +922,7 @@ def get_key_resultfiles(key, file, fromhome=False,
                             #print(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                             fs = glob.glob(dir_+'/'+timestring+'/'+'*5.6_7.2*'+namesearchstring+'*.pickle')
                             files = [f for f in fs if 'withparams' not in f]
-                            
+
                         try:
                             d_files.append(files[0])
                         except IndexError:
@@ -898,7 +939,8 @@ def get_key_resultfiles(key, file, fromhome=False,
         
         if method=='fit':
             res_files=[]
-            all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True)
+            all_time_intervals = ARDict['per_region_all_time_intervals'][0]
+            #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True)
             for ot in range(0, len(all_time_intervals)):
                 orbittimes = all_time_intervals[ot]  
                 for tt in orbittimes:
@@ -1479,9 +1521,10 @@ def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=Tr
 
 def make_orbit_plots(working_dir, key, minT=5.6, maxT=7.2, show=False):
 
-    
-    all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
-                                                                        missing_last=False)
+
+    all_time_intervals = ARDict['per_region_all_time_intervals'][0]
+    #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
+    #                                                                    missing_last=False)
     print(len(all_time_intervals))
     
     
@@ -1569,44 +1612,129 @@ def make_orbit_plots(working_dir, key, minT=5.6, maxT=7.2, show=False):
 
 
 
+def post_tis_info_dump(key, file, 
+                       flarepath='/Users/jmdunca2/do-dem/reference_files/'):
 
 
-
-def get_region_directories(key, targets_file='./all_targets.pickle'):
-
-    import glob
-    import os
-
-    with open(targets_file, 'rb') as f:
-        data = pickle.load(f)
-
-    ARDict = data[key]
-    working_dir = ARDict['working_dir']
-
-    method = ARDict['method']
-    #print(method)
+    """
+    After we do time interval selection, we have lists of sucessful time intervals saved. This wrapper
+    uses existing functions to save lists of all time intervals as well as quiescent time intervals for
+    each observation key, so we don't have to keep fetching them later.
     
-    if method=='fit':
-        directories=[working_dir]
+    """
+    import time_interval_selection as tis
+
+    early_starts, late_stops = get_saved_flares(flarepath=flarepath, 
+                                                add_stdv_flares=True, add_manual_flares=True)
+    
+    with open(file, 'rb') as f:
+        all_targets = pickle.load(f)
+    ARDict = all_targets[key]
+
+    method=ARDict['method']
+    id_dirs = ARDict['datapaths']
+    directories = ARDict['directories']
+
+    all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
+
+    all_all_good_times = []
+    for aat in all_all_time_intervals:
+        all_good_times = get_good_stats(aat, early_starts, late_stops, check_acc=False)    
+        all_all_good_times.append(all_good_times)
+        
+    #Updates to obs-key dictionary:
+    ARDict['per_region_all_time_intervals'] = all_all_time_intervals
+    ARDict['per_region_quiet_time_intervals'] = all_all_good_times
+
+    all_targets[key] = ARDict
+    
+    with open(file, 'wb') as f:
+        # Pickle the 'data' dictionary using the highest protocol available.
+        pickle.dump(all_targets, f, pickle.HIGHEST_PROTOCOL) 
 
 
-    if method=='input':
-        directories = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
-        directories.sort()
+def get_good_stats(all_time_intervals, flarestarts, flarestops, 
+                   check_acc=True, shush=True):
+    
+    accthreshold=95
+    
+    all_good_times=[]
+    total_duration=0*u.s
+    orbit_durations=[]
+    for at in range(0, len(all_time_intervals)):
+        orbit_good_times=[]
+        orbit_duration=0*u.s
+        for tr in all_time_intervals[at]:
+            #print(tr)
+            if check_acc:
+                meanevsum, checkacc = check_avg_rej(tr, id_dirs[at], threshold=accthreshold)
+                flare = check_for_flare(tr, flarestarts, flarestops)
+                if checkacc and flare == False:
+                    dur = (tr[1]-tr[0]).to(u.s)
+                    if not shush:
+                        print(tr[0].strftime('%Y-%m-%d %H:%M:%S'), tr[1].strftime('%H:%M:%S'))
+                        print(dur)
+                    orbit_duration += dur
+                    orbit_good_times.append(tr)
+            else:
+                flare = check_for_flare(tr, flarestarts, flarestops)
+                if flare == False:
+                    dur = (tr[1]-tr[0]).to(u.s)
+                    if not shush:
+                        print(tr[0].strftime('%Y-%m-%d %H:%M:%S'), tr[1].strftime('%H:%M:%S'))
+                        print(dur)
+                    orbit_duration += dur
+                    orbit_good_times.append(tr)
+                
+                
+        orbit_durations.append(orbit_duration)
+                
+        all_good_times.append(orbit_good_times)
+        total_duration+=orbit_duration
 
-    if method=='double':
-        gauss_stats = ARDict['gauss_stats']
-        sep_axis = gauss_stats[0][0]
-        if sep_axis=='EW':
-            directions = ['east', 'west']
-        elif sep_axis=='SN':
-            directions = ['south', 'north']
+    if not shush:
+        print('Total duration: ', total_duration.to(u.min))
+        for at in range(0, len(all_time_intervals)):
+            print('Orbit ', at, '– good intervals: ', len(all_good_times[at]), ' duration: ', orbit_durations[at].to(u.min))
+
+    return all_good_times
+
+
+# def get_region_directories(key, targets_file='./all_targets.pickle'):
+
+#     import glob
+#     import os
+
+#     with open(targets_file, 'rb') as f:
+#         data = pickle.load(f)
+
+#     ARDict = data[key]
+#     working_dir = ARDict['working_dir']
+
+#     method = ARDict['method']
+#     #print(method)
+    
+#     if method=='fit':
+#         directories=[working_dir]
+
+
+#     if method=='input':
+#         directories = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
+#         directories.sort()
+
+#     if method=='double':
+#         gauss_stats = ARDict['gauss_stats']
+#         sep_axis = gauss_stats[0][0]
+#         if sep_axis=='EW':
+#             directions = ['east', 'west']
+#         elif sep_axis=='SN':
+#             directions = ['south', 'north']
             
-        directories=[]    
-        for r in directions:
-            directories.append(working_dir+'/'+r+'/')
+#         directories=[]    
+#         for r in directions:
+#             directories.append(working_dir+'/'+r+'/')
 
-    return directories
+#     return directories
 
 
 def do_stdv_analysis(key, file, show=True):
@@ -1622,14 +1750,14 @@ def do_stdv_analysis(key, file, show=True):
     id_dirs = ARDict['datapaths']
     obsids = ARDict['obsids']
     method = ARDict['method']
-    directories = get_region_directories(key, targets_file=file)
+    directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
 
     all_newwindows=[]
 
     for dd in directories:
     
-        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(dd, shush=True, 
-                                                                            missing_last=False)
+        all_time_intervals = ARDict['per_region_all_time_intervals'][0]
+        #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(dd, shush=True,                                                                    missing_last=False)
     
         for ind in range(0, len(all_time_intervals)):
             datapath=id_dirs[ind]
@@ -1704,12 +1832,14 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
     ARDict = data[key]
     
     id_dirs = ARDict['datapaths']
-    directories = get_region_directories(key, targets_file=file)
+    directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
 
+    dirnum=0
     for dd in directories:
     
-        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(dd, shush=True, 
-                                                                            missing_last=False)
+        all_time_intervals = ARDict['per_region_all_time_intervals'][dirnum]
+        dirnum+=1
+        #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(dd, shush=True,  missing_last=False)
     
         for ind in range(0, len(all_time_intervals)):
             
@@ -2382,12 +2512,13 @@ def plot_temp_consistency(key='', file='all_targets.pickle', time_weighted=True,
         
     
     if method in ['input', 'double']:
-        directories = get_region_directories(key, targets_file=file)
+        directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
         #all_all_time_intervals is a list... 
         #       with entries (lists) for each directory/region
         #             those lists have entries (lists) for each orbit
         #                   those lists have entries for each time interval.
-        all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
+        all_all_time_intervals = ARDict['per_region_all_time_intervals'] 
+        #all_all_time_intervals, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)
 
 
         #for each directory
@@ -2538,7 +2669,8 @@ def plot_temp_consistency(key='', file='all_targets.pickle', time_weighted=True,
             
     
     if method=='fit':
-        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True)
+        all_time_intervals = ARDict['per_region_all_time_intervals'][0]
+        #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True)
 
         all_sumcons=[]
         all_sumcons_non=[]
@@ -2790,6 +2922,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
     
     
     for key in keys:
+        print(key)
         conditions = ['onlyaia', 'aiaxrt', 'no_xrt', key+'_MC']
         #conditions = ['onlyaia', 'no_xrt']
         lenranges = [[6,6], [7,9], [9,9], [9,12]]
@@ -2798,7 +2931,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
         dictz[key+' region_0'] = {'key': key}
         if len(ardict['loc']) == 2:
             dictz[key+' region_1'] = {'key': key}
-            
+            print('loc2')
             
         
         for c in range(0, len(conditions)):
@@ -2808,6 +2941,8 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                                 withparams=False,
                                 namesearchstring=cc,
                                 shush=True)
+
+            print(tworegions)
     
             if c == 3:
                 cc = 'all-inst'
@@ -2850,7 +2985,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                                 rejfiles.append(r.split('.p')[-2]+'_withparams.pickle')
                                 rejtimes.append(time)
                         
-        
+
                     dictz[key+' '+reglab]['flare files '+cc] = flarefiles
                     dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
                     dictz[key+' '+reglab]['flare times '] = flaretimes
@@ -2903,7 +3038,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                             rejfiles.append(r.split('.p')[-2]+'_withparams.pickle')
                             rejtimes.append(time)
                     
-        
+
                 dictz[key+' '+reglab]['flare files '+cc] = flarefiles
                 dictz[key+' '+reglab]['quiet files '+cc] = quietfiles
                 dictz[key+' '+reglab]['flare times '] = flaretimes
@@ -2924,7 +3059,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
 
 def print_stats(dictt):
 
-    print(dictt['key'])
+
     print('Flare-time only-AIA DEMS: ', len(dictt['flare files onlyaia']))
     print('Quiet-time only-AIA DEMS: ', len(dictt['quiet files onlyaia']))
     print('Flare-time AIA+XRT DEMS: ', len(dictt['flare files aiaxrt']))
@@ -2943,6 +3078,6 @@ def print_stats(dictt):
     #print('')
 
 
-    return (totany > 0), (totxrt > 0)
+    return (totany > 0), (totxrt > 0), (len(dictt['quiet files all-inst']) > 0)
     
     
