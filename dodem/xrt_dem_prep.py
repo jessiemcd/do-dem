@@ -780,7 +780,7 @@ def gather_xrt_files(
                 hdr = hdu[0].header
                 obs_time = astropy.time.Time(hdr['DATE_OBS'], format='isot')
                 if obs_time >= time_range[0] and obs_time <= time_range[1]:
-                    if hdr['EC_FW1_'] == filter_:
+                    if hdr['EC_FW1_'] == filter_ and hdr['EC_FW2_'] == 'Open':
                         times.append(obs_time)
                         files.append(f)
         except OSError as e: # Catch empty or corrupted fits files
@@ -796,7 +796,7 @@ def gather_xrt_files(
                     obs_time = astropy.time.Time(hdr['DATE_OBS'], format='isot')
                     #print(hdr)
                     if obs_time >= time_range[0] and obs_time <= time_range[1]:
-                        if hdr['EC_FW1_'] == filter_:
+                        if hdr['EC_FW1_'] == filter_ and hdr['EC_FW2_'] == 'Open':
                             times.append(obs_time)
                             gmfiles.append(f)
             except OSError as e: # Catch empty or corrupted fits files
@@ -852,6 +852,10 @@ def get_region_data(map_obj: sunpy.map.Map,
     #Make a RegionMask object (array with overlap of region on the pixel grid)
     reg_mask=reg_mask.to_mask()
 
+    #print('nim: ', len(np.where(reg_mask.data == 1.0)[0]))
+
+    numpix_inc_mask = len(np.where(reg_mask.data == 1.0)[0])
+
     #Get x,y bounds of the region mask on the map_data
     xmin, xmax = reg_mask.bbox.ixmin, reg_mask.bbox.ixmax
     ymin, ymax = reg_mask.bbox.iymin, reg_mask.bbox.iymax
@@ -865,16 +869,17 @@ def get_region_data(map_obj: sunpy.map.Map,
         print('No overlap between region and XRT image! Returning.')
         return
 
+    #print(np.min(co), np.max(co))
 
     #map_obj.plot()
 
     #Commented out - helpful plots to understand what's going on.
-    # fig, ax = plt.subplots(figsize=(6,6))
-    # plt.imshow(reg_mask)
+    #fig, ax = plt.subplots(figsize=(6,6))
+    #plt.imshow(reg_mask)
 
-    # fig, ax = plt.subplots(figsize=(6,6))
-    # print(co.shape)
-    # plt.imshow(co)
+    #fig, ax = plt.subplots(figsize=(6,6))
+    #print(co.shape)
+    #plt.imshow(co)
 
     # print('below 0s: ', 'unique: ', np.unique(co[np.where(co < 0)]), ' total: ', co[np.where(co < 0)].size)
     # print(co)
@@ -903,6 +908,22 @@ def get_region_data(map_obj: sunpy.map.Map,
     #region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
     
     region_data = np.where(reg_mask.data==1, co, fill_value)
+
+    #print('nic: ', len(np.where(reg_mask.data == 1.0)[0]))
+    numpix_inc_crop = len(np.where(region_data != fill_value)[0])
+
+    if numpix_inc_crop/numpix_inc_mask < 0.75:
+        print('Less than 75% of region is in XRT FOV, excluding file.')
+        return 
+        
+
+    # print('')
+    # print('reg: ', region_data)
+    # print('')
+    # print(region_data.shape, len(np.where(region_data == fill_value)[0]))
+    # print('')
+
+    
 
     # fig, ax = plt.subplots(figsize=(6,6))
     # plt.imshow(region_data)

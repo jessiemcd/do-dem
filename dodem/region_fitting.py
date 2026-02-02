@@ -869,6 +869,9 @@ def get_region_data(map_obj: sunpy.map.Map,
     #print(dir(reg_mask))
     reg_mask=reg_mask.to_mask()
     #print(dir(reg_mask))
+    
+    numpix_inc_mask = len(np.where(reg_mask.data == 1.0)[0])
+    
     #print(reg_mask.bbox)
     xmin, xmax = reg_mask.bbox.ixmin, reg_mask.bbox.ixmax
     ymin, ymax = reg_mask.bbox.iymin, reg_mask.bbox.iymax
@@ -877,7 +880,27 @@ def get_region_data(map_obj: sunpy.map.Map,
     #print('Shape of map data, indexed with bound values:', map_data[ymin:ymax, xmin:xmax].shape)
     #print('Shape of map data, no change:', map_data.shape)
     #print('Y bound max-min, X bound max-min:', ymax-ymin, xmax-xmin)
-    region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
+
+    #Cutout: the section of map_data which overlaps with the region mask.
+    #Note that for cases where the region mask extends off the map, the fill value
+    #will be used to fill in the portion of the region mask area where there are no 
+    #data values. 
+    co = reg_mask.cutout(map_data, fill_value=fill_value)
+    if co is None:
+        print('No overlap between region and XRT image! Returning.')
+        return
+
+
+    
+    #region_data = np.where(reg_mask.data==1, map_data[ymin:ymax, xmin:xmax], fill_value)
+    region_data = np.where(reg_mask.data==1, co, fill_value)
+
+    numpix_inc_crop = len(np.where(region_data != fill_value)[0])
+
+    if numpix_inc_crop/numpix_inc_mask < 0.75:
+        print('Less than 75% of region is in FOV, excluding file.')
+        return 
+    
 
     if b_full_size:
         a = np.full(
@@ -885,7 +908,14 @@ def get_region_data(map_obj: sunpy.map.Map,
             fill_value=fill_value,
             dtype=region_data.dtype
         )
-        a[ymin:ymax, xmin:xmax] = region_data
+        #print(co.shape)
+        #print(region_data.shape)
+        #print(map_data.shape)
+        try:
+            a[ymin:ymax, xmin:xmax] = region_data
+        except ValueError:
+            print('Cannot return full-image-size array w/ region data at region location, likely because the region extends off the image.')
+            return
         region_data = a
 
     return region_data  

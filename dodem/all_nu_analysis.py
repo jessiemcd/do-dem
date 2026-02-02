@@ -443,13 +443,13 @@ def manual_prep(key, file, plot=True, make_scripts=True,
     directories = [f+'/' for f in glob.glob(working_dir+'/region_*') if os.path.isdir(f)]
     directories.sort()
 
-    print('dirs', directories)
+    #print('dirs', directories)
 
     ARDict['directories'] = directories
 
     data[key] = ARDict
 
-    print(ARDict)
+    #print(ARDict)
     
     with open(file, 'wb') as f:
         # Pickle the 'data' dictionary using the highest protocol available.
@@ -473,7 +473,8 @@ def do_key_dem(key, file,
                do_aiaxrt_version=False,
               aia_region_dict={}, input_time_intervals=[],
               pick_region=False, regionind=0,
-              save_inputs_file=False):
+              save_inputs_file=False,
+              use_prior_prep=False):
 
     """
     Keywords:
@@ -519,7 +520,10 @@ def do_key_dem(key, file,
 
 
     #Path to top-level do-dem directory - edit for your system.
-    path_to_dodem = '/Users/jessieduncan/do-dem/'
+    path_to_dodem = '/Users/jmdunca2/do-dem/'
+    test_path = path_to_dodem+'other_idl/'
+    if not pathlib.Path(test_path).is_dir():
+        print('WARNING!!!! PATH TO OUTER XRT DATA DIR BROKEN. NO XRT DEMS WILL OCCUR.')
     
     #Empty, so function call later doesn't fail even if these aren't updated. 
     input_aia_region=""
@@ -572,7 +576,7 @@ def do_key_dem(key, file,
              all_all_time_intervals = input_time_intervals
         
         if method=='fit':  
-            all_time_intervals = input_time_intervals
+            all_time_intervals = input_time_intervals[0]
         
     
     #What instruments are you using?
@@ -630,6 +634,9 @@ def do_key_dem(key, file,
         name=key+'_aiaxrt'
         force_nustar=False
         nustar=False
+
+    if save_inputs_file:
+        ogxrt=False
         
     import dodem
     import glob
@@ -645,6 +652,8 @@ def do_key_dem(key, file,
         if use_prepped_aia:
             orbit_aia_dir = prepped_aia_dir+'/orbit_'+obsids[o]+'/'
         obsid=obsids[o]
+
+        print('XRT is: ', xrt)
 
         if method=='fit':
             guess = ARDict['gauss_stats'][o][0]
@@ -674,13 +683,14 @@ def do_key_dem(key, file,
                 elif aia_region_dict:
                     fetch_cutout=True
                     data=[]
+                    aia_region_dict_=aia_region_dict[0][o]
                     input_aia_region="circle"
-                    input_aia_region_dict={'center': [aia_region_dict[o]['centerx'], aia_region_dict[o]['centery']],
-                                           'radius': aia_region_dict[o]['radius']*u.arcsec
+                    input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
+                                           'radius': aia_region_dict_['radius']*u.arcsec
                                             }
                     region_input=input_aia_region_dict
-                    bl, tr = [aia_region_dict[o]['centerx']-(300*u.arcsec), aia_region_dict[o]['centery']-(300*u.arcsec)], \
-                            [aia_region_dict[o]['centerx']+(300*u.arcsec), aia_region_dict[o]['centery']+(300*u.arcsec)]
+                    bl, tr = [aia_region_dict_['centerx']-(300*u.arcsec), aia_region_dict_['centery']-(300*u.arcsec)], \
+                            [aia_region_dict_['centerx']+(300*u.arcsec), aia_region_dict_['centery']+(300*u.arcsec)]
                 else:
                     print('Did not specify a working AIA method.')
                     bl, tr = [], []
@@ -694,7 +704,7 @@ def do_key_dem(key, file,
                                                    highT=7.2, #(minT, maxT are varied)
                                                    working_directory=working_dir, #(plotresp set false in high_temp_analysis)
                                                    default_err=0.2, path_to_dodem=path_to_dodem,
-                                                   demmethod='DEMREG', use_prior_prep=False,
+                                                   demmethod='DEMREG', use_prior_prep=use_prior_prep,
                             
                                                    #demreg/xrt_iterative related
                                                    rgt_fact=1.2, max_iter=30, rscl=rscl,
@@ -726,6 +736,7 @@ def do_key_dem(key, file,
                                             working_directory=working_dir,
                                             default_err=0.2, path_to_dodem=path_to_dodem,
                                             save_inputs_file=save_inputs_file,
+                                            use_prior_prep=use_prior_prep,
                     
                                             #demreg related
                                             rgt_fact=1.2, max_iter=30, rscl=rscl,
@@ -810,7 +821,7 @@ def do_key_dem(key, file,
                                                 highT=7.2, #(minT, maxT are varied)
                                                 working_directory=directories[i], #(plotresp set false in high_temp_analysis)
                                                 default_err=0.2, path_to_dodem=path_to_dodem,
-                                                demmethod='DEMREG', use_prior_prep=False,
+                                                demmethod='DEMREG', use_prior_prep=use_prior_prep,
 
                                  
                                                 #demreg/xrt_iterative related
@@ -839,34 +850,87 @@ def do_key_dem(key, file,
                                                  
                     else:
                         print('xrt is: ', xrt)
-                        dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
-                                    minT=minT, maxT=maxT,
-                                    working_directory=directories[i],
-                                    default_err=0.2, path_to_dodem=path_to_dodem,
-                                    save_inputs_file=save_inputs_file,
+                        xrt_iterative=False
+                        if not xrt_iterative:
+                            dodem.dodem(time, bl, tr, xrt=xrt, aia=aia, nustar=nustar, name=name,
+                                        minT=minT, maxT=maxT,
+                                        working_directory=directories[i],
+                                        default_err=0.2, path_to_dodem=path_to_dodem,
+                                        save_inputs_file=save_inputs_file,
+                                        use_prior_prep=use_prior_prep,
+                
+                                        #demreg related
+                                        rgt_fact=1.2, max_iter=30, rscl=rscl,
+                                        reg_tweak=1, mc_in=True, mc_rounds=100, 
+                                        
+                                        #nustar related 
+                                        combine_fpm=True, nuenergies=nuenergies, 
+                                        datapath=datapath, gtifile=gtifile,
+                                        nuradius=nuradius, edit_regfile=False,
+                                        regfile=regfile,
+                                        adjacent_grades=True, pile_up_corr=True,
+                                        force_nustar=force_nustar,
+                
+                                        #aia related
+                                        load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                        input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                        real_aia_err=True, fetch_cutout=fetch_cutout, plot_aia=plot_aia,
             
-                                    #demreg related
-                                    rgt_fact=1.2, max_iter=30, rscl=rscl,
-                                    reg_tweak=1, mc_in=True, mc_rounds=100, 
-                                    
-                                    #nustar related 
-                                    combine_fpm=True, nuenergies=nuenergies, 
-                                    datapath=datapath, gtifile=gtifile,
-                                    nuradius=nuradius, edit_regfile=False,
-                                    regfile=regfile,
-                                    adjacent_grades=True, pile_up_corr=True,
-                                    force_nustar=force_nustar,
-            
-                                    #aia related
-                                    load_prepped_aia=data, sunpy_dir=sunpy_dir,
-                                    input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
-                                    real_aia_err=True, fetch_cutout=fetch_cutout, plot_aia=plot_aia,
-        
-                                    #xrt related
-                                   xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
-                                    xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
-                                    input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                        #xrt related
+                                       xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                        xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
+                                        input_xrt_region="circle", input_xrt_region_dict=region_input)
 
+
+                        else:
+                            ##NOT PROPERLY SET UP YET!!!!
+                            dodem.run_iterative_wrapper(time, bl, tr, minT, maxT,
+                                                        xrt=xrt, aia=aia, nustar=nustar, name=name,
+                                        minT=minT, maxT=maxT,
+                                        working_directory=directories[i],
+                                        default_err=0.2, path_to_dodem=path_to_dodem,
+                                        save_inputs_file=save_inputs_file,
+                                        use_prior_prep=use_prior_prep,
+                                                        
+                                        mc_iter=100, dT=0.051, chi_thresh=0.95, 
+                                        # #demreg related
+                                        # rgt_fact=1.2, max_iter=30, rscl=rscl,
+                                        # reg_tweak=1, mc_in=True, mc_rounds=100, 
+                                        
+                                        #nustar related 
+                                        combine_fpm=True, nuenergies=nuenergies, 
+                                        datapath=datapath, gtifile=gtifile,
+                                        nuradius=nuradius, edit_regfile=False,
+                                        regfile=regfile,
+                                        adjacent_grades=True, pile_up_corr=True,
+                                        force_nustar=force_nustar,
+                
+                                        #aia related
+                                        load_prepped_aia=data, sunpy_dir=sunpy_dir,
+                                        input_aia_region=input_aia_region, input_aia_region_dict=input_aia_region_dict,
+                                        real_aia_err=True, fetch_cutout=fetch_cutout, plot_aia=plot_aia,
+            
+                                        #xrt related
+                                       xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
+                                        xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
+                                        input_xrt_region="circle", input_xrt_region_dict=region_input)
+                            
+                            
+
+                          # special_pha='', mc_iter=100, dT=0.051, chi_thresh=0.95, 
+                          # default_err=0.2, use_highTprep=False,
+                          # path_to_dodem='./', working_directory='./',
+                          
+                          # nuenergies=[2.5,7], pile_up_corr=False, adjacent_grades=False, make_nustar=True, 
+                          # combine_fpm=False, datapath='./', COM_nustar_region=False, nuclobber=False,
+                          # edit_regfile=False, use_fit_regfile=False, gtifile='starter_gti.fits',
+                          
+                          # aiamethod='Auto', aia_exclude=[], input_aia_region=[], input_aia_region_dict=[], 
+                          # real_aia_err=False, aia_clobber=False, sunpy_dir=sunpy_dir, errortab=errortab,
+                          
+                          # xrtmethod='Average', xrt_exposure_dict=[], xrt_factor=2, xrt_exclude=[],
+                          # xrt_path='./', real_xrt_err=False, 
+                          # input_xrt_region=[],input_xrt_region_dict=[]):
 
 
 def get_key_resultfiles(key, file, fromhome=False,
@@ -1462,7 +1526,7 @@ def check_for_flare(time, starts, stops):
 
 def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True,
                       specific_key_file=[]):
-
+    
     
     if specific_key_file:
         with open(specific_key_file, 'rb') as f:
@@ -1470,6 +1534,7 @@ def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=Tr
         early_starts, late_stops = data['early_starts'], data['late_stops']
         
         return [early_starts, late_stops]
+
         
     import pandas as pd
     import astropy.time as time
@@ -1737,7 +1802,7 @@ def get_good_stats(all_time_intervals, flarestarts, flarestops,
 #     return directories
 
 
-def do_stdv_analysis(key, file, show=True):
+def do_stdv_analysis(key, file, show=True, shush=False):
 
     import nustar_utilities as nuutil
     import glob
@@ -1795,7 +1860,7 @@ def do_stdv_analysis(key, file, show=True):
                    plot_each=True, plot_logic=True, remove_fexviii_max=False, 
                    analyze_transients=True, transient_number=3,
                    timerange=timerange,
-                  excluded_range=[], save_dir=dd, savestring=key+'_'+obsid, show=show)
+                  excluded_range=[], save_dir=dd, savestring=key+'_'+obsid, show=show, shush=shush)
             
 
             all_newwindows.extend(newwindows)
@@ -2175,7 +2240,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
 
 
             #Plot SAAs and Pointing Shifts #====================================================================================================
-            plot_badtimes=False
+            plot_badtimes=True
             if plot_badtimes:
                 import use_correlator as uc
                 import astropy.time
@@ -2931,7 +2996,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
         dictz[key+' region_0'] = {'key': key}
         if len(ardict['loc']) == 2:
             dictz[key+' region_1'] = {'key': key}
-            print('loc2')
+            #print('loc2')
             
         
         for c in range(0, len(conditions)):
@@ -2942,7 +3007,10 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                                 namesearchstring=cc,
                                 shush=True)
 
-            print(tworegions)
+            # if c==2:
+            #     print(res_files_oa)
+
+            #print(tworegions)
     
             if c == 3:
                 cc = 'all-inst'
@@ -2991,7 +3059,11 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                     dictz[key+' '+reglab]['flare times '] = flaretimes
                     dictz[key+' '+reglab]['quiet times '] = quiettimes
                     dictz[key+' '+reglab]['rejected times'] = rejtimes
-                    dictz[key+' '+reglab]['rejected files'] = rejfiles                 
+                    dictz[key+' '+reglab]['rejected files'] = rejfiles 
+                    if c == 2:
+                       print(quietfiles)
+                       print('d: ', dictz[key+' '+reglab]['quiet files '+cc])
+                    
                     if c == 1:
                         dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                         dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
@@ -3013,7 +3085,10 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                 resfiles = res_files_oa
                 reglab = 'region_0'
                 for r in resfiles:
-                    #print(r)
+                    #print(c, cc)
+                    #if c == 2:
+                        #print(c, cc)
+                        #print(r)
                     res = check_file_instruments_and_flare(r, early_starts, late_stops, 
                                                            checkacc=checkacc, accthreshold=accthreshold, 
                                                            lenrange=lenranges[c])
@@ -3024,7 +3099,8 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                                 flarefiles.append(r.split('.p')[-2]+'_withparams.pickle')
                                 flaretimes.append(time)
                             else:
-                                #print(r)
+                                #if c==2:
+                                    #print(r)
                                 quietfiles.append(r.split('.p')[-2]+'_withparams.pickle')
                                 quiettimes.append(time)
         
@@ -3045,6 +3121,10 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                 dictz[key+' '+reglab]['quiet times '] = quiettimes
                 dictz[key+' '+reglab]['rejected times'] = rejtimes
                 dictz[key+' '+reglab]['rejected files'] = rejfiles 
+                #if c == 2:
+                #    print(quietfiles)
+                #    print(dictz[key+' '+reglab]['quiet files '+cc])
+                    
                 if c == 1:
                     dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                     dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes

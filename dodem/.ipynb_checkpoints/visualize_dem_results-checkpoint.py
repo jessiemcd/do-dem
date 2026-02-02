@@ -888,6 +888,13 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
     else:
         return 'EM Above LogT='+str(round(nTs[0], 2))+f': {res:.2e}'+' cm^(-5)'
 
+
+    powerlaws = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=True)
+
+    powerlaws2 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=False, upperboundplus1=False)
+
 def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, 
                    fixlowerbound=False, upperboundplus1=True,
                    plotsavedir='./'):
@@ -1054,18 +1061,22 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False):
     above5, nTs = hightemp_EM(dem, ts, 6.7, extract_vals=True)
     above7, nTs = hightemp_EM(dem, ts, 6.84, extract_vals=True)
     above10, nTs = hightemp_EM(dem, ts, 7.0, extract_vals=True)
+    above126, nTs = hightemp_EM(dem, ts, 7.1, extract_vals=True)
     
     above5l, nTs = hightemp_EM(lowdem, ts, 6.7, extract_vals=True)
     above7l, nTs = hightemp_EM(lowdem, ts, 6.84, extract_vals=True)
     above10l, nTs = hightemp_EM(lowdem, ts, 7.0, extract_vals=True)
+    above126l, nTs = hightemp_EM(lowdem, ts, 7.1, extract_vals=True)
     
     above5h, nTs = hightemp_EM(hidem, ts, 6.7, extract_vals=True)
     above7h, nTs = hightemp_EM(hidem, ts, 6.84, extract_vals=True)
     above10h, nTs = hightemp_EM(hidem, ts, 7.0, extract_vals=True)
+    above126h, nTs = hightemp_EM(hidem, ts, 7.1, extract_vals=True)
     
     above5_ = [above5, above5l, above5h]
     above7_ = [above7, above7l, above7h]
     above10_ = [above10, above10l, above10h]
+    above126_ = [above126, above126l, above126h]
     
     
     powerlaws = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
@@ -1083,9 +1094,9 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False):
     EMT_thresh= above_product/above5/1e6
 
     
-    res = (m1, max1, above5_, above7_, above10_, 
+    res = (m1, max1, above5_, above7_, above10_,
            above_peak, below_peak, above_635, below_635,
-           data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh)
+           data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh, above126_)
 
 
     if save_params_file:

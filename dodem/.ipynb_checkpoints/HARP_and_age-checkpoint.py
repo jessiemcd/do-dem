@@ -121,6 +121,7 @@ def add_harp_params(all_targets, shush=True):
     c = get_drms_client()
     
     for kk in keys_to_check:
+        print(kk)
         harps, orbits = get_harp_and_times(kk, all_targets)
         
         harplist = []
@@ -736,7 +737,10 @@ def get_ages_vs_params(all_targets, param='above10', return_stdvs=False,
                     if param=='spexkT':
                         params[ind] = data['SPEX_dict']['kT_m_it'][0].value
                     if param=='above10':
+                        #It needs to be this way to make the magnetic parameters plot nice
                         params[ind] = np.log10(data['above_10MK'])
+                        #At some point it was changed to the below, presumably for a reason!
+                        #params[ind] = data['above_10MK']
                     if param=='above7':
                         params[ind] = np.log10(data['above_7MK'])
                     if param=='above5':

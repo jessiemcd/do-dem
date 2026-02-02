@@ -147,6 +147,7 @@ def dodem(time, bl, tr,
                         max iter is reached before a suitable solution is found then the current solution is returned 
                         instead (which may contain negative values)(Default is only 10 - although non_pos=True will 
                         set as 1).
+                        
             rgt_fact – The factor by which rgt_tweak increases each iteration. As the target chisq increases there 
                         is more flexibility allowed on the DEM
 
@@ -1147,7 +1148,7 @@ def dodem(time, bl, tr,
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
             
         vdr.plot_DEM(data, fill_color='lightcoral',
-                              title=working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC')
+                              title=working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC', show=True)
         
         
         return picklefile

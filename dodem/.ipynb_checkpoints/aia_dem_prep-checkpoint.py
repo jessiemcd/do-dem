@@ -290,20 +290,24 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
                     print('File was:', ffp[i])
                     continue
                 deg = degs[w]
-                if real_aia_err:
-                    wav_dn_s_px_, err = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region, 
-                                                      input_aia_region_dict=input_aia_region_dict, plot=plotstop,
-                                                      timestring=timestring, aia_path=aia_path, 
-                                                      real_aia_err=real_aia_err, errortab=errortab)
-                    wav_dn_s_px.append(wav_dn_s_px_)
-                    wav_err_dn_s_px.append(err)
-                else:
-                    wav_dn_s_px.append(map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region,
-                                                  input_aia_region_dict=input_aia_region_dict, plot=plotstop,
-                                                  timestring=timestring, aia_path=aia_path))
+                res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region,
+                                     input_aia_region_dict=input_aia_region_dict, 
+                                     plot=plotstop, timestring=timestring, 
+                                     aia_path=aia_path, real_aia_err=real_aia_err,
+                                     errortab=errortab)
+                if res is not None:
+                    if real_aia_err:
+                        wav_dn_s_px_, err = res
+                        if np.isfinite(wav_dn_s_px_):
+                            #print('yep')
+                            wav_dn_s_px.append(wav_dn_s_px_)
+                            wav_err_dn_s_px.append(err)
+                    else:
+                        if np.isfinite(res):
+                            wav_dn_s_px.append(res)
+                
                 plotstop=False
 
-                
              
             #Take the mean of all the files
             aia_dn_s_px.append(np.mean(wav_dn_s_px))
@@ -427,7 +431,7 @@ def cutout_prep(time, bl, tr, wav=94, aia_path='./',
     
     files = Fido.fetch(query, path=sunpy_dir)
     files.sort()   
-
+    
     if not files:
         #Get single full-disk for region adjustment selection
         query = Fido.search(
@@ -438,14 +442,17 @@ def cutout_prep(time, bl, tr, wav=94, aia_path='./',
         )
         
         files = Fido.fetch(query, path=sunpy_dir)
-        files.sort()         
+        files.sort()       
+        
 
     #Get single full-disk to level 1.5
     m=sunpy.map.Map(files[0])
     
+    
     ptab = get_pointing_table(m.date - 12 * u.h, m.date + 12 * u.h)
     amap = update_pointing(m, pointing_table=ptab)
     
+
     try:
         m = register(amap)
     except TypeError:
@@ -453,7 +460,7 @@ def cutout_prep(time, bl, tr, wav=94, aia_path='./',
         amap.meta.pop('crpix2')
         print('CRPIX issue on ', files)
         m = register(amap)
-    
+        
 
     #Make submap of full disk map that's the shape of the cutouts we want
     bottom_left2 = SkyCoord(bl[0], bl[1], frame=m.coordinate_frame)
@@ -469,7 +476,6 @@ def cutout_prep(time, bl, tr, wav=94, aia_path='./',
     plt.colorbar(norm=norm)
     wvn="{0:d}".format(1000+m.meta['wavelnth'])
     plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+wvn+'_input_region_aia_image.png')
-    
 
     query = Fido.search(
         a.Time(time[0], time[1]),
@@ -822,6 +828,7 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
             wvn="{0:d}".format(1000+m.meta['wavelnth'])
             plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_input_region_aia_image.png')
 
+        
         data = rf.get_region_data(subm, region, b_full_size=True)
         data_mean = np.mean(data[np.where(data > 0)])
 

@@ -498,7 +498,7 @@ def check_rez_pyxspec(filelist, shush=False):
 
 
 
-def save_SPEX_params(filelist_, extrastring, pileup=True):
+def save_SPEX_params(filelist_, extrastring, pileup=True, clobber=False):
 
     """
     Takes a list of files, and an extra string which may be used to label them. Acquires dictionaries of fit parameters
@@ -592,7 +592,7 @@ def save_SPEX_params(filelist_, extrastring, pileup=True):
             with open(f_, 'rb') as f:
                 data = pickle.load(f)
 
-            if 'SPEX_dict' in data.keys():
+            if 'SPEX_dict' in data.keys() and not clobber:
                 thespexdict = data['SPEX_dict']
                 thespexdict.update(spec_dict)
                 data.update({'SPEX_dict': thespexdict})

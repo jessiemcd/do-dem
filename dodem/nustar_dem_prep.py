@@ -869,13 +869,15 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     srm = np.array([rmf[r, :] * arf[r] for r in range(len(arf))]) #units cm^2*counts/photon
     
     #Uncomment to extract the response + spectrum and pickle it to examine elsewhere.
-#     data = {'srm': srm,
-#            'engs': engs,
-#            'cnts': cnts}
+    data = {'srm': srm,
+           'engs': engs,
+           'cnts': cnts,
+           'arf': arf,
+           'rmf': rmf}
 
-#     with open('heres_an_srm.pickle', 'wb') as f:
-#         # Pickle the 'data' dictionary using the highest protocol available.
-#         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)        
+    with open('heres_an_srm2.pickle', 'wb') as f:
+        # Pickle the 'data' dictionary using the highest protocol available.
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)        
 
     # Defining two values corresponding to the dimensions of the photon model: n1 is the # of photon energies 
     #in the photon model, n2 is the # of temperatures.
@@ -929,7 +931,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     nutrs=[]
         
     #print('E Rates NuSTAR')
-
+    actual_total_counts=True
     quitindex=[]
     quit=False
     for i in np.arange(len(eng_tr)):
@@ -952,6 +954,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             erate_corr[i]=(erate_corr[i]**2+(default_err*rate_corr[i])**2)**0.5
             
             if actual_total_counts:
+                print(lvtm)
                 atc = np.sum(cnts_corr[gd])
                 print('ATC:', atc)
                 print('')
@@ -998,7 +1001,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         erate = erate[0:quitindex]
         tresp = tresp[:, 0:quitindex]   
         atc = 0
-    
+    actual_total_counts=False
     if actual_total_counts:
         return rate, erate, nutrs, tresp, logt, fpm, atc
     else:

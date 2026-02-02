@@ -397,7 +397,7 @@ def per_orbit_region_adjustment(ARDict, orbit_ind, aiamaps, nushift=[20,0],
     
     obsid=obsids[orbit_ind]
     #Plot NuSTAR over AIA, and save an aia regions file in the corresponding region+time interval directory
-    dict, file = nu_aia_coalign(time_interval, working_dir, nushift, save_dict=True, input_aia=aiamaps[orbit_ind],
+    dictt, file = nu_aia_coalign(time_interval, working_dir, nushift, save_dict=True, input_aia=aiamaps[orbit_ind],
                             regionmethod=method, obsid=obsid, region_dir=region_dir, show=show)
 
     if (method in ['input', 'double']) and (len(region_dirs) > 1):
@@ -415,7 +415,7 @@ def per_orbit_region_adjustment(ARDict, orbit_ind, aiamaps, nushift=[20,0],
                 regcopy = r+timestring+'/'+timestring+'_aia_region.pickle'
                 status = subprocess.call('cp '+file+' '+regcopy, shell=True)
 
-    return dict
+    return dictt
 
 def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
                    obsid='', region_dir='',

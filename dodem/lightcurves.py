@@ -1256,7 +1256,7 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
                    plot_each=True, plot_logic=True, remove_fexviii_max=False, 
                    analyze_transients=True, transient_number=3,
                    timerange=[datetime.datetime(2018, 5, 29, 22, 22), datetime.datetime(2018, 5, 29, 23, 19)],
-                  excluded_range=[], save_dir='./', savestring='test', show=False):
+                  excluded_range=[], save_dir='./', savestring='test', show=False, shush=False):
     """
     For an input set of types of lightcurve (prepared using prepare_lightcurves - see above), 
     over an input time interval:
@@ -1966,13 +1966,13 @@ def plot_with_stdv(aia_inputs=[94], fexviii=True, nustar_inputs=[[2.,4.],[4.,6.]
 
     if analyze_transients:
         res = transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, transient_number=transient_number,
-                                 show=show, save_dir=save_dir, savestring=savestring)
+                                 show=show, save_dir=save_dir, savestring=savestring, shush=shush)
     
     
     return res
 
 def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, interp=True,
-                      transient_number=2, show=True, save_dir='./', savestring='test'):
+                      transient_number=2, show=True, save_dir='./', savestring='test', shush=False):
     """
     Takes in arrays corresponding to times where each instrument is above/below the mean+-stdv window during
     the observation, and quantifies intervals where there are multiple instruments above/below. 
@@ -2140,7 +2140,7 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
     
     #print(each_window_has)
     #print('Overlaps:', count)
-    print('')
+    #print('')
     
     #We know that some of the windows may have have overlap with eachother. We want to simplify to combine these. 
     newwindows=[]
@@ -2197,7 +2197,8 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
         newwindow_labels.append(list(set(allstr)))
         #print('')
         
-    print('Number of Windows (>= 1 channel): ', len(newwindows))
+    if not shush:
+        print('Number of Windows (>= 1 channel): ', len(newwindows))
     
     #Removing windows with less than our required number of transients
     if transient_number > 1:
@@ -2206,7 +2207,8 @@ def transient_analysis(aia_res, goes_res, nustar_res, fexviii_res, timerange, in
         newwindows = [newwindows[i] for i in above_num[0]]
         newwindow_labels = [newwindow_labels[i] for i in above_num[0]]
         
-    print('Number of Windows (>= '+str(transient_number)+' channels): ', len(newwindows))
+    if not shush:
+        print('Number of Windows (>= '+str(transient_number)+' channels): ', len(newwindows))
     
     newwindows_sort = sorted(newwindows)
     #print(newwindows_sort)

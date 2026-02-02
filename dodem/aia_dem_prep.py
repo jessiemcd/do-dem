@@ -828,6 +828,7 @@ def map_to_dn_s_px(m, deg, bl=[], tr=[], input_region=[], input_aia_region_dict=
             wvn="{0:d}".format(1000+m.meta['wavelnth'])
             plt.savefig(aia_path+timestring+'/'+str(m.meta['wavelnth'])+'_'+m.date.strftime('%y-%m-%d_%H-%M-%S')+'_input_region_aia_image.png')
 
+        
         data = rf.get_region_data(subm, region, b_full_size=True)
         data_mean = np.mean(data[np.where(data > 0)])
 
