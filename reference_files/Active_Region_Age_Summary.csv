@@ -1,4 +1,15 @@
 ﻿Name,AR ID,"Age (days, min)","Age (days, max)",Age (newest emergence),Obs. Date,Emerge Date,Emerge Date 2,Prior Name 1,Prior Name 2,Prior Name 3,Notes
+09-dec-22 region_1,"13156, 13161",37,48,,12/9/22,,,,,,
+09-dec-22 region_0,13157,37,48,,12/9/22,,,,,,
+06-sep-22 region_0,13089,15,25,,9/6/22,,,,,,
+03-jun-22_2 region_1,13027,5,5,,6/3/22,5/30/22,,,,,
+03-jun-22_2 region_0,13026,4,4,,6/3/22,5/31/22,,,,,
+03-jun-22_1 region_0,13029,30,40,,6/3/22,,,,,,
+22-nov-21_2 region_0,12896,11,28,,11/22/21,,,,,,
+22-nov-21_1 region_0,12897,9,9,,11/22/21,11/13/21,,,,,
+20-nov-21 region_0,12897,7,7,,11/20/21,11/13/21,,,,,
+19-nov-21 region_0,12897,6,6,,11/19/21,11/13/21,,,,,
+17-nov-21_1 region_0,12895,15,25,,11/17/21,,,,,,
 30-jul-21_2 region_0,12846,62,62,,7/30/21,5/29/21,,unnamed,12827,,
 30-jul-21_1 region_0,12849,54,54,,7/30/21,6/6/21,,12835,12830,,
 30-jul-21_1 region_1,12847,54,54,,7/30/21,6/6/21,,12836,12830,,
@@ -9,6 +20,7 @@
 03-may-21_1 region_0,SPoCA 25286,1,1,,5/3/21,5/2/21,,,,,
 29-apr-21 region_0,"12818, 12820, 12821",15,24,4,4/29/21,,4/26/21,,,,
 20-jan-21 region_0,12797,63,73,,1/20/21,,,"12794, 12795","1,278,612,785",,
+14-jan-21 region_0,SPoCA 25042,5,5,,1/14/21,1/9/21,,,,,
 08-jan-21 region_0,unnamed,1,1,,1/8/21,1/7/21,,,,,
 09-jun-20 region_0,12765,11,20,,6/9/20,,,,,,
 08-jun-20 region_0,12765,10,19,,6/8/20,,,,,,
@@ -19,6 +31,7 @@
 12-apr-19 region_0,12738,24,24,,4/12/19,3/19/19,,12736,,,
 10-sep-18 region_0,12721,2,2,,9/10/18,9/8/19,,,,,
 09-sep-18 region_0,12721,1,1,,9/9/18,9/8/19,,,,,
+07-sep-18 region_0,SPoCA 22021,107,107,,,,,,,,"Region persists for a very long time, but topology changes a lot. New flux is emerging as region goes out of view on the 25th, and more may emerge while region is not visible (until the 30th, when it comes back over the limb). "
 29-may-18_2 region_0,12711,7,7,,5/29/18,5/22/18,,,,,
 29-may-18_2 region_1,12710,12,12,,5/29/18,5/17/18,,,,,
 29-may-18_1 region_0,12712,14,20,,5/29/18,,,,,,
@@ -40,3 +53,6 @@
 02-sep-15 region_0,12407,2,2,,9/2/15,8/30/15,,,,,
 02-sep-15 region_1,"12403, 12408",39,39,5,9/2/15,7/25/15,8/28/15,12390,,,12403 is pre-existing and much brighter (over the limb). 12408 emerges a few days before the observation and is a lot fainter. 
 01-sep-15 region_0,"12403, 12408",38,38,4,9/1/15,7/25/15,8/28/15,12390,,,12403 is pre-existing and much brighter (over the limb). 12408 emerges a few days before the observation and is a lot fainter. 
+11-dec-14 region_0,12222,15,22,,12/11/14,,,,,,
+01-nov-14_1 region_0,12194,14,17,,11/1/14,,,,,,
+01-nov-14_1 region_1,12192,49,49,,11/1/14,,,,,,

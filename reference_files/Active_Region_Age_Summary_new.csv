@@ -20,6 +20,7 @@
 03-may-21_1 region_0,SPoCA 25286,1,1,,5/3/21,5/2/21,,,,,
 29-apr-21 region_0,"12818, 12820, 12821",15,24,4,4/29/21,,4/26/21,,,,
 20-jan-21 region_0,12797,63,73,,1/20/21,,,"12794, 12795","1,278,612,785",,
+14-jan-21 region_0,SPoCA 25042,5,5,,1/14/21,1/9/21,,,,,
 08-jan-21 region_0,unnamed,1,1,,1/8/21,1/7/21,,,,,
 09-jun-20 region_0,12765,11,20,,6/9/20,,,,,,
 08-jun-20 region_0,12765,10,19,,6/8/20,,,,,,
@@ -51,3 +52,5 @@
 02-sep-15 region_0,12407,2,2,,9/2/15,8/30/15,,,,,
 02-sep-15 region_1,"12403, 12408",39,39,5,9/2/15,7/25/15,8/28/15,12390,,,12403 is pre-existing and much brighter (over the limb). 12408 emerges a few days before the observation and is a lot fainter. 
 01-sep-15 region_0,"12403, 12408",38,38,4,9/1/15,7/25/15,8/28/15,12390,,,12403 is pre-existing and much brighter (over the limb). 12408 emerges a few days before the observation and is a lot fainter. 
+01-nov-14_1 region_0,12194,14,17,,11/1/14,,,,,,
+01-nov-14_1 region_1,12192,49,49,,11/1/14,,,,,,
