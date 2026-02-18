@@ -29,8 +29,6 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
     to the distribution of data once made into a sunpy map.
     """
 
-
-
     obsid = file.split('/')[-1][2:13]
     fpm = file.split('/')[-1][13]
     #print(fpm)
@@ -130,7 +128,8 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
 
                 if write_input_regions:
                     midway = time0 + (time1-time0).to(u.s).value/2*u.s
-                    nf_ = write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
+                    nf_ = write_regfile('starter_region.reg', midway, region, 
+                                        newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input_'+str(num))
                     num+=1
                     inputcens.append(center)
 
@@ -163,6 +162,7 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         worldcens = [worldcens[ag] for ag in np.argsort(relevant_centers)]
 
         if write_regions:
+
             midway = time0 + (time1-time0).to(u.s).value/2*u.s
             for cen1_world in worldcens:
                 region = CircleSkyRegion(
@@ -210,7 +210,7 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
         if plot:
             ax.plot_coord(coord.SkyCoord(cen1_world.Tx, cen1_world.Ty, frame=nustar_map.coordinate_frame), "o", color='Red',
                      label='Center')
-            #print(cen1_world.Tx, cen1_world.Ty)
+            print(cen1_world.Tx, cen1_world.Ty)
             #print('')
             if plotgaussregions:
                 region = CircleSkyRegion(
@@ -219,6 +219,10 @@ def nu_fit_gauss(file, twogaussians=True, boxsize=200, plot=False, plotmoments=F
                     )
                 og_region = region.to_pixel(nustar_map.wcs)
                 og_region.plot(axes=ax, color='red', ls='--', lw=3)
+
+                if write_regions:
+                    midway = time0 + (time1-time0).to(u.s).value/2*u.s
+                    write_regfile('starter_region.reg', midway, region, newfile=region_dir+'gauss_cen_'+obsid+'_'+fpm+'_'+'single')  
 
             
             ax.set_xlim((cen1_[0]-boxsize), (cen1_[0]+boxsize))
@@ -301,7 +305,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     f = open(newfile+".reg", "r")
     regstring = f.read()
 
-    
+    #print(newfile)
     return newfile+".reg"
 
 
@@ -562,7 +566,8 @@ def per_orbit_twogauss_params(in_dir, sep_axis='SN', guess=[], guess2=[], plot=T
     return sep_axis, guess, guess2, fast_min_factors
 
 
-def per_orbit_onegauss_params(in_dir, guess=[], plot=True, plotregion=[], plotgaussregions=False):
+def per_orbit_onegauss_params(in_dir, guess=[], plot=True, plotregion=[], plotgaussregions=False,
+                             write_regions=False, region_dir='./'):
 
     """
     Test the fitting on the whole orbit, and set a guess if needed. 
@@ -579,7 +584,8 @@ def per_orbit_onegauss_params(in_dir, guess=[], plot=True, plotregion=[], plotga
         #If you don't like your gaussian, try again with the "guess" keyword – enter a coordinate around where
         #your missing gaussian should be – in pixel coorindates as shown on the left plot.
         res = nu_fit_gauss(s, twogaussians=False, boxsize=200, plot=plot, plotmoments=False, guess=guess,
-                           plotregion=plotregion, plotgaussregions=plotgaussregions)
+                           plotregion=plotregion, plotgaussregions=plotgaussregions, write_regions=write_regions,
+                          region_dir=region_dir)
         params, worldcen, nustar_map, time0, time1 = res
         
         from regions import CircleSkyRegion

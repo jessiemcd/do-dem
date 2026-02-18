@@ -452,8 +452,9 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
             #regionfileB = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_user_input*.reg')
             regionfileA = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
             regionfileB = glob.glob(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
-            #print(regionfileA)
-            #print(regionfileB)
+            print(regionfileA)
+            print(regionfileB)
+            print(region_dir+timestring+'/gauss_cen_'+obsid+'_A_user_input*'+timestring+'.reg')
             
         if regionmethod=='double':
             regionfileA = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
@@ -471,6 +472,7 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
 
 
     #print(regiondictA)
+    #print(regiondictB)
     #print(regionfileA)
     #regionsavename=working_dir+'/'+timestring+'/'+timestring
     if not savefigdir:

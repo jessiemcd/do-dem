@@ -41,8 +41,8 @@ def plot_file_region(evt_file, time0, time1, regfile):
         hdr = hdu[1].header
 
     nustar_map = nustar.map.make_sunpy(evt_data, hdr)
-    bl = SkyCoord( *(-1250, -1250)*u.arcsec, frame=nustar_map.coordinate_frame)
-    tr = SkyCoord( *(1250, 1250)*u.arcsec, frame=nustar_map.coordinate_frame)
+    bl = SkyCoord( *(-1550, -1550)*u.arcsec, frame=nustar_map.coordinate_frame)
+    tr = SkyCoord( *(1550, 1550)*u.arcsec, frame=nustar_map.coordinate_frame)
     submap = nustar_map.submap(bottom_left=bl, top_right=tr)
     cmap = plt.cm.get_cmap('plasma')
     
@@ -58,7 +58,7 @@ def plot_file_region(evt_file, time0, time1, regfile):
             radius = rad
         )
 
-    print(offset, rad)
+    #print(offset, rad)
     
     og_region = region.to_pixel(submap.wcs)
     og_region.plot(axes=ax, color='green', ls='--', lw=3)
@@ -112,7 +112,7 @@ def full_orbit_regfile_correction(regfile, evtfile, time0, time1, regRAunit='hou
 
     #Write new region file
     newfile = write_regfile(regfile, midway, region, newfile=newname)
-    print(newfile)
+    #print(newfile)
     
 
     return newfile
@@ -139,7 +139,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     #Find midpoint of time interval
     midway = time0 + (time1-time0).to(u.s).value/2*u.s
 
-    print(evt_file)
+    #print(evt_file)
     
     #Open NuSTAR .evt file
     with fits.open(evt_file) as hdu:
@@ -151,7 +151,7 @@ def get_file_region(evt_file, time0, time1, regfile, plotfile=False, regRAunit='
     if efilter:
         cleanevt = nustar.filter.event_filter(evt_data, energy_low=2.5, energy_high=10.,
                                              no_bad_pix_filter=True, no_grade_filter=True)
-        print(len(cleanevt), len(evt_data))
+        #print(len(cleanevt), len(evt_data))
         nustar_map = nustar.map.make_sunpy(cleanevt, hdr)
     else:    
         #Make NuSTAR map and submap
@@ -403,7 +403,7 @@ def write_regfile(regfile, time, region, newfile='sample'):
     newfile - name of new region file to save
 
     """
-
+    #print('writing: ', newfile)
     #Open the old file, put contents into string
     f = open(regfile, "r")
     regstring = f.read()
@@ -425,15 +425,17 @@ def write_regfile(regfile, time, region, newfile='sample'):
     RA = coord.Angle(RA, u.deg)
     DEC = coord.Angle(DEC, u.deg)
     #print(DEC)
-    newcs[0] = RA.to_string(unit=u.hour, sep=':')[0:-4]
-    decstring=DEC.to_string(unit=u.deg, sep=':')[0:-5]
+    #print('dec to string: ', DEC.to_string(unit=u.deg, sep=':'))
+    newcs[0] = RA.to_string(unit=u.hour, sep=':')[0:12] #-4]
+    #print(newcs[0])
+    decstring=DEC.to_string(unit=u.deg, sep=':')[0:13]#-5]
+    #print('dec to string clipped: ', decstring)
     if decstring[0] == '-':
-        newcs[1] = DEC.to_string(unit=u.deg, sep=':')[0:-5]
+        newcs[1] = DEC.to_string(unit=u.deg, sep=':')[0:13]#-5]
     else:
-        newcs[1] = '+'+DEC.to_string(unit=u.deg, sep=':')[0:-5]
-        
-    #print(newcs[1])
-    
+        newcs[1] = '+'+DEC.to_string(unit=u.deg, sep=':')[0:12]#-5]
+
+    #print(newcs)
 
     #Edit copy of region file contents string
     newcs_string = 'circle('+newcs[0]+','+newcs[1]+','+newcs[2]+')'
@@ -442,7 +444,6 @@ def write_regfile(regfile, time, region, newfile='sample'):
     new_split_text = copy.deepcopy(split_text)
     new_split_text[-2] = newcs_string
     new_regstring = '\n'.join(new_split_text)
-    #print(new_regstring)
     
     #Open the new region file + write to it
     text_file = open(newfile+".reg", "w")
@@ -472,13 +473,16 @@ def read_regfile(regfile, time0, time1, regRAunit):
     Returns coordinates of circle center + radius in arcseconds from center of solar disk.
 
     """
-    #print(regfile)
+    #print('reading: ', regfile)
     f = open(regfile, "r")
     regstring = f.read()
     #print(regstring)
     cs = regstring.split('\n')[-2]
+    #print(cs)
     cs = cs.split('(')[-1]
+    #print(cs)
     cs = cs.split(')')[0]
+    #print(cs)
     cs = cs.split(',')
     #print(cs)
     
@@ -541,8 +545,8 @@ def just_plot_region(nufile, time0, time1, regRAunit='hourangle', file=''):
     
     res = check_region(nufile, time0, time1, regfile=True, file=file, regRAunit=regRAunit, shush=True)
     offset, positions, com = res[1:]
-    print(offset)
-    print(com)
+    #print(offset)
+    #print(com)
 
     ax.plot_coord(coord.SkyCoord(offset[0], offset[1], frame=submap.coordinate_frame), "+", color='Black',
                      label='Region File')
@@ -897,9 +901,11 @@ def get_region_data(map_obj: sunpy.map.Map,
 
     numpix_inc_crop = len(np.where(region_data != fill_value)[0])
 
-    if numpix_inc_crop/numpix_inc_mask < 0.75:
-        print('Less than 75% of region is in FOV, excluding file.')
-        return 
+    #I think this was added to make the XRT prep work, but there is a specific version of this function in
+    #xrt_dem_prep.py. It seems to make NuSTAR prep break for regions near the edge of the FOV, so removing.
+    # if numpix_inc_crop/numpix_inc_mask < 0.75:
+    #     print('Less than 75% of region is in FOV, excluding file.')
+    #     return 
     
 
     if b_full_size:

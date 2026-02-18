@@ -225,8 +225,6 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     if dip_before_products:
         print('dip_before_products is set True, so we will return after making only the time- and grade-specific evt files.')
         return
-
-    #print('got here.')
     
     #======================================================
     #REGION SELECTION
@@ -284,7 +282,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         orbit_correct = True
         if orbit_correct:
 
-            print(regfile)
+            #print(regfile)
             print('NEW FILE NAME:', nustar_path+timestring+'/'+regfile.split('.')[0].split('/')[-1]+'_'+timestring)
             evt_correct = glob.glob(datapath+'/event_cl/nu*'+fpm+'06_cl_sunpos.evt')[0]
             newregfile = rf.full_orbit_regfile_correction(regfile, evt_correct, 
@@ -358,7 +356,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                clobber=False, default_err=0.2, special_pha='', pile_up_corr=False, adjacent_grades=False,
                nuradius=150, path_to_dodem='./', countmin=10, force_both_fpm=False, shush=False,
                 twogauss=False, onegauss=False, direction='', guess=[], guess2=[],
-                   energy_percents=False):
+                   energy_percents=False, ghost_factors=[]):
     """
     LOADS BOTH FPM + ADDS TOGETHER THE RATES + RESPONSE. 
     
@@ -377,7 +375,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
                                              twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                             energy_percents=energy_percents)
+                                             energy_percents=energy_percents, ghost_factors=ghost_factors)
     if res is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -406,7 +404,7 @@ def combine_fpm(time, eng_tr, nustar_path, make_nustar=False, gtifile='', datapa
                                              pile_up_corr=pile_up_corr, adjacent_grades=adjacent_grades,
                                              nuradius=nuradius, path_to_dodem=path_to_dodem, shush=shush,
                                              twogauss=twogauss, onegauss=onegauss, direction=direction, guess=guess, guess2=guess2,
-                                              energy_percents=energy_percents)
+                                              energy_percents=energy_percents, ghost_factors=ghost_factors)
     if res2 is None:
         print('Something is wrong with ', fpm,'; Not using NuSTAR.')
         print('')
@@ -485,7 +483,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
                    adjacent_grades=False, nuradius=150,path_to_dodem='./', shush=False,
                    twogauss=False, onegauss=False, direction='', guess=[], guess2=[], return_for_pile_up_figure=False,
-                   energy_percents=False):
+                   energy_percents=False, ghost_factors=[]):
     """
     Load in NuSTAR data and response, return DEM inputs.
     
@@ -582,6 +580,12 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         else:
             print('Using input regfile:')
             print(regfile)
+
+    if ghost_factors:
+        if fpm=='A':
+            ghostfactor=ghost_factors[0]
+        if fpm=='B':
+            ghostfactor=ghost_factors[1]
             
         
     #DEM interval duration
@@ -868,16 +872,16 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
 
     srm = np.array([rmf[r, :] * arf[r] for r in range(len(arf))]) #units cm^2*counts/photon
     
-    #Uncomment to extract the response + spectrum and pickle it to examine elsewhere.
-    data = {'srm': srm,
-           'engs': engs,
-           'cnts': cnts,
-           'arf': arf,
-           'rmf': rmf}
+    # #Uncomment to extract the response + spectrum and pickle it to examine elsewhere.
+    # data = {'srm': srm,
+    #        'engs': engs,
+    #        'cnts': cnts,
+    #        'arf': arf,
+    #        'rmf': rmf}
 
-    with open('heres_an_srm2.pickle', 'wb') as f:
-        # Pickle the 'data' dictionary using the highest protocol available.
-        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)        
+    # with open('heres_an_srm2.pickle', 'wb') as f:
+    #     # Pickle the 'data' dictionary using the highest protocol available.
+    #     pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)        
 
     # Defining two values corresponding to the dimensions of the photon model: n1 is the # of photon energies 
     #in the photon model, n2 is the # of temperatures.
@@ -951,7 +955,10 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             erate_corr[i]=np.sqrt(np.sum(cnts_corr[gd]))/lvtm
             #print('Erate, corr:', erate_corr[i])
             #print('Default % of rate, squared:', (default_err*rate_corr[i])**2)
-            erate_corr[i]=(erate_corr[i]**2+(default_err*rate_corr[i])**2)**0.5
+            if ghost_factors:
+                erate_corr[i]=(erate_corr[i]**2+(default_err*rate_corr[i])**2+ghostfactor[i]**2)**0.5
+            else:
+                erate_corr[i]=(erate_corr[i]**2+(default_err*rate_corr[i])**2)**0.5
             
             if actual_total_counts:
                 print(lvtm)
@@ -966,7 +973,10 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
             #Error on the rate: square root of the counts divided by the livetime
             erate[i]=np.sqrt(np.sum(cnts[gd]))/lvtm
             #add previous error in quadrature with 20% uncertainty
-            erate[i]=(erate[i]**2+(default_err*rate[i])**2)**0.5
+            if ghost_factors:
+                erate[i]=(erate[i]**2+(default_err*rate[i])**2+ghostfactor[i]**2)**0.5
+            else:    
+                erate[i]=(erate[i]**2+(default_err*rate[i])**2)**0.5
             
             if actual_total_counts:
                 atc = np.sum(cnts[gd])

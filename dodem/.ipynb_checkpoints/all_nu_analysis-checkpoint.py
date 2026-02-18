@@ -278,7 +278,8 @@ def get_exposures(target_dict, dogoes=False):
 
 
 def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
-                     plotregion=[], plotgaussregions=False):
+                     plotregion=[], plotgaussregions=False,
+                     write_gauss_regions=False):
 
 
     with open(file, 'rb') as f:
@@ -299,7 +300,8 @@ def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
     for i in range(0, len(id_dirs)):
         #guess, fast_min_factor 
         res = g2d.per_orbit_onegauss_params(id_dirs[i], guess=guess, plot=plot,
-                                           plotregion=plotregion, plotgaussregions=plotgaussregions)
+                                           plotregion=plotregion, plotgaussregions=plotgaussregions,
+                                           write_regions=write_gauss_regions, region_dir=working_dir)
         gauss_stats.append(res)
 
 
@@ -464,6 +466,8 @@ def manual_prep(key, file, plot=True, make_scripts=True,
 
 
 def do_key_dem(key, file, 
+               ghost_corr=False,
+               extraname='',
                missing_last=False, missing_orbit=4, 
                plot_xrt=True, plot_aia=False,
                use_prepped_aia=True,
@@ -614,7 +618,7 @@ def do_key_dem(key, file,
     #---------------------------------
     #---------------------------------
 
-    name=key
+    name=key+extraname
     
     if len(np.where([do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version])[0]) > 1:
         print('Please choose only one of do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version.')
@@ -637,7 +641,13 @@ def do_key_dem(key, file,
 
     if save_inputs_file:
         ogxrt=False
-        
+
+    ghost_factors=[]
+    if ghost_corr:
+        ghost_factors = [ARDict['Ghost_Ray_Rate_A'],
+                         ARDict['Ghost_Ray_Rate_B']]
+
+    
     import dodem
     import glob
     
@@ -716,6 +726,7 @@ def do_key_dem(key, file,
                                                    nuradius=nuradius, guess=guess, onegauss=onegauss,
                                                    adjacent_grades=True, pile_up_corr=True,
                                                    force_nustar=force_nustar,
+                                                   ghost_factors=ghost_factors,
                                              
                                                    #aia related
                                                    load_prepped_aia=data, sunpy_dir=sunpy_dir,
@@ -748,6 +759,7 @@ def do_key_dem(key, file,
                                             nuradius=nuradius, guess=guess, onegauss=onegauss,
                                             adjacent_grades=True, pile_up_corr=True,
                                             force_nustar=force_nustar,
+                                            ghost_factors=ghost_factors,
                     
                                             #aia related
                                             load_prepped_aia=data, sunpy_dir=sunpy_dir,
@@ -771,14 +783,21 @@ def do_key_dem(key, file,
             regfiles.sort()
             if pick_region:
                 regfiles = [regfiles[regionind]]
+                #print('Pick region regfiles: ', regfiles)
+                #print(directories)
+                #print(regionind)
 
             #for each region (note: with pick_region, only the one region)
             for i in range(0, len(directories)):
                 #Time intervals for this region, orbit
-                time_intervals = all_all_time_intervals[i][o]
+                if pick_region:
+                    tind=regionind
+                else:
+                    tind=i
+                time_intervals = all_all_time_intervals[tind][o]
 
                 regfile = regfiles[i]
-                print(directories[i], regfiles[i])
+                #print(directories[i], regfiles[i])
                 #If downloading new AIA, put it in DEM folder.
                 sunpy_dir = directories[i]
 
@@ -797,7 +816,7 @@ def do_key_dem(key, file,
                     elif aia_region_dict:
                         fetch_cutout=True
                         data=[]
-                        aia_region_dict_=aia_region_dict[i][o]
+                        aia_region_dict_=aia_region_dict[tind][o]
                         print(aia_region_dict_)
                         input_aia_region="circle"
                         input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
@@ -836,6 +855,7 @@ def do_key_dem(key, file,
                                                 regfile=regfile,
                                                 adjacent_grades=True, pile_up_corr=True,
                                                 force_nustar=force_nustar,
+                                                ghost_factors=ghost_factors,
 
                                                 #aia related
                                                 load_prepped_aia=data, sunpy_dir=sunpy_dir,
@@ -870,6 +890,7 @@ def do_key_dem(key, file,
                                         regfile=regfile,
                                         adjacent_grades=True, pile_up_corr=True,
                                         force_nustar=force_nustar,
+                                        ghost_factors=ghost_factors,
                 
                                         #aia related
                                         load_prepped_aia=data, sunpy_dir=sunpy_dir,
@@ -1056,7 +1077,7 @@ def get_key_resultfiles(key, file, fromhome=False,
             return res_files, False
         
 
-def get_dem_params(key='', file='./all_targets.pickle', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
+def get_dem_params(key='', file='', all=True, plot=False, time_weighted=False, seconds_per=5, return_loc=False,
                 regions_return=False, paramssaved=True, fromhome=False, keydict={},
                    doparam='above10s', namesearchstring=''):
 
@@ -1876,7 +1897,8 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
                      #method='input', 
                      show=True, goes=True,
                     accthreshold=95, pre_dem_nustar_only=False,
-                    use_inputs_only=False):
+                    use_inputs_only=False,
+                    xtraname=''):
 
     
     from matplotlib import pyplot as plt
@@ -1898,7 +1920,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
     
     id_dirs = ARDict['datapaths']
     directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
-
+    print(directories)
     dirnum=0
     for dd in directories:
     
@@ -1912,7 +1934,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
         
             time_intervals = all_time_intervals[ind]
             if not pre_dem_nustar_only:
-                vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key,
+                vals = viz.get_DEM_timeseries(time_intervals, dd, minT, maxT, key+xtraname,
                                                inputs_only=use_inputs_only)   
                 time_intervals = vals['result_time_intervals']
             
@@ -1922,7 +1944,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
                 print(dd)
                 print(ind)
                 #print('')
-                return
+                continue
             
             evt_data, hdr, obsid = nu.return_submap(datapath=datapath, fpm='A', return_evt_hdr=True, return_obsid=True)
             time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
@@ -2126,12 +2148,12 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
                 #print(tr)
                 lc.get_goes(tr, satellite=goes_number)
                 instrument='GOES'
-                data = lc.load_lightcurves(instrument)
+                gdata = lc.load_lightcurves(instrument)
                 
-                ylabel = data['GOES flux label']
-                goestimes = data['GOES Times']
-                xrsbcounts = data['XRSB counts']
-                xrsblabel = data['XRSB label']
+                ylabel = gdata['GOES flux label']
+                goestimes = gdata['GOES Times']
+                xrsbcounts = gdata['XRSB counts']
+                xrsblabel = gdata['XRSB label']
                 gts = [t.datetime for t in goestimes]
                 
                 axg = axes[4] #.twinx()
@@ -2232,7 +2254,6 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
                         for ax in axes:
                             ax.axvspan(early_starts[j], late_stops[j], alpha=.25, color='red')
                             ax.set_xlim(timerange[0], timerange[1])
-                    
 
             
             
@@ -2272,7 +2293,7 @@ def make_summary_lcs(key, file, flarepath='./reference_files/', specific_region_
                 ax.set_xlim(timerange[0], timerange[1])
             
             
-            plt.savefig(dd+obsid+'_lc_summary_new.png', transparent=False)
+            plt.savefig(dd+obsid+xtraname+'_lc_summary_new.png', transparent=False)
 
             if not show:
                 plt.close()
@@ -2520,7 +2541,7 @@ def consistency_hist_plot(all_sumcons, all_sumcons_non, all_sumcons_flare, dir_,
 
 
     
-def plot_temp_consistency(key='', file='all_targets.pickle', time_weighted=True, seconds_per=5, show=False, 
+def plot_temp_consistency(key='', file='', time_weighted=True, seconds_per=5, show=False, 
                          fetch_for_all=False, accthreshold=95, return_region_quiet_max=False):
 
     """
@@ -2969,7 +2990,7 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         return
 
 
-def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
+def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=False):
 
 
     with open(file, 'rb') as f:
@@ -2988,9 +3009,9 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
     
     for key in keys:
         print(key)
-        conditions = ['onlyaia', 'aiaxrt', 'no_xrt', key+'_MC']
+        conditions = ['onlyaia', 'aiaxrt', 'no_xrt', key+'ghost_corr_MC', key+'_MC']
         #conditions = ['onlyaia', 'no_xrt']
-        lenranges = [[6,6], [7,9], [9,9], [9,12]]
+        lenranges = [[6,6], [7,9], [9,9], [9,12], [9,12]]
     
         ardict = keydict[key]
         dictz[key+' region_0'] = {'key': key}
@@ -3012,8 +3033,10 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
 
             #print(tworegions)
     
-            if c == 3:
+            if c == 4:
                 cc = 'all-inst'
+            if c == 3:
+                cc = 'all-inst-gr-corr'
             
             if tworegions:
                 for j in range(0,2):
@@ -3067,8 +3090,16 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                     if c == 1:
                         dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                         dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
-    
+
+                    add_reg_files=True
                     if c == 3:
+                        if use_ghost_corr:
+                            if len(flarefiles)+len(quietfiles) > 0:
+                                add_reg_files=False
+                            dictz['all regions']['flare files'].extend(flarefiles)
+                            dictz['all regions']['quiet files'].extend(quietfiles)
+
+                    if c == 4 and add_reg_files:
                         dictz['all regions']['flare files'].extend(flarefiles)
                         dictz['all regions']['quiet files'].extend(quietfiles)
                                              
@@ -3129,9 +3160,19 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95):
                     dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes
                     dictz[key+' '+reglab]['quiet xrt times '] = quietxrttimes
     
+                add_reg_files=True
                 if c == 3:
+                    if use_ghost_corr:
+                        if len(flarefiles)+len(quietfiles) > 0:
+                            add_reg_files=False
                         dictz['all regions']['flare files'].extend(flarefiles)
                         dictz['all regions']['quiet files'].extend(quietfiles)
+
+                if c == 4 and add_reg_files:
+                    dictz['all regions']['flare files'].extend(flarefiles)
+                    dictz['all regions']['quiet files'].extend(quietfiles)
+
+    
 
     print(dictz.keys())
     return dictz
@@ -3148,6 +3189,8 @@ def print_stats(dictt):
     print('Quiet-time AIA+NuSTAR DEMS: ', len(dictt['quiet files no_xrt'])) 
     print('Flare-time All-instrument DEMS: ', len(dictt['flare files all-inst']))
     print('Quiet-time All-instrument DEMS: ', len(dictt['quiet files all-inst']))  
+    print('Flare-time All-instrument DEMS (ghost ray corr): ', len(dictt['flare files all-inst-gr-corr']))
+    print('Quiet-time All-instrument DEMS (ghost ray corr): ', len(dictt['quiet files all-inst-gr-corr'])) 
     print('Rejected Times: ', len(dictt['rejected files']))
   
     totxrt = len(dictt['flare files aiaxrt']) + len(dictt['quiet files aiaxrt'])

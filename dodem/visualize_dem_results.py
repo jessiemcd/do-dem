@@ -1198,7 +1198,7 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name,
 
         m1, max1, above5, above7, above10, \
            above_peak, below_peak, above_635, below_635,\
-           chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh = params
+           chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh, above126 = params
 
         if len(dn_in) <= 6:
             #Not including cases of AIA-only DEMs when something went wrong with NuSTAR

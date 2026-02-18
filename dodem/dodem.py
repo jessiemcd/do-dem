@@ -51,7 +51,7 @@ def dodem(time, bl, tr,
           gtifile='starter_gti.fits', datapath='./', regfile='starter_region.reg', edit_regfile=True, use_fit_regfile=False,
           COM_nustar_region=False, twogauss=False, onegauss=False, guess=[], guess2=[],
           compare_fpm=False, combine_fpm=False, nuclobber=False, special_pha='', nuradius=150,
-          force_nustar=False,
+          force_nustar=False, ghost_factors=[], 
           
           #XRT-related
           xrt_path='./xrt_for_DEM/', xrt_exclude=[], xrt_factor=2, xrtmethod='Average', xrt_exposure_dict=exposure_dict,
@@ -707,7 +707,7 @@ def dodem(time, bl, tr,
                                                   clobber=nuclobber, pile_up_corr=pile_up_corr,
                                                   default_err=default_err, special_pha=special_pha,
                                                  adjacent_grades=adjacent_grades, nuradius=nuradius,
-                                                  path_to_dodem=path_to_dodem)
+                                                  path_to_dodem=path_to_dodem, ghost_factors=ghost_factors)
             else:
 
                 res = nustar_dem_prep.load_nustar(time, nuenergies, working_directory, fpm, make_nustar=make_nustar,
@@ -719,7 +719,7 @@ def dodem(time, bl, tr,
                                                   clobber=nuclobber, 
                                                  default_err=default_err, special_pha=special_pha,
                                                  adjacent_grades=adjacent_grades, nuradius=nuradius, 
-                                                 path_to_dodem=path_to_dodem)
+                                                 path_to_dodem=path_to_dodem, ghost_factors=ghost_factors)
             if res is None:
                 print('Something is wrong; Not using NuSTAR.')
                 print('')
@@ -1476,7 +1476,7 @@ def high_temp_analysis(time, bl, tr,
                        nuclobber=False, special_pha='', pile_up_corr=False,
                        adjacent_grades=False, nuenergies = [[2.5,3.5], [3.5,6.], [6.,10.]],
                        twogauss=False, onegauss=False, guess=[], guess2=[], nuradius=150,
-                        force_nustar=False,
+                        force_nustar=False, ghost_factors=[],
 
                        #xrt related
                        xrt_exposure_dict = {}, xrt_exclude=[], xrtmethod='Average', xrt_path='./xrt_for_DEM/', 
@@ -1586,7 +1586,7 @@ def high_temp_analysis(time, bl, tr,
                         regfile=regfile, edit_regfile=edit_regfile, use_fit_regfile=use_fit_regfile,
                         COM_nustar_region=COM_nustar_region,
                          nuclobber=nuclobber, special_pha=special_pha,
-                        force_nustar=force_nustar,
+                        force_nustar=force_nustar, ghost_factors=ghost_factors,
 
                         #xrt related 
                         xrt_path=xrt_path, plot_xrt=plot, xrt_exclude=xrt_exclude, 
