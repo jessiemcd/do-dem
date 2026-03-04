@@ -2972,9 +2972,10 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         return
 
     m1, max1, above5_, above7_, above10_, \
-        above_peak, below_peak, above_635, below_635, \
+           above_peak, below_peak, above_635, below_635,\
            chanax, dn_in, edn_in, \
-                powerlaws, EMT_all, EMT_thresh = res
+                powerlaws, EMT_all, EMT_thresh, above126_ = res
+
 
 
     if np.logical_and(len(chanax) >= lenrange[0], len(chanax) <= lenrange[1]):
@@ -3014,10 +3015,9 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=Fa
         lenranges = [[6,6], [7,9], [9,9], [9,12], [9,12]]
     
         ardict = keydict[key]
-        dictz[key+' region_0'] = {'key': key}
-        if len(ardict['loc']) == 2:
-            dictz[key+' region_1'] = {'key': key}
-            #print('loc2')
+        for ll in range(0, len(ardict['loc'])):
+            dictz[key+' region_'+str(ll)] = {'key': key}
+
             
         
         for c in range(0, len(conditions)):
@@ -3083,9 +3083,9 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=Fa
                     dictz[key+' '+reglab]['quiet times '] = quiettimes
                     dictz[key+' '+reglab]['rejected times'] = rejtimes
                     dictz[key+' '+reglab]['rejected files'] = rejfiles 
-                    if c == 2:
-                       print(quietfiles)
-                       print('d: ', dictz[key+' '+reglab]['quiet files '+cc])
+                    #if c == 2:
+                    #   print(quietfiles)
+                    #   print('d: ', dictz[key+' '+reglab]['quiet files '+cc])
                     
                     if c == 1:
                         dictz[key+' '+reglab]['flare xrt times '] = flarexrttimes

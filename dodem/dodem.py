@@ -1148,7 +1148,7 @@ def dodem(time, bl, tr,
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
             
         vdr.plot_DEM(data, fill_color='lightcoral',
-                              title=working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC', show=True)
+                              title=working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC', show=False)
         
         
         return picklefile
@@ -1183,7 +1183,7 @@ def dodem(time, bl, tr,
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
     vdr.plot_DEM(data, fill_color='moccasin',
-                          title=working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+name)
+                          title=working_directory+timestring+'/'+timestring+'_'+str(minT)+'_'+str(maxT)+name, show=False)
     return picklefile
 
 

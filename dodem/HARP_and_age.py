@@ -742,7 +742,7 @@ def get_ages_vs_params(all_targets, param='above10', return_stdvs=False,
                         #At some point it was changed to the below, presumably for a reason!
                         #params[ind] = data['above_10MK']
                     if param=='above10rat':
-                        params[ind] = data['above_10MK']/data['max']/1e-6
+                        params[ind] = np.log10(data['above_10MK']/data['max']) #/1e-6
                         
                     if param=='above7':
                         params[ind] = np.log10(data['above_7MK'])
@@ -776,6 +776,7 @@ def get_ages_vs_params(all_targets, param='above10', return_stdvs=False,
                         #if kk in huh_list:
                             #print(data['time_interval'][0])
                             #print(kk, sk, ' lp2s:', data['powerlaws2'][0])
+
 
                     
                     ind+=1
