@@ -68,7 +68,7 @@ def dodem(time, bl, tr,
           edens=1.e+9, eis_exclude=[], fiasco=False, fiascofile='',
           
           #DEMREG/DEM-related
-          mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
+          asym_stdv_uncert=False, mc_in=False, mc_rounds=10, reg_tweak=1.0, max_iter=10, gloci=1, rgt_fact=1.5, 
           dem_norm0=None, nmu=40, emd_int=True, emd_ret=True, rscl=False, rscl_factor=[]):
 
     
@@ -130,6 +130,12 @@ def dodem(time, bl, tr,
     mc_in – set True to do MCMC (repeated DEM calculation with inputs varied within their uncertainty). 
     
     mc_rounds - number of mcmc iterations (intentionally distinct from max_iter, which has meaning within DEMReg)
+
+    asym_stdv_uncert - Default DEM uncertainties + DN result uncertainties use full range of MC solutions. Set this True 
+                        to instead take the asymmetric standard deviation of all results in each temperature bin (i.e. a 
+                        below-mean sigma and an above-mean sigma), and defined the upper and lower bounds as the respective 
+                        3-sigma levels. This excludes outlier solutions, particularly on the lower side (the asymmetric bounds
+                        work well because there is a lot more spread on the low side, given the DEM is constrained from above).
     
     
         DEMReg Keywords - only enter in DEMReg call
@@ -1011,7 +1017,7 @@ def dodem(time, bl, tr,
     #======================================================
     
 
-    #Do MCMC if set (& plot, & finish)
+    #Do MC if set (& plot, & finish)
     
 #     fig = plt.figure(figsize=(9, 12), tight_layout = {'pad': 1})
     
@@ -1117,13 +1123,101 @@ def dodem(time, bl, tr,
         dnouts_ma = np.ma.masked_invalid(dnouts)
         min_dnouts = dnouts_ma.min(axis=0) #np.min(dnouts, axis=0)
         max_dnouts = dnouts_ma.max(axis=0) #np.max(dnouts, axis=0)
-        
+
+        plot_dem_uncert=True
+        if plot_dem_uncert:
+            fig = plt.figure(figsize=(40,40))
+            lowers=[]
+            uppers=[]
+            for i in range(0, len(demouts_ma[0,:])):
+                plt.subplot(5, 7, i+1)
+                #if np.sum(demouts_ma[:,i]) > 0:
+                lgdems = np.log10(demouts_ma[:,i])
+                lgdem1 = np.log10(dem70o[i])
+                plt.hist(lgdems)
+                plt.axvline(np.min(lgdems), color='red')
+                plt.axvline(np.max(lgdems), color='black')
+                plt.axvline(lgdem1, color='green')
+                plt.title(str(temps70[i]))
+                #stds.append(np.std(np.log10(demouts_ma[:,i])))
+                #std = np.std(lgdems)
+                mean = np.mean(lgdems)
+                lowstd = np.std(lgdems[np.where(lgdems <= mean)[0]])
+                upstd = np.std(lgdems[np.where(lgdems >= mean)[0]])
+                plt.axvline(lgdem1-lowstd, color='pink')
+                plt.axvline(lgdem1+upstd, color='blue')
+                lowers.append(10**(lgdem1-2*lowstd))
+                uppers.append(10**(lgdem1+2*upstd))
+                
+    
+            fig = plt.figure(figsize=(10,10))
+            for i in range(0, len(demouts_ma[:,0])): 
+                plt.plot(demouts_ma[i,:], linestyle='dotted', color='grey')
+            plt.plot(dem70o, label='dem')
+            plt.plot((lowers), label='minus')
+            plt.plot((uppers), label='plus')
+            plt.yscale('log')
+            plt.legend()
+            
+            print('')
+            print('')
         
         asymmetric_error = [(dem70o-min_outs), (max_outs-dem70o)]
         dem = dem70o
+        #DN error: range encompases full distribution of estimate output dn values (from taking
+        #dem solutions + passing back through temperature responses).
         asymmetric_error_dn = [(dn_reg70o-min_dnouts)/dn_in, (max_dnouts-dn_reg70o)/dn_in]
         dn_reg=dn_reg70o
-        edn_string = 'Uncertainties from MCMC output'
+        edn_string = 'Uncertainties from MC output'
+
+        if asym_stdv_uncert:
+            lowers=[]
+            uppers=[]
+            for i in range(0, len(demouts_ma[0,:])):
+                lgdems = np.log10(demouts_ma[:,i])
+                lgdem1 = np.log10(dem70o[i])
+                mean = np.mean(lgdems)
+                lowstd = np.std(lgdems[np.where(lgdems <= mean)[0]])
+                upstd = np.std(lgdems[np.where(lgdems >= mean)[0]])
+                lowers.append(10**(lgdem1-3*lowstd))
+                uppers.append(10**(lgdem1+3*upstd))
+            
+            asymmetric_error = [(dem70o-lowers), (uppers-dem70o)]
+            #To get uncertainty in DN for the result, consistent with these methods:
+            #Take lower bound DEM solution, multiply with response matrix to get estimate of equivalent inputs.
+            #trmatrix shape: 101x9 (temp. response temp array vs. inputs)
+            #dem shape: 33 (dem result temp array)
+            #response temps array mkt_
+            #result temps array mkt
+            trmatrix_interp = np.zeros((len(mkt), trmatrix.shape[1]))
+            for i in range(0, trmatrix.shape[1]):
+                tip = np.interp(mkt, mkt_, trmatrix[:,i])
+                trmatrix_interp[:,i] = tip
+
+
+            dn_test=np.zeros(len(dn_in))
+            for i in range(0, len(dn_in)):
+                dn_test[i] = np.trapz(np.array(lowers)*trmatrix_interp[:,i])
+                
+            dn_testu=np.zeros(len(dn_in))    
+            for i in range(0, len(dn_in)):
+                dn_testu[i] = np.trapz(np.array(uppers)*trmatrix_interp[:,i])
+
+            plot_dn_rats=False
+            if plot_dn_rats:
+                fig = plt.figure(figsize=(10,4))
+                plt.plot(dn_test/dn_in, label='lower')
+                plt.plot(dn_testu/dn_in, label='upper')
+                plt.plot(np.array(dn_in)/dn_in, label='input')
+                plt.plot(dn_reg70o/dn_in, label='reg output')
+                plt.plot(min_dnouts/dn_in, label='old lower')
+                plt.plot(max_dnouts/dn_in, label='old upper')
+                plt.legend()
+            
+            
+            asymmetric_error_dn = [(dn_reg70o-dn_test)/dn_in, (dn_testu-dn_reg70o)/dn_in]
+            edn_string = 'Uncertainties from MC output - asymmetric 2 stdv for dem'           
+            
 
         
         
@@ -1469,6 +1563,7 @@ def high_temp_analysis(time, bl, tr,
                        #demreg/xrt_iterative related
                        reg_tweak=1, max_iter=30, rgt_fact=1.5,
                        mc_iter=100, chi_thresh=0.95, rscl=False, 
+                       asym_stdv_uncert=False, mc_rounds=100,
 
                        #nustar=related
                        datapath='./', gtifile='starter_gti.fits', regfile='starter_region.reg',
@@ -1513,7 +1608,7 @@ def high_temp_analysis(time, bl, tr,
     combine_fpm=True
     make_nustar=True
     mc_in=True
-    mc_rounds=100
+    #mc_rounds=100
     eis=False
 
     use_highTprep=False
@@ -1600,7 +1695,7 @@ def high_temp_analysis(time, bl, tr,
                         input_aia_region_dict=input_aia_region_dict, real_aia_err=real_aia_err, fetch_cutout=fetch_cutout,
 
                         #demreg related
-                        mc_in=mc_in, mc_rounds=mc_rounds, 
+                        mc_in=mc_in, mc_rounds=mc_rounds, asym_stdv_uncert=asym_stdv_uncert,
                         reg_tweak=reg_tweak, rgt_fact=rgt_fact, max_iter=max_iter, rscl=rscl, rscl_factor=rscl_factor)
         
         if demmethod=='XRT_ITER':

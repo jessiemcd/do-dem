@@ -466,6 +466,8 @@ def manual_prep(key, file, plot=True, make_scripts=True,
 
 
 def do_key_dem(key, file, 
+               mc_rounds=100,
+               asym_stdv_uncert=False,
                ghost_corr=False,
                extraname='',
                missing_last=False, missing_orbit=4, 
@@ -563,7 +565,7 @@ def do_key_dem(key, file,
             all_all_time_intervals = [all_all_time_intervals[regionind]]
             
             #print('2', directories)
-            print(regionind, all_all_time_intervals)
+            #print(regionind, all_all_time_intervals)
 
         
 
@@ -655,7 +657,7 @@ def do_key_dem(key, file,
         xrt=ogxrt
         datapath=id_dirs[o]
         xrt_path=path_to_dodem+'other_idl/'+obsids[o]+'_coobs/XRT_for_DEM/'
-        print(xrt_path)
+        #print(xrt_path)
         if not pathlib.Path(xrt_path).is_dir():
             xrt=False
         gtifile=datapath+'event_cl/nu'+obsids[o]+'A06_gti.fits'
@@ -717,8 +719,8 @@ def do_key_dem(key, file,
                                                    demmethod='DEMREG', use_prior_prep=use_prior_prep,
                             
                                                    #demreg/xrt_iterative related
-                                                   rgt_fact=1.2, max_iter=30, rscl=rscl,
-                                                   reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
+                                                   rgt_fact=1.2, max_iter=30, rscl=rscl, asym_stdv_uncert=asym_stdv_uncert,
+                                                   reg_tweak=1, mc_rounds=mc_rounds, #mc_in, hard coded in high_temp_analysis (same as below)
                             
                                                    #nustar=related
                                                    nuenergies = nuenergies, #combine_fpm hard coded in high_temp_analysis (same as below)
@@ -750,8 +752,8 @@ def do_key_dem(key, file,
                                             use_prior_prep=use_prior_prep,
                     
                                             #demreg related
-                                            rgt_fact=1.2, max_iter=30, rscl=rscl,
-                                            reg_tweak=1, mc_in=True, mc_rounds=100, 
+                                            rgt_fact=1.2, max_iter=30, rscl=rscl, asym_stdv_uncert=asym_stdv_uncert,
+                                            reg_tweak=1, mc_in=True, mc_rounds=mc_rounds, 
                                             
                                             #nustar related 
                                             combine_fpm=True, nuenergies=nuenergies, 
@@ -803,7 +805,7 @@ def do_key_dem(key, file,
 
 
                 for time in time_intervals:
-                    print(time)
+                    #print(time)
                     if use_prepped_aia:
                         res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
                         if res is None:
@@ -817,7 +819,7 @@ def do_key_dem(key, file,
                         fetch_cutout=True
                         data=[]
                         aia_region_dict_=aia_region_dict[tind][o]
-                        print(aia_region_dict_)
+                        #print(aia_region_dict_)
                         input_aia_region="circle"
                         input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
                                                'radius': aia_region_dict_['radius']*u.arcsec
@@ -844,8 +846,8 @@ def do_key_dem(key, file,
 
                                  
                                                 #demreg/xrt_iterative related
-                                                rgt_fact=1.2, max_iter=30, rscl=rscl,
-                                                reg_tweak=1, #mc_in, mc_rounds hard coded in high_temp_analysis (same as below)
+                                                rgt_fact=1.2, max_iter=30, rscl=rscl, asym_stdv_uncert=asym_stdv_uncert,
+                                                reg_tweak=1, mc_rounds=mc_rounds, #mc_in, hard coded in high_temp_analysis (same as below)
 
                             
                                                 #nustar=related
@@ -880,8 +882,8 @@ def do_key_dem(key, file,
                                         use_prior_prep=use_prior_prep,
                 
                                         #demreg related
-                                        rgt_fact=1.2, max_iter=30, rscl=rscl,
-                                        reg_tweak=1, mc_in=True, mc_rounds=100, 
+                                        rgt_fact=1.2, max_iter=30, rscl=rscl, asym_stdv_uncert=asym_stdv_uncert,
+                                        reg_tweak=1, mc_in=True, mc_rounds=mc_rounds, 
                                         
                                         #nustar related 
                                         combine_fpm=True, nuenergies=nuenergies, 
@@ -905,6 +907,7 @@ def do_key_dem(key, file,
 
                         else:
                             ##NOT PROPERLY SET UP YET!!!!
+                            mc_iter=100
                             dodem.run_iterative_wrapper(time, bl, tr, minT, maxT,
                                                         xrt=xrt, aia=aia, nustar=nustar, name=name,
                                         minT=minT, maxT=maxT,
@@ -913,7 +916,7 @@ def do_key_dem(key, file,
                                         save_inputs_file=save_inputs_file,
                                         use_prior_prep=use_prior_prep,
                                                         
-                                        mc_iter=100, dT=0.051, chi_thresh=0.95, 
+                                        mc_iter=mc_iter, dT=0.051, chi_thresh=0.95, 
                                         # #demreg related
                                         # rgt_fact=1.2, max_iter=30, rscl=rscl,
                                         # reg_tweak=1, mc_in=True, mc_rounds=100, 
@@ -1545,7 +1548,7 @@ def check_for_flare(time, starts, stops):
     return flare
 
 
-def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True,
+def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True, add_list4=True, add_cstat_elim=True,
                       specific_key_file=[]):
     
     
@@ -1598,6 +1601,27 @@ def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=Tr
         num=len(flarewindows)
         early_starts.extend([flarewindows[i,0].datetime for i in range(0, num)])
         late_stops.extend([flarewindows[i,1].datetime for i in range(0, num)])   
+
+    if add_list4:
+        with open(flarepath+'manual_flares_list4.pickle', 'rb') as f:
+            data = pickle.load(f)
+
+        #Not adding a rise/fall factor bc manual inspection looked for whole flare times.
+        flarewindows = np.array(data['manual_flares_list4'])
+        num=len(flarewindows)
+        early_starts.extend([flarewindows[i,0].datetime for i in range(0, num)])
+        late_stops.extend([flarewindows[i,1].datetime for i in range(0, num)])    
+
+    if add_cstat_elim:
+        with open(flarepath+'manual_flares_cstat_elim.pickle', 'rb') as f:
+            data = pickle.load(f)
+
+        #Not adding a rise/fall factor bc manual inspection looked for whole flare times.
+        flarewindows = np.array(data['fake_cstat_flares'])
+        num=len(flarewindows)
+        early_starts.extend([flarewindows[i,0].datetime for i in range(0, num)])
+        late_stops.extend([flarewindows[i,1].datetime for i in range(0, num)]) 
+
 
     return [early_starts, late_stops]
 
@@ -1712,6 +1736,7 @@ def post_tis_info_dump(key, file,
 
     early_starts, late_stops = get_saved_flares(flarepath=flarepath, 
                                                 add_stdv_flares=True, add_manual_flares=True)
+
     
     with open(file, 'rb') as f:
         all_targets = pickle.load(f)

@@ -234,7 +234,8 @@ def prepare_lightcurves(in_dir, channels, time_range, instrument, fulldisk=False
         
     return 
 
-def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexviii=False, lc_dir='./'):
+def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexviii=False, lc_dir='./',
+                    nukeyword=''):
     """
     Assuming you've already run prepare_lightcurves for your chosen instrument, 
     loads in the pickled results, which should be in files named after each 
@@ -260,7 +261,7 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
     
     if instrument == 'NuSTAR':
         try:
-            with open(lc_dir+'NuSTAR_lightcurve_'+str(erange[0])+'_to_'+str(erange[1])+'_keV.pickle', 'rb') as f:
+            with open(lc_dir+'NuSTAR_lightcurve'+nukeyword+'_'+str(erange[0])+'_to_'+str(erange[1])+'_keV.pickle', 'rb') as f:
                 data = pickle.load(f)
             return data
         except FileNotFoundError:
@@ -347,7 +348,8 @@ def load_lightcurves(instrument, wavelengths=wavelengths, erange=[2.,10.], fexvi
 
 
 def plot_nustar_lightcurves(save_dir='./', timerange=[],
-                            eranges = [[2.,4.],[4.,6.],[6.,10.]]):
+                            eranges = [[2.,4.],[4.,6.],[6.,10.]],
+                           nukeyword=''):
 
     """
     To be run after prepare_nustar_lightcurves has already been run for each energy range for the obsid in question.
@@ -363,8 +365,8 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     ind=8
     for er in eranges:
         erange=er
-
-        data = load_lightcurves(instrument, erange=erange, lc_dir=save_dir)
+                
+        data = load_lightcurves(instrument, erange=erange, lc_dir=save_dir, nukeyword=nukeyword)
         
         if data is None:
             print('Missing prepared data - exiting.')
@@ -439,6 +441,9 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     
     if bool(timerange)==False:
         timerange= [ times_convertedA[0], times_convertedA[-1]]
+        print(type(times_convertedA[0]))
+        print(times_convertedA[0])
+        print('')
     print('Using time limits:')
     print(timerange)
 
@@ -467,7 +472,7 @@ def plot_nustar_lightcurves(save_dir='./', timerange=[],
     ax3.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
     ax3.legend()  
     
-    plt.savefig(save_dir+'NuSTAR_lightcurves.png')
+    plt.savefig(save_dir+'NuSTAR_lightcurves'+nukeyword+'.png')
 
 
 
@@ -499,10 +504,12 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
     instruments = (plotaia, plotnustar, plotnustar_nonnorm, plotnustar_stats, fexviii, plotGOESA, plotGOESB)
     panels = len(np.nonzero(instruments)[0])
 
+    trd = [t.replace(tzinfo=timezone.utc) for t in timerange]
+
     #print(panels)
     #print(instruments)
 
-    fig, axes = plt.subplots(panels, 1, figsize=(9, panels*2))
+    fig, axes = plt.subplots(panels, 1, figsize=(15, panels*3))
     count=0
     ranges=[]
 
@@ -630,8 +637,13 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
                 countrateB = data['FPMB_countrate']
                 lvtB = data['FPMB_livetime']
 
-                maxA = max(countrateA[np.isfinite(countrateA)])
-                maxB = max(countrateB[np.isfinite(countrateB)])
+                trset = np.array(countrateA)[np.where(np.logical_and(times_convertedA > trd[0], times_convertedA < trd[1]))[0]]
+                trsetB = np.array(countrateB)[np.where(np.logical_and(times_convertedB > trd[0], times_convertedB < trd[1]))[0]]
+                
+                #maxA = max(countrateA[np.isfinite(countrateA)])
+                #maxB = max(countrateB[np.isfinite(countrateB)])
+                maxA = max(trset)
+                maxB = max(trsetB)
     
                 nuax.plot(times_convertedA, countrateA/maxA, 
                          label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV (norm)',
@@ -674,12 +686,14 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
                          label='NuSTAR FPMB Counts '+str(erange[0])+' to '+str(erange[1])+' keV', 
                          **default_kwargs, color=clrs[ind+1])
 
-                    minset.append(np.nanmin(countrateA)*0.8)
-                    maxset.append(np.nanmax(countrateA)*1.2)
+                    trset = np.array(countrateA)[np.where(np.logical_and(times_convertedA > trd[0], times_convertedA < trd[1]))[0]]
+                    minset.append(np.nanmin(trset)*0.8)
+                    maxset.append(np.nanmax(trset)*1.2)
 
             ind+=2
 
         if plotnustar_nonnorm:
+            #trset = np.where(np.logical_and(times_converted > timerange[0], times_converted < timerange[1]))[0]
             ranges.append([np.min(minset), np.max(maxset)])
                 
 
@@ -702,6 +716,13 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
                      label='NuSTAR FPMB % Events Accepted',
                      **default_kwargs, color=clrs[ind+2])
             nuax_s.set_yscale('log')
+
+            nuax_s.plot(times_convertedA, lvtA, 
+                        label='NuSTAR FPMA Livetime %',
+                     **default_kwargs, color=clrs[ind+3])
+            nuax_s.plot(times_convertedB, lvtB, 
+                        label='NuSTAR FPMB Livetime %',
+                     **default_kwargs, color=clrs[ind+3])
 
 #             ax2.plot(times_convertedA, countrateA, 
 #                      label='NuSTAR FPMA Counts '+str(erange[0])+' to '+str(erange[1])+' keV', **default_kwargs)
@@ -761,7 +782,11 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
             for f_ in files:
                 with open(f_, 'rb') as f:
                     data = pickle.load(f)
-            
+                if 'region0' in data.keys():
+                    data = data['region0']
+                    print('SET UP ONLY FOR SINGLE REGION! USING REGION 0!')
+                #print(data.keys())
+                #print(f_)
                 aia_dn_s_pxs.append(np.array(data['aia_dn_s_px']))
                 times.append(data['time_interval'][0])
             wavelengths = [int(ww[1:]) for ww in data['chans']]
@@ -855,7 +880,7 @@ def plot_multi_lightcurves(plotaia=True, markxrt=True, plotnustar=True, plotGOES
         ax.set_xlim(timerange[0], timerange[1])
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))
-        ax.legend(fontsize=10, loc='upper right')
+        ax.legend(fontsize=10, loc='lower left')
         #2024 AGU figure neupert effect peak
         #ax.axvline(datetime.datetime(2024, 7, 17, 5, 7), linestyle='dotted')
         
@@ -1055,7 +1080,8 @@ def get_a_nustar_lightcurve(evtdata, hdr, lvdata, lvhdr, timebin=10, livetime_co
 
 
 def prepare_nustar_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2.,10.], livetime_corr=True, 
-                               return_lightcurves=False, save_dir='./', event_stats=False):
+                               return_lightcurves=False, save_dir='./', event_stats=False,
+                              region_input={}):
     """
     Returns FPMA + B lightcurves. Wrapper for get_a_nustar_lightcurve() which does just one.
     
@@ -1089,11 +1115,33 @@ def prepare_nustar_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2.,10.]
     #         print(timeA.datetime)
     #         adjust+=test
 
-    
+    #Energy selection
     kevA = evtdataA['PI']*0.04+1.6
-    erange_evtdataA = evtdataA[np.where(np.logical_and(kevA > erange[0],kevA < erange[1]))]
+    pick_indsA = np.where(np.logical_and(kevA > erange[0],kevA < erange[1]))[0]
     kevB = evtdataB['PI']*0.04+1.6
-    erange_evtdataB = evtdataB[np.where(np.logical_and(kevB > erange[0],kevB < erange[1]))]
+    pick_indsB = np.where(np.logical_and(kevB > erange[0],kevB < erange[1]))[0]
+
+    #Spatial selection - if input circular region.
+    if region_input:
+        coordsA = [((evtdataA['X'][i]-hdrA['TCRPX14'])*hdrA['TCDLT14'], 
+               (evtdataA['Y'][i]-hdrA['TCRPX15'])*hdrA['TCDLT15']) for i in range(0, len(evtdataA['X']))]
+        coordsB = [((evtdataB['X'][i]-hdrB['TCRPX14'])*hdrB['TCDLT14'], 
+               (evtdataB['Y'][i]-hdrB['TCRPX15'])*hdrB['TCDLT15']) for i in range(0, len(evtdataB['X']))]
+
+        tester_offset = np.array(region_input['offset'])
+        radius = region_input['radius'].value
+        print(tester_offset)
+        print(radius)
+        print(coordsA[0])
+    
+        circ_indsA = [i for i in range(0, len(coordsA)) if (np.linalg.norm(coordsA[i] - tester_offset) < radius)]
+        circ_indsB = [i for i in range(0, len(coordsB)) if (np.linalg.norm(coordsB[i] - tester_offset) < radius)]
+
+        pick_indsA = [ii for ii in circ_indsA if ii in pick_indsA]
+        pick_indsB = [ii for ii in circ_indsB if ii in pick_indsB]
+
+    erange_evtdataA = evtdataA[pick_indsA]
+    erange_evtdataB = evtdataB[pick_indsB]
     
     #print('A')
     resA = get_a_nustar_lightcurve(erange_evtdataA, hdrA, lvdataA, lvhdrA, 
@@ -1117,6 +1165,8 @@ def prepare_nustar_lightcurves(evtA, evtB, hkA, hkB, timebin=10, erange=[2.,10.]
             'FPMA_livetime': resA[2],
             'FPMB_livetime': resB[2]
             }
+    if region_input:
+        data['region_input'] = region_input
 
     if event_stats:
         data['FPMA_accepted']=resA[4]

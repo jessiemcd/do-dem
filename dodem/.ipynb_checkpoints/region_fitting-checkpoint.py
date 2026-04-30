@@ -49,6 +49,7 @@ def plot_file_region(evt_file, time0, time1, regfile):
     fig = plt.figure(figsize=(10,10))
     ax = fig.add_subplot(111, projection=submap)
     submap.plot(axes=ax, cmap='plasma')
+    submap.draw_limb()
 
     offset, rad = read_regfile(regfile, time0, time1, 'hourangle')
 

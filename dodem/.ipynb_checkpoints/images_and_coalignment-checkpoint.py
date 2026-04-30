@@ -213,8 +213,9 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
     import sunpy.map
     from aiapy.calibrate.util import get_correction_table, get_pointing_table
     from aiapy.calibrate import register, update_pointing, degradation, estimate_error
+    from sunpy.net import Fido
+    from sunpy.net import attrs as a
 
-    files=[]
     aiamaps = []
     for id in id_dirs:
         print(id)
@@ -222,9 +223,28 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         start = str(time0)
         files = glob.glob(aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+'*')
-        print(start)
-        print(files)
-        files.append(files[0])
+        if len(files)==0:
+            dateform = '_'.join(start[0:10].split('-'))
+            files = glob.glob(aia_dir+'*'+str(wave)+'a_'+dateform+'t'+start[11:13]+'*')
+        if len(files)==0:
+            files = glob.glob(aia_dir+'aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+'*'+str(wave)+'*')
+        #print(files)
+        if len(files)==0:
+            print('fido searchin')
+            
+            jsoc_email='jessie.m.duncan@nasa.gov'
+    
+            #Get single full-disk image for region adjustment selection
+            query = Fido.search(
+                #a.Time(start_time+10*u.min, start_time + 11*u.min),
+                a.Time(time0, time0 + 10*u.s),
+                a.Wavelength(wave*u.angstrom),
+                a.jsoc.Series.aia_lev1_euv_12s,
+                a.jsoc.Notify(jsoc_email),
+            )
+            print(query)
+            files = Fido.fetch(query)
+
         amap=sunpy.map.Map(files[0])
         #ptab = get_pointing_table(amap.date - 12 * u.h, amap.date + 12 * u.h)
         #m_temp = update_pointing(amap, pointing_table=ptab)
@@ -233,7 +253,7 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
         except TypeError:
             amap.meta.pop('crpix1')
             amap.meta.pop('crpix2')
-            print('CRPIX issue on ', files)
+            print('CRPIX issue on ', files[0])
             m = register(amap)
     
         aiamaps.append(m)
