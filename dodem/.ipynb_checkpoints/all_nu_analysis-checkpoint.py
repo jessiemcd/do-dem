@@ -466,6 +466,7 @@ def manual_prep(key, file, plot=True, make_scripts=True,
 
 
 def do_key_dem(key, file, 
+               quiet_only=False,
                mc_rounds=100,
                asym_stdv_uncert=False,
                ghost_corr=False,
@@ -559,10 +560,12 @@ def do_key_dem(key, file,
         directories = ARDict['directories'] #get_region_directories(key, targets_file=file)
         #print('1',directories)
         all_all_time_intervals = ARDict['per_region_all_time_intervals']
-        #, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)        
-        if pick_region:
-            directories = [directories[regionind]]
-            all_all_time_intervals = [all_all_time_intervals[regionind]]
+        #, fixit = tis.region_time_intervals(directories, id_dirs, shush=True)  
+
+        
+        #if pick_region:
+            #directories = [directories[regionind]]
+            #all_all_time_intervals = [all_all_time_intervals[regionind]]
             
             #print('2', directories)
             #print(regionind, all_all_time_intervals)
@@ -576,15 +579,22 @@ def do_key_dem(key, file,
         #all_time_intervals, all_time_intervals_list = tis.find_all_intervals(working_dir, shush=True, 
         #                                                                missing_last=missing_last, missing_orbit=missing_orbit)
 
-    
+
+    #Input time intervals 
     if input_time_intervals:
-        if method in ['input', 'double']:
+        if method in ['input', 'double'] and pick_region:
              all_all_time_intervals = input_time_intervals
+            
+        if method in ['input', 'double'] and not pick_region:
+            print('If entering your own time intervals, they can only be for one region.')
+            print('AKA fit method, or used with pickregion command.')
+            return
         
         if method=='fit':  
             all_time_intervals = input_time_intervals[0]
+            
         
-    
+        
     #What instruments are you using?
     #---------------------------------
     aia=True
@@ -621,25 +631,30 @@ def do_key_dem(key, file,
     #---------------------------------
 
     name=key+extraname
+
+    print('NAME BEFORE: ', name)
     
     if len(np.where([do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version])[0]) > 1:
         print('Please choose only one of do_no_xrt_version, do_onlyaia_version, do_aiaxrt_version.')
         return
 
     if do_no_xrt_version:
-        name=key+'_no_xrt'
+        name=name+'_no_xrt'
         ogxrt=False
         
     if do_onlyaia_version:
-        name=key+'_onlyaia'
+        name=name+'_onlyaia'
         ogxrt=False
         force_nustar=False
         nustar=False
 
     if do_aiaxrt_version:
-        name=key+'_aiaxrt'
+        name=name+'_aiaxrt'
         force_nustar=False
         nustar=False
+
+
+    print('NAME AFTER: ', name)
 
     if save_inputs_file:
         ogxrt=False
@@ -673,6 +688,15 @@ def do_key_dem(key, file,
             #If downloading new AIA, put it in DEM folder.
             sunpy_dir=working_dir
             for time in time_intervals:
+
+                if quiet_only:
+                    prqti = ARDict['per_region_quiet_time_intervals']
+                    if any([time is t for t in prqti[0][o]]):
+                        print('quiet time, doing DEM.')
+                    else:
+                        print('flaretime, exiting.')
+                        continue
+                    
 
                 if use_prepped_aia:
                     #print(orbit_aia_dir)
@@ -783,8 +807,8 @@ def do_key_dem(key, file,
                 regfiles = glob.glob(working_dir+'gauss_cen_'+obsid+'_'+fpm+'_*.reg')
                 
             regfiles.sort()
-            if pick_region:
-                regfiles = [regfiles[regionind]]
+            #if pick_region:
+                #regfiles = [regfiles[regionind]]
                 #print('Pick region regfiles: ', regfiles)
                 #print(directories)
                 #print(regionind)
@@ -792,11 +816,14 @@ def do_key_dem(key, file,
             #for each region (note: with pick_region, only the one region)
             for i in range(0, len(directories)):
                 #Time intervals for this region, orbit
-                if pick_region:
-                    tind=regionind
-                else:
-                    tind=i
-                time_intervals = all_all_time_intervals[tind][o]
+                if pick_region and i != regionind:
+                    continue
+
+                #if input_time_intervals:
+                #    time_intervals = all_all_time_intervals[o]
+                #else:
+                time_intervals = all_all_time_intervals[i][o]
+                print('Time Intervals for this region/orbit: ', time_intervals)
 
                 regfile = regfiles[i]
                 #print(directories[i], regfiles[i])
@@ -805,6 +832,15 @@ def do_key_dem(key, file,
 
 
                 for time in time_intervals:
+
+                    if quiet_only:
+                        prqti = ARDict['per_region_quiet_time_intervals']
+                        if any([time is t for t in prqti[i][o]]):
+                            print('quiet time, doing DEM.')
+                        else:
+                            print('flaretime, exiting.')
+                            continue
+                    
                     #print(time)
                     if use_prepped_aia:
                         res = iac.read_interval_dicts(time, where=orbit_aia_dir, bltr=True)
@@ -818,8 +854,8 @@ def do_key_dem(key, file,
                     elif aia_region_dict:
                         fetch_cutout=True
                         data=[]
-                        aia_region_dict_=aia_region_dict[tind][o]
-                        #print(aia_region_dict_)
+                        aia_region_dict_=aia_region_dict[i][o]
+                        #print('using: ', aia_region_dict_)
                         input_aia_region="circle"
                         input_aia_region_dict={'center': [aia_region_dict_['centerx'], aia_region_dict_['centery']],
                                                'radius': aia_region_dict_['radius']*u.arcsec
@@ -1548,6 +1584,7 @@ def check_for_flare(time, starts, stops):
     return flare
 
 
+
 def get_saved_flares(flarepath='./', add_stdv_flares=False, add_manual_flares=True, add_list4=True, add_cstat_elim=True,
                       specific_key_file=[]):
     
@@ -1737,6 +1774,9 @@ def post_tis_info_dump(key, file,
     early_starts, late_stops = get_saved_flares(flarepath=flarepath, 
                                                 add_stdv_flares=True, add_manual_flares=True)
 
+    for ls in range(0, len(late_stops)):
+        if early_starts[ls].year == 2021 and early_starts[ls].month == 1:
+            print(early_starts[ls], late_stops[ls])
     
     with open(file, 'rb') as f:
         all_targets = pickle.load(f)
@@ -1752,6 +1792,9 @@ def post_tis_info_dump(key, file,
     for aat in all_all_time_intervals:
         all_good_times = get_good_stats(aat, early_starts, late_stops, check_acc=False)    
         all_all_good_times.append(all_good_times)
+
+    print('')
+    print(all_all_good_times)
         
     #Updates to obs-key dictionary:
     ARDict['per_region_all_time_intervals'] = all_all_time_intervals
@@ -2992,7 +3035,7 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
     
             acc=False
 
-    res = viz.get_DEM_params(r, save_params_file=True)
+    res = viz.get_DEM_params(r, save_params_file=True, clobber=True)
     if not res:
         return
 
@@ -3228,4 +3271,156 @@ def print_stats(dictt):
 
     return (totany > 0), (totxrt > 0), (len(dictt['quiet files all-inst']) > 0)
     
+
+
+
+
+
+
+
+def get_same_region_file_lists(samesames, all_targets, get_agelists=False, noxrt=False, aiaxrt=False, return_times=False):
+
+    #For the list of lists of region names, make a file list for every separate region
+    filelist = []
+    if get_agelists:
+        agelist=[]
+    for s in samesames:
+        ss_filelist=[]
+        if get_agelists:
+            ss_agelist=[]
+        #For each key-region combo in the list of instances of this region
+        for ss in s:
+            #sub-keys in the key
+            sks = all_targets[ss.split(' ')[0]]['sub_keys']
+            #for each sub-key
+            for i in range(0, len(sks)):
+                #if the sub-key is the key-region combo we want...
+                if sks[i] == ss:
+                    if return_times:
+                        ss_filelist.extend(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet times '])
+                    #print(ss.split(' ')[0], i)
+                    elif noxrt:
+                        ss_filelist.extend(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet files no_xrt'])
+                    elif aiaxrt:
+                        ss_filelist.extend(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet files aiaxrt'])
+                    else:
+                        if len(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet files all-inst-gr-corr']) > 0:
+                            ss_filelist.extend(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet files all-inst-gr-corr'])
+                        else:
+                            ss_filelist.extend(all_targets[ss.split(' ')[0]]['res_file_dict(s)'][i]['quiet files all-inst'])
+
+                        #print(ss)
+                        #print(ss_filelist)
+                    if get_agelists:
+                        #print(ss.split(' ')[0], i)
+                        #print(ss, all_targets[ss.split(' ')[0]]['Region Ages'])
+                        ss_agelist.append(all_targets[ss.split(' ')[0]]['Region Ages'][i])
+                        
+        filelist.append(ss_filelist)
+        if get_agelists:
+            agelist.append(ss_agelist)
+
+    if get_agelists:
+        return filelist, agelist
+    else:
+        return filelist
+
+
+def make_labels(regids, all_targets):
     
+
+    arlabs=[]
+    for r in regids:
+        ss = r[0]
+        ars = all_targets[ss.split(' ')[0]]['NOAA_ARID']
+        locs = all_targets[ss.split(' ')[0]]['loc']
+        if len(locs) == 1:
+            arlabs.append(all_targets[ss.split(' ')[0]]['NOAA_ARID'][0])
+        else:
+            if ss[-1]=='0':
+                arlabs.append(all_targets[ss.split(' ')[0]]['NOAA_ARID'][0])
+            elif ss[-1]=='1':
+                arlabs.append(all_targets[ss.split(' ')[0]]['NOAA_ARID'][1])
+
+    #Making labels
+    labs=[]
+    #For each region
+    for r in regids:
+        #print(r)
+        lab=''
+        first=0
+        # if 1 == 2:
+        #     numstr = ' '
+        # else:
+        numstr = '' #' #'+str(int(r[0][-1])+1)
+        #For each day it was observed
+        for ss in r:
+            #If it's the first day...
+            if first == 0:
+                #If the first character is 0 (aka day of month < 10)
+                if ss[0] == '0':
+                    #'#'+str(int(ss[-1])+1)+
+                    lab=lab+ss[1:9]+numstr+' '
+                else: 
+                    #
+                    lab=lab+ss[0:9]+numstr+' '
+                first=1
+                #print(lab)
+            else:
+                if ss[0] == '0':
+                    lab=ss[1:2]+','+lab
+                else:    
+                    lab=ss[0:2]+','+lab
+    
+        labs.append(lab)
+    
+    plotlabs = [labs[i]+arlabs[i] for i in range(0, len(labs))]
+
+    return plotlabs
+
+
+
+def check_contig(time_intervals):
+    """
+    Return true if the list of start,stop times is contiguous, False if not 
+    (plus lists of intervals, indices).
+
+    Contiguous is False if there are no input time intervals. 
+    """
+    if len(time_intervals) == 0:
+        return False, [], []
+    #Check if the quiescent times are contiguous for this region. 
+    contiguous=True
+    #gaps=[]
+    intervals=[]
+    int_inds=[]
+    starter=0
+    #For each entry in the list of time intervals
+    for i in range(0,len(time_intervals)):
+        #print(i, time_intervals[i])
+        if not i == len(time_intervals)-1:
+            #If the end of this interval doesn't match the beginning of the next.
+            if not time_intervals[i][1]==time_intervals[i+1][0]:
+                #print('GAP!', times[i:i+3])
+                contiguous=False
+                #gaps.append(time_intervals[i:i+2])
+                intervals.append(time_intervals[starter:i+1])
+                int_inds.append((starter, i+1))
+                starter=i+1
+                #If the last time interval is a separate contiguous interval
+                if i+1==len(time_intervals)-1:
+                    intervals.append([time_intervals[i+1]])
+                    int_inds.append((starter,len(time_intervals)))
+        else:
+            #if the last time interval is an additional part of an existing contiguous interval
+            if time_intervals[i][0] == time_intervals[i-1][1]:
+                intervals.append(time_intervals[starter:i+1])
+                int_inds.append((starter, i+1))
+    
+    if contiguous:
+        #If there is only one interval making up the contiguous interval
+        if len(int_inds) == 0:
+           intervals.append(time_intervals)
+           int_inds.append((starter, len(time_intervals)))
+    
+    return contiguous, intervals, int_inds

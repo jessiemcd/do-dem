@@ -290,6 +290,7 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
                     print('File was:', ffp[i])
                     continue
                 deg = degs[w]
+                #print(i, ffp[i])
                 res = map_to_dn_s_px(m, deg, bl=bl, tr=tr, input_region=input_region,
                                      input_aia_region_dict=input_aia_region_dict, 
                                      plot=plotstop, timestring=timestring, 

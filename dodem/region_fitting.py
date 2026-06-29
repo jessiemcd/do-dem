@@ -917,6 +917,7 @@ def get_region_data(map_obj: sunpy.map.Map,
         )
         #print(co.shape)
         #print(region_data.shape)
+        #print(ymin, ymax, xmin, xmax)
         #print(map_data.shape)
         try:
             a[ymin:ymax, xmin:xmax] = region_data

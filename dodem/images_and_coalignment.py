@@ -424,7 +424,7 @@ def per_orbit_region_adjustment(ARDict, orbit_ind, aiamaps, nushift=[20,0],
         #For all the other regions, copy the generated aia region file into their first time interval directories, as we
         #want the same shift for all regions (and the files contain all regions. 
         import subprocess
-        print(copyintervals)
+        #print(copyintervals)
         for i in range(0, len(copyintervals)):
             time=copyintervals[i]
             if time:
@@ -809,7 +809,7 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
                         aia_regiondict['centerx'] = (r['centerx'].value + nushift[0])*u.arcsec
                         aia_regiondict['centery'] = (r['centery'].value + nushift[1])*u.arcsec
                         aia_regiondicts.append(aia_regiondict)
-                        print(fpm, aia_regiondict)
+                        #print(fpm, aia_regiondict)
 
                         region=make_region(aia_regiondict, mm)
                         og_region = region.to_pixel(mm.wcs)                    
@@ -1065,6 +1065,7 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
         stopstring = time[1].strftime('%H-%M-%S')
         timestring=timestring+'_'+stopstring
         file=working_dir+timestring+'/'+timestring+'_aia_region.pickle'
+
         
         try:
             with open(file, 'rb') as f:
@@ -1078,7 +1079,6 @@ def make_all_aia_dicts(all_time_intervals, working_dir, key, additional_path='')
             aiareg = data['aiaregdict']
         except KeyError:
             aiareg = data['aiaregdicts']
-        #print(aiareg)
     
         #make orbit-specific directories named after each OBSID
         reffile = glob.glob(working_dir+timestring+'/'+'*.evt')[0]
@@ -1126,6 +1126,7 @@ def make_interval_dicts(time_intervals, regiondict, where='./'):
     Takes a list of time intervals + makes a bunch of pickle files
     containing the time, region (for input into NCCS).
     """
+
     
     for t in time_intervals:
         if not isinstance(regiondict, list):
@@ -1150,6 +1151,7 @@ def make_interval_dicts(time_intervals, regiondict, where='./'):
         filename = where+'/'+timestring+'_aia_prep.pickle'
 
         #print(dict_)
+        #print(filename)
         
         with open(filename, 'wb') as f:
             pickle.dump(dict_, f, pickle.HIGHEST_PROTOCOL)

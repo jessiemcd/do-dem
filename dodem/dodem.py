@@ -980,6 +980,7 @@ def dodem(time, bl, tr,
 #     print('-Simulated counts in each channel, based on DEM results + response')
     
     #DO DEM
+    print('DN INs: ', dn_in)
     demres=dn2dem_pos.dn2dem_pos(np.array(dn_in), np.array(edn_in), trmatrix, temps, temps70, 
                                  gloci=gloci, emd_int=emd_int, emd_ret=emd_ret, 
                                  reg_tweak=reg_tweak, max_iter=max_iter, rgt_fact=rgt_fact, 
@@ -1051,18 +1052,18 @@ def dodem(time, bl, tr,
             dem70oMC,edem70oMC,elogt70oMC,chisq70oMC,dn_reg70oMC=demres
             
             if np.any((dem70oMC <= 0)):
-                print('')
-                print('WARNING: ITERATION ', mc_rounds, ' HAS 0 or NEGATIVE-DEM TEMP. BINS!!!')
-                print('Not saving this iteration!!')
-                print('')
+                #print('')
+                #print('WARNING: ITERATION ', mc_rounds, ' HAS 0 or NEGATIVE-DEM TEMP. BINS!!!')
+                #print('Not saving this iteration!!')
+                #print('')
                 mc_rounds-=1
                 continue
                 
             if np.max(dem70oMC) < 1e18:
-                print('WARNING: ITERATION ', mc_rounds, ' HAS Very Small Solution!')
-                print('SOLUTION MAX:', np.max(dem70oMC))
-                print('Not saving this iteration!!')
-                print('If you want to turn this off, comment it out in dodem.')
+                #print('WARNING: ITERATION ', mc_rounds, ' HAS Very Small Solution!')
+                #print('SOLUTION MAX:', np.max(dem70oMC))
+                #print('Not saving this iteration!!')
+                #print('If you want to turn this off, comment it out in dodem.')
                 mc_rounds-=1
 
                 #Uncomment to save these non-desirable solutions for later inspection.
@@ -1124,7 +1125,7 @@ def dodem(time, bl, tr,
         min_dnouts = dnouts_ma.min(axis=0) #np.min(dnouts, axis=0)
         max_dnouts = dnouts_ma.max(axis=0) #np.max(dnouts, axis=0)
 
-        plot_dem_uncert=True
+        plot_dem_uncert=False
         if plot_dem_uncert:
             fig = plt.figure(figsize=(40,40))
             lowers=[]
@@ -1148,6 +1149,7 @@ def dodem(time, bl, tr,
                 plt.axvline(lgdem1+upstd, color='blue')
                 lowers.append(10**(lgdem1-2*lowstd))
                 uppers.append(10**(lgdem1+2*upstd))
+                plt.axvline(mean, color='orange')
                 
     
             fig = plt.figure(figsize=(10,10))
@@ -1161,6 +1163,9 @@ def dodem(time, bl, tr,
             
             print('')
             print('')
+            plt.savefig(working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC_uncertplot.png', dpi=300)
+
+        
         
         asymmetric_error = [(dem70o-min_outs), (max_outs-dem70o)]
         dem = dem70o
@@ -1244,7 +1249,7 @@ def dodem(time, bl, tr,
         vdr.plot_DEM(data, fill_color='lightcoral',
                               title=working_directory+timestring+'/'+timestring+'_'+str(minT)+str(maxT)+name+'_MC', show=False)
         
-        
+        #print(breakit)
         return picklefile
 
     

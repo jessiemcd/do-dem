@@ -145,7 +145,7 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     
 
 def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', plotMK=False, plot=True,
-                working_dir='./'):
+                working_dir='./', input_ax=[], input_ax2=[], show=True):
     """
     Applicability:
     ---------------
@@ -215,9 +215,12 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         
         logplot=True
         
-        fig = plt.figure(figsize=(25, 12), tight_layout = {'pad': 1})
-
-        fig.add_subplot(1,2,1)
+        
+        if input_ax:
+            ax=input_ax
+        else:
+            fig = plt.figure(figsize=(25, 12), tight_layout = {'pad': 1})
+            ax = fig.add_subplot(1,2,1)
 
         #Vertical lines where DEMs are consistent
         #for c in range(0, len(consistent)):
@@ -228,30 +231,30 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         #Plot loci curves for each instrument, DEM 1:
         for i in np.arange(len(data1['chanax'])):
             if plotMK == True:
-                plt.loglog(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
+                ax.loglog(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
                            label=data1['chanax'][i],color=clrs1[i],lw=4)
                             #+'-'+str(1)
             else:
                 if logplot:
-                    plt.semilogy(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
+                    ax.semilogy(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
                              label=data1['chanax'][i],color=clrs1[i],lw=4)
                 else:
-                    plt.plot(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
+                    ax.plot(data1['ts_'],data1['dn_in'][i]/data1['trmatrix'][:,i],
                              label=data1['chanax'][i],color=clrs1[i],lw=4)
                     
         #Plot loci curves for each instrument, DEM 2:
         for i in np.arange(len(data2['chanax'])):
             if plotMK == True:
-                plt.loglog(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
+                ax.loglog(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
                            #label=data2['chanax'][i]+'-'+str(2), 
                            color=clrs2[i],lw=4, linestyle='dashed')
             else:
                 if logplot:
-                    plt.semilogy(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
+                    ax.semilogy(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
                              #label=data2['chanax'][i]+'-'+str(2), 
                                  color=clrs2[i],lw=4, linestyle='dashed')
                 else:
-                    plt.plot(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
+                    ax.plot(data2['ts_'],data2['dn_in'][i]/data2['trmatrix'][:,i],
                              #label=data2['chanax'][i]+'-'+str(2), 
                              color=clrs2[i],lw=4, linestyle='dashed')
 
@@ -288,38 +291,50 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
             edn_string2 = data2['edn_string']
             
         #Plot DEMs (result: plot markers. uncertainty range: shaded region)
-        plt.fill_between(data1['ts'], dem1-edem1[0,:], dem1+edem1[1,:], color=fill1, alpha=0.5)
-        plt.scatter(data1['ts'],dem1,marker='^',
-                    label='1: $\chi^2 =$ {:0.2f}'.format(chi_sq1), color=fill1)
+        ax.fill_between(data1['ts'], dem1-edem1[0,:], dem1+edem1[1,:], color=fill1, alpha=0.5)
+        ax.scatter(data1['ts'],dem1,marker='^', s=90,
+                    label='1: '+title1+' $\chi^2 =$ {:0.2f}'.format(chi_sq1), color=fill1, edgecolors='black')
                     #+'-'+str(1)
 
         #color=fill2,alpha=0.5,    
-        plt.fill_between(data1['ts'], dem2-edem2[0,:], dem2+edem2[1,:], alpha=0.5, color=fill2, hatch='/')
-        plt.scatter(data1['ts'],dem2,marker='^',
-                    label='2: $\chi^2 =$ {:0.2f}'.format(chi_sq2), color=fill2)
+        ax.fill_between(data1['ts'], dem2-edem2[0,:], dem2+edem2[1,:], alpha=0.5, color=fill2, hatch='/')
+        ax.scatter(data1['ts'],dem2,marker='^', s=90,
+                    label='2: '+title2+' $\chi^2 =$ {:0.2f}'.format(chi_sq2), color=fill2, edgecolors='black')
 
-        plt.grid(True,which='both',lw=0.5,color='gainsboro')
+        ax.grid(True,which='both',lw=0.5,color='gainsboro')
         if logplot:
-            plt.ylim([1e20,9e29])
+            ax.set_ylim([1e20,9e29])
         else:
-            plt.ylim([1e17,1e27])
-        plt.xlim([5.5,8])
+            ax.set_ylim([1e17,1e27])
+        if input_ax:
+            ax.set_ylim([1e17,9e29])
+        ax.set_xlim([5.5,8])
         if plotMK == True:
-            plt.xlim([min(data1['ts']),9])
+            ax.set_xlim([min(data1['ts']),9])
         else:
-            plt.xlim([min(data1['ts']),max(data1['ts'])])
+            ax.set_xlim([min(data1['ts']),max(data1['ts'])])
 
-        plt.title('Compare DEMs - 1: '+title1+', 2: '+title2, fontsize = 30)
-        plt.legend(ncol=2, fontsize = 20, loc='lower left')
+        ax.set_title('Compare DEMs - 1: '+title1+', 2: '+title2, fontsize = 30)
+        if input_ax:
+            time1=data1['time_interval']
+            ax.set_title(time1[0].strftime('%Y-%m-%d %H:%M:%S')+'-'+time1[1].strftime('%H:%M:%S'), fontsize = 20)
+        ax.legend(ncol=2, fontsize = 18, loc='lower left')
         if plotMK == True:
-            plt.xlabel('T [MK]', fontsize=20)
+            ax.set_xlabel('T [MK]', fontsize=20)
         else:
-            plt.xlabel('$\mathrm{\log_{10}T\;[K]}$', fontsize=30)
-        plt.ylabel('$Emission\;Measure\;[cm^{-5}]$', fontsize=30)
-        plt.yticks(fontsize=25)
-        plt.xticks(fontsize=25)
+            ax.set_xlabel('$\mathrm{\log_{10}T\;[K]}$', fontsize=20)
+        ax.set_ylabel('$Emission\;Measure\;[cm^{-5}]$', fontsize=20)
+        plt.yticks(fontsize=16)
+        plt.xticks(fontsize=16)
 
-        ax = fig.add_subplot(1,2,2)
+        if input_ax:
+            if not input_ax2:
+                return 
+
+        if input_ax2:
+            ax=input_ax2
+        else:
+            ax = fig.add_subplot(1,2,2)
         
         #Get residuals, ready for comparison plot.
         residuals1, indices1, residuals2, indices2, inst = comparison_instruments(data1, data2)
@@ -349,19 +364,23 @@ def compare_DEMs(data1, data2, timestring1, timestring2, title1='', title2='', p
         ax.set_ylabel('DN$_\mathrm{(DEM\ predicted)}$/DN$_\mathrm{(measured)}$', fontsize=30)
         ax.yaxis.set_minor_formatter(NullFormatter())
         ax.legend(fontsize = 20)
+
+        if input_ax2:
+            return
         
         if tempcomp:
             plt.savefig(working_dir+timestring1+'/DEM_comparison_'+title1+'_vs_'+title2+'temp_range_comp.png')
             plt.close(fig)
         else:
-            plt.savefig('DEM_comparison_'+title1+'_vs_'+title2+'.png')
-            
+            plt.savefig(working_dir+'DEM_comparison_'+title1+'_vs_'+title2+'.png')
+        if not show:
+            plt.close(fig)    
 #     m1 = DEMmax(data1['ts'], data1['DEM'], wind=3, plot=False)
 #     m2 = DEMmax(data2['ts'], data2['DEM'], wind=3, plot=False)
 
 #     print('DEM 1 is a maximum at: log(T)=', m1, 'OR, ', 10**m1/1e6, ' MK')
 #     print('DEM 2 is a maximum at: log(T)=', m2, 'OR, ', 10**m2/1e6, ' MK')
-        
+
     return consistent
 
 
@@ -895,6 +914,7 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
     powerlaws2 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
                                fixlowerbound=False, upperboundplus1=False)
 
+
 def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, 
                    fixlowerbound=False, upperboundplus1=True,
                    plotsavedir='./'):
@@ -990,7 +1010,7 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True,
     return powerlaws    
     
       
-def get_DEM_params(file, save_params_file=False, inputs_only=False):
+def get_DEM_params(file, save_params_file=False, inputs_only=False, clobber=False):
     
     """
     For a given dem results file, fetch assorted DEM result parameters 
@@ -1003,6 +1023,8 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False):
                 '' - looks for outputs from DEMREG wrapper
                 'MC' - looks for outputs from DEMREG wrapper (MCMC runs)
     
+    clobber - Set True if you wish to start over from the contents of file (aka the existing "withparams"
+                version is an older version you no longer want to use). 
     
     Returns:
     -----------
@@ -1104,9 +1126,10 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False):
         savefile = file.split('.p')[-2]+'_withparams.pickle'
         import os
         
-        if os.path.exists(savefile):
-            with open(savefile, 'rb') as f:
-                data = pickle.load(f)
+        if not clobber:
+            if os.path.exists(savefile):
+                with open(savefile, 'rb') as f:
+                    data = pickle.load(f)
 
         data['local_maxima'] = localmax_res
         data['max'] = max1
