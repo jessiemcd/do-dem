@@ -1,0 +1,11 @@
+Contains various notebooks used to run checks/small analysis steps for the quiescent DEMs paper. 
+This includes:
+
+
+Faint_AR_dem_behavior – looking at 2018-sept-07 and 2021-jan-14 (very faint regions with weird high-temp behavior). Examining their DEM solutions.
+
+XRT_consistency – comparing DEMs with and without the use of XRT as a constraint. 
+
+check_aia_reg – verifying the behavior of AIA regions in terms of whether they are varied with solar rotation (given various AIA data preparation methods). 
+
+Checking_stuff – general sandbox for small checks. Includes area-corrected EM values from the Ishikawa papers, and checking the magnitude of the DEM-rescale factor.
