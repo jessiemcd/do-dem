@@ -13,7 +13,10 @@ import glob
 
 
 
-def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False, manualregion=False):
+def make_tis_scripts(obsids, key, where='./scripts/', 
+                     path_to_dodem='/Users/jmdunca2/do-dem/',
+                     targets_file='/Users/jmdunca2/do-dem/reference_files/all_targets_postghost_postshut.pickle',
+                     tworegion=False, manualregion=False):
 
     pystrings = []
     
@@ -35,7 +38,8 @@ def make_tis_scripts(obsids, key, where='./scripts/', tworegion=False, manualreg
         with open(templatefile, 'r') as f:
             lines = f.read()
             llist = lines.split('\n')
-            #print(productslist)
+            llist[1] = 'path_to_dodem = "'+path_to_dodem+'"'
+            llist[11] = 'with open("'+targets_file+'", "rb") as f:'
             llist[9] = 'key = "'+key+'"'
             llist[14] = 'index = '+str(index)
             #print(llist)

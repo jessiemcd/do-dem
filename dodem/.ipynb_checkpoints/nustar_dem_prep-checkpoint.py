@@ -173,6 +173,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
     else:
         evt_files_0 = glob.glob(nustar_path+timestring+'/*'+fpm+'06_0_p_cl.evt')
 
+    #print('EVT0: ', evt_files_0)
     #print(nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
     #print(nustar_path)
     #print(gtifile)
@@ -182,7 +183,7 @@ def make_nustar_products(time, fpm, gtifile, datapath, regfile, nustar_path,
         #time interval and fpm selected, and run nuscreen to make a time-interval-specific event list.
         edit_gti(gtifile, time[0], time[1], nustar_path+timestring+'/'+timestring+fpm+'_gti.fits')
 
-        #print('prenuscreen')
+        print('prenuscreen')
         #print(path_to_dodem+'run_nuscreen.sh')
         #print(nustar_path+timestring+'/run_nuscreen.sh')
         #os.rename(path_to_dodem+'/run_nuscreen.sh', nustar_path+timestring+'/run_nuscreen.sh')
@@ -935,7 +936,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     nutrs=[]
         
     #print('E Rates NuSTAR')
-    actual_total_counts=True
+    #actual_total_counts=True
     quitindex=[]
     quit=False
     for i in np.arange(len(eng_tr)):
@@ -1011,7 +1012,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         erate = erate[0:quitindex]
         tresp = tresp[:, 0:quitindex]   
         atc = 0
-    actual_total_counts=False
+    #actual_total_counts=False
     if actual_total_counts:
         return rate, erate, nutrs, tresp, logt, fpm, atc
     else:

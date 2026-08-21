@@ -917,7 +917,7 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
 
 def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True, 
                    fixlowerbound=False, upperboundplus1=True,
-                   plotsavedir='./'):
+                   plotsavedir='./', upper_input=[]):
     """
     For given DEM solution, find upper and lower power law slopes of rise./decay around peak. 
     
@@ -987,6 +987,17 @@ def both_powerlaws(ts, DEM, upper=True, lower=True, plot=True,
         
         ydata = np.log10(DEM[thedex:])
         xdata = ts[thedex:]
+
+        if upper_input:
+            fromlo = abs(ts-upper_input[0])
+            loind = np.where(fromlo == np.min(fromlo))[0][0]
+            fromhi = abs(ts-upper_input[1])
+            upind = np.where(fromhi == np.min(fromhi))[0][0]
+            ydata = np.log10(DEM[loind:upind])
+            xdata = ts[loind:upind]
+            #print('T fit bounds up: ', xdata[0], xdata[-1])
+
+        
         res, cov = np.polyfit(xdata, ydata, 1, cov=True)
         m, b = res
         me = np.sqrt(np.diag(cov))[0]
@@ -1106,6 +1117,18 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False, clobber=Fals
 
     powerlaws2 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
                                fixlowerbound=False, upperboundplus1=False)
+
+    #For Del Zanna & Mason (2014) comparison
+    powerlaws3 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=True, upper_input=[6.48, 6.7])    
+
+    #For Warren (2012) comparison
+    powerlaws4 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=True, upper_input=[6.6, 7.]) 
+
+    #For Parenti (2017) comparison
+    powerlaws5 = both_powerlaws(ts, dem, plot=True, plotsavedir=file.split('.p')[0],
+                               fixlowerbound=True, upper_input=[6.39, 7.]) 
     
     EMT_all = sum(dem*(10**ts))/sum(dem)/1e6
     index=14
@@ -1118,7 +1141,7 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False, clobber=Fals
     
     res = (m1, max1, above5_, above7_, above10_,
            above_peak, below_peak, above_635, below_635,
-           data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh, above126_)
+           data['chanax'], data['dn_in'], data['edn_in'], powerlaws, EMT_all, EMT_thresh, above126_, powerlaws3, powerlaws4, powerlaws5)
 
 
     if save_params_file:
@@ -1141,6 +1164,9 @@ def get_DEM_params(file, save_params_file=False, inputs_only=False, clobber=Fals
         data['below_peak'] = below_peak
         data['powerlaws'] = powerlaws
         data['powerlaws2'] = powerlaws2
+        data['powerlaws3'] = powerlaws3
+        data['powerlaws4'] = powerlaws4   
+        data['powerlaws5'] = powerlaws5
         data['EMT_all'] = EMT_all
         data['EMT_thresh_5'] = EMT_thresh
 
@@ -1221,7 +1247,7 @@ def get_DEM_timeseries(time_intervals, working_dir, minT, maxT, name,
 
         m1, max1, above5, above7, above10, \
            above_peak, below_peak, above_635, below_635,\
-           chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh, above126 = params
+           chanax, dn_in, edn_in, powerlaws, EMT_all, EMT_thresh, above126, powerlaws3, powerlaws4 = params
 
         if len(dn_in) <= 6:
             #Not including cases of AIA-only DEMs when something went wrong with NuSTAR

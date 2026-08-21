@@ -485,13 +485,12 @@ def nu_aia_coalign(time_interval, working_dir, nushift, regionmethod='fit',
     
     specific_time_evt.sort()      
         
-    #print(regionfileA)
 
     regiondictA = [regfile_to_regdict(rA, time) for rA in regionfileA]
     regiondictB = [regfile_to_regdict(rB, time) for rB in regionfileB]
 
 
-    #print(regiondictA)
+    #print(len(regiondictA), regiondictA)
     #print(regiondictB)
     #print(regionfileA)
     #regionsavename=working_dir+'/'+timestring+'/'+timestring
@@ -653,7 +652,7 @@ def nuevtplot(evtA=[], evtB=[], datapath='./',
             #         rx, ry, rr = r['centerx'], r['centery'], r['radius']
             #         input_aia_region_dicts.append({'center': (rx.value,  ry.value)*u.arcsec,
             #                                           'radius': rr})
-                
+
 
             #From COM, above.
             xx = COMxy[0].value

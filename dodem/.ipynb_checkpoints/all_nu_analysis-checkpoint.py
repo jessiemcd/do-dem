@@ -279,7 +279,7 @@ def get_exposures(target_dict, dogoes=False):
 
 def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
                      plotregion=[], plotgaussregions=False,
-                     write_gauss_regions=False):
+                     write_gauss_regions=False, parent_dir='/Users/jmdunca2/do-dem/'):
 
 
     with open(file, 'rb') as f:
@@ -317,13 +317,13 @@ def single_gauss_prep(key, file, plot=True, guess=[], make_scripts=True,
     if make_scripts:
         import time_interval_selection as tis
         #where: where to find templates + place scripts.
-        tis.make_tis_scripts(obsids, key, where='./scripts/')  
+        tis.make_tis_scripts(obsids, key, where=parent_dir+'/scripts/')  
 
 
 
 def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', make_scripts=True,
                       plotregion=[], write_input_regions=False,
-                      plotgaussregions=False, write_regions=False):
+                      plotgaussregions=False, write_regions=False, parent_dir='/Users/jmdunca2/do-dem/'):
 
 
     with open(file, 'rb') as f:
@@ -378,14 +378,16 @@ def double_gauss_prep(key, file, plot=True, guess=[], guess2=[], sep_axis='SN', 
     if make_scripts:
         import time_interval_selection as tis
         ##where: where to find templates + place scripts.
-        tis.make_tis_scripts(obsids, key, where='./scripts/', tworegion=True)   
+        tis.make_tis_scripts(obsids, key, where=parent_dir+'/scripts/', tworegion=True)   
     
 
 
 
 def manual_prep(key, file, plot=True, make_scripts=True,
                       inputregion=[], write_input_regions=True,
-                      plotgaussregions=False):
+                      plotgaussregions=False, parent_dir='/Users/jmdunca2/do-dem/',
+                       path_to_dodem='/Users/jmdunca2/do-dem/',
+                        targets_file='/Users/jmdunca2/do-dem/reference_files/all_targets_postghost_postshut.pickle'):
 
     """
     key - key for all target dictionary (where to get information about the nustar data, region, etc)
@@ -460,19 +462,124 @@ def manual_prep(key, file, plot=True, make_scripts=True,
     if make_scripts:
         import time_interval_selection as tis
         ##where: where to find templates + place scripts.
-        tis.make_tis_scripts(obsids, key, where='./scripts/', manualregion=True)  
+        tis.make_tis_scripts(obsids, key, where=parent_dir+'/scripts/', 
+                             path_to_dodem=path_to_dodem,
+                             targets_file=targets_file,
+                             manualregion=True)  
     
 
 
 
+def clean_up_post_tis(key, file):
+    import os
+    import glob
+    import shutil
+    import time_interval_selection as tis
+
+    with open(file, 'rb') as f:
+        data = pickle.load(f)
+    directories = data[key]['directories'] #ana.get_region_directories(key, targets_file=file)
+    #print(directories)
+    
+    count=0
+    for dd in directories:
+        success_paths = []
+        subfolders = [ f.path for f in os.scandir(dd) if f.is_dir() ]
+        subfolders = [s for s in subfolders if s.split('/')[-1][0].isdigit()]
+        #for s in subfolders:
+        #    print(s.split('/')[-1][0:8])
+        #print('subfolders:', subfolders)
+    
+        all_time_intervals, all_time_intervals_list = tis.find_all_intervals(dd, shush=True, 
+                                                                                missing_last=False)
+    
+        for at in all_time_intervals:
+            for tt in at:
+                timestring = viz.make_timestring(tt)
+                success_paths.append(os.path.normpath(dd+timestring+'/'))
+    
+        #print(success_paths)
+    
+        save_path = pathlib.Path(dd+'unsuccessful_intervals'+key+'_'+str(count)+'/')
+        if not save_path.exists():
+            save_path.mkdir()
+    
+        count+=1
+    
+        for s in subfolders:
+            if not os.path.normpath(s) in success_paths:
+                print('boo: ', s)
+                #print(os.path.exists(str(save_path)+'/'+s.split('/')[-1]))
+                if os.path.exists(str(save_path)+'/'+s.split('/')[-1]):
+                    continue
+                else:
+                    shutil.move(s, str(save_path)+'/')
+    
+            else:
+                imgs = glob.glob(s+'/*.img')
+                #print(imgs)
+                for ii in imgs:
+                    os.remove(ii)
+
+def sample_aia(ARDict, jsoc_email='jessie.m.duncan@nasa.gov'):
+
+    #Get sample AIA files for each orbit!
+    
+    import sunpy.map
+    from sunpy.net import Fido
+    from sunpy.net import attrs as a
+    
+    from aiapy.calibrate.util import get_correction_table, get_pointing_table
+    from aiapy.calibrate import register, update_pointing, degradation, estimate_error
+    
+    aagt = ARDict['per_region_all_time_intervals']
+    id_dirs = ARDict['datapaths']
+    
+    aiamaps=[]
+    for i in range(0, len(id_dirs)):
+        try:
+            #First region, orbit of interest, first time interval, start time of that interval
+            start_time = aagt[0][i][0][0]
+            print(start_time)
+        
+        
+            #Get single full-disk 94 for region adjustment selection
+            query = Fido.search(
+                #a.Time(start_time+10*u.min, start_time + 11*u.min),
+                a.Time(start_time, start_time + 10*u.s),
+                a.Wavelength(94*u.angstrom),
+                a.jsoc.Series.aia_lev1_euv_12s,
+                a.jsoc.Notify(jsoc_email),
+            )
+            print(query)
+            files = Fido.fetch(query)
+        
+            #Prep map
+            amap=sunpy.map.Map(files[0])
+            try:
+                m = register(amap)
+            except TypeError:
+                amap.meta.pop('crpix1')
+                amap.meta.pop('crpix2')
+                print('CRPIX issue on ', files)
+                m = register(amap)
+    
+            aiamaps.append(m)
+            
+        except IndexError:
+            aiamaps.append([])
+            
+    return aiamaps
+
+
 def do_key_dem(key, file, 
                quiet_only=False,
-               mc_rounds=100,
+               mc_rounds=1000,
                asym_stdv_uncert=False,
                ghost_corr=False,
                extraname='',
                missing_last=False, missing_orbit=4, 
-               plot_xrt=True, plot_aia=False,
+               plot_xrt=False, plot_aia=False,
                use_prepped_aia=True,
                high_temp_analysis=False, rscl=True, 
                do_no_xrt_version=False,
@@ -1774,9 +1881,9 @@ def post_tis_info_dump(key, file,
     early_starts, late_stops = get_saved_flares(flarepath=flarepath, 
                                                 add_stdv_flares=True, add_manual_flares=True)
 
-    for ls in range(0, len(late_stops)):
-        if early_starts[ls].year == 2021 and early_starts[ls].month == 1:
-            print(early_starts[ls], late_stops[ls])
+    # for ls in range(0, len(late_stops)):
+    #     if early_starts[ls].year == 2021 and early_starts[ls].month == 1:
+    #         print(early_starts[ls], late_stops[ls])
     
     with open(file, 'rb') as f:
         all_targets = pickle.load(f)
@@ -1793,8 +1900,8 @@ def post_tis_info_dump(key, file,
         all_good_times = get_good_stats(aat, early_starts, late_stops, check_acc=False)    
         all_all_good_times.append(all_good_times)
 
-    print('')
-    print(all_all_good_times)
+    #print('')
+    #print(all_all_good_times)
         
     #Updates to obs-key dictionary:
     ARDict['per_region_all_time_intervals'] = all_all_time_intervals
@@ -3042,7 +3149,7 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
     m1, max1, above5_, above7_, above10_, \
            above_peak, below_peak, above_635, below_635,\
            chanax, dn_in, edn_in, \
-                powerlaws, EMT_all, EMT_thresh, above126_ = res
+                powerlaws, EMT_all, EMT_thresh, above126_, powerlaws3, powerlaws4, powerlaws5 = res
 
 
 
@@ -3059,7 +3166,8 @@ def check_file_instruments_and_flare(r, early_starts, late_stops, lenrange=[6,6]
         return
 
 
-def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=False):
+def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=False,
+                        flarepath='./'):
 
 
     with open(file, 'rb') as f:
@@ -3071,7 +3179,7 @@ def sorted_resfiles_dict(file, checkacc=True, accthreshold=95, use_ghost_corr=Fa
                            'quiet files': []}
             }
 
-    early_starts, late_stops = get_saved_flares(flarepath='./reference_files/', 
+    early_starts, late_stops = get_saved_flares(flarepath=flarepath, 
                                                 add_stdv_flares=True, add_manual_flares=True)
 
     
@@ -3341,6 +3449,9 @@ def make_labels(regids, all_targets):
                 arlabs.append(all_targets[ss.split(' ')[0]]['NOAA_ARID'][0])
             elif ss[-1]=='1':
                 arlabs.append(all_targets[ss.split(' ')[0]]['NOAA_ARID'][1])
+        #For the one that has three ARs listed, just call out the first one.
+        if len(arlabs[-1]) > 14:
+            arlabs[-1] = arlabs[-1][0:7]
 
     #Making labels
     labs=[]
@@ -3360,10 +3471,10 @@ def make_labels(regids, all_targets):
                 #If the first character is 0 (aka day of month < 10)
                 if ss[0] == '0':
                     #'#'+str(int(ss[-1])+1)+
-                    lab=lab+ss[1:9]+numstr+' '
+                    lab=lab+ss[1:7]+'20'+ss[7:9]+numstr+' '
                 else: 
                     #
-                    lab=lab+ss[0:9]+numstr+' '
+                    lab=lab+ss[0:7]+'20'+ss[7:9]+numstr+' '
                 first=1
                 #print(lab)
             else:

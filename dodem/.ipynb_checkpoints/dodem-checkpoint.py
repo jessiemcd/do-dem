@@ -576,6 +576,12 @@ def dodem(time, bl, tr,
                     for i in range(0, len(chans)):
                         dn_in.append(aia_dn_s_px[i])
                         chanax.append(chans[i])
+                        
+            # if input_aia_resp_file:
+            #     with open(input_aia_resp_file, 'rb') as f:
+            #         dict = pickle.load(f)
+            #     aia_logt = dict['tresp_logt']
+            #     aia_tr = dict['aia_tr']
                     
         if xrt:
             print('')

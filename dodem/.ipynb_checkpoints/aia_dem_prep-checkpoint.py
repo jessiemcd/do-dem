@@ -377,7 +377,45 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
         return aia_dn_s_px, chans, aia_tr, tresp_logt
 
 
+def just_get_response(path_to_dodem):
+    
+    # #  Load in the AIA responses from sswidl make_aiaresp_forpy.pro
+    # Note, this involves a call to aia_get_response with keyword /evenorm set, which involves a 
+    # normalization to agree with the SDO/EVE instrument.
+    
+    #Note this is NOT for a specific time interval, so it just goes in the working directory.
+    try:
+        aia_tresp=io.readsav('aia_tresp_en.dat')
+    except FileNotFoundError: 
+        print('No AIA response file found, so using HISSW to make one using SSWIDL aia_get_response.')
+        ssw = hissw.Environment(ssw_packages=['sdo/aia', 'hessi'], ssw_paths=['aia', 'hessi'])
+        agr_path = path_to_dodem+'/hissw_idl/aia_response_hissw_wrapper.pro'
+        try:
+            ssw_resp = ssw.run(agr_path)
+            
+            aia_tresp=io.readsav('aia_tresp_en.dat')
+        except Exception:
+            import traceback
+            print(traceback.print_exc())
+            print('Something is wrong with the SSWIDL run - make sure the following IDL script exists:')
+            print(agr_path)
+            print('')
+            return
 
+    # Get the temperature response functions in the correct form for dem input
+    #Define the list of temperatures for which we have AIA response values
+    tresp_logt=np.array(aia_tresp['logt'])
+    
+    aia_tr = aia_tresp['tr'] #AIA temperature response function is in units of [DN cm^5 s^-1 pix^-1]
+
+    just_response = {'aia_tr': aia_tr,
+                     'tresp_logt': tresp_logt
+                }
+
+    #Saving dictionary with all information to the file assigned at the beginning
+    with open('generic_aia_response.pickle', 'wb') as f:
+             # Pickle the 'data' dictionary using the highest protocol available.
+             pickle.dump(just_response, f, pickle.HIGHEST_PROTOCOL) 
 
 def cutout_prep(time, bl, tr, wav=94, aia_path='./',
                sample_every=45*u.s, clobber=False, sunpy_dir='./'):
