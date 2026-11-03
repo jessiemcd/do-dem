@@ -215,39 +215,89 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
     from aiapy.calibrate import register, update_pointing, degradation, estimate_error
     from sunpy.net import Fido
     from sunpy.net import attrs as a
+    from sunpy.map import contains_full_disk
+    
+    
 
     aiamaps = []
     for id in id_dirs:
-        print(id)
+        #print(id)
         evt_data, hdr = nu.return_submap(datapath=id, fpm='A', return_evt_hdr=True)
         time0, time1 = [nuutil.convert_nustar_time(hdr['TSTART']), nuutil.convert_nustar_time(hdr['TSTOP'])]
         start = str(time0)
-        files = glob.glob(aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+'*')
+        #print(start)
+        #print(1, aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+start[14:16]+'*')
+        files = glob.glob(aia_dir+'*'+str(wave)+'A_'+start[0:10]+'T'+start[11:13]+start[14:16]+'*')
         if len(files)==0:
             dateform = '_'.join(start[0:10].split('-'))
-            files = glob.glob(aia_dir+'*'+str(wave)+'a_'+dateform+'t'+start[11:13]+'*')
+            #print(2, aia_dir+'*'+str(wave)+'a_'+dateform+'t'+start[11:13]+start[14:16]+'*')
+            files = glob.glob(aia_dir+'*'+str(wave)+'a_'+dateform+'t'+start[11:13]+start[14:16]+'*')
         if len(files)==0:
-            files = glob.glob(aia_dir+'aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+'*'+str(wave)+'*')
+            #print(3, aia_dir+'aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+start[14:16]+'*'+str(wave)+'*')
+            files = glob.glob(aia_dir+'/aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+start[14:16]+'*'+str(wave)+'*')
+        if len(files)==0:
+            #print(4, '/Users/jmdunca2/sunpy/data/aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+start[14:16]+'*'+str(wave)+'*')
+            files = glob.glob('/Users/jmdunca2/sunpy/data/aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+start[14:16]+'*'+str(wave)+'*')
+        if len(files)==0:
+            onemoremin = str(int(start[14:16])+1)
+            #print(start[14:16], onemoremin)
+            #print(4, '/Users/jmdunca2/sunpy/data/aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+onemoremin+'*'+str(wave)+'*')
+            files = glob.glob('/Users/jmdunca2/sunpy/data/aia.lev1_euv_12s.'+start[0:10]+'T'+start[11:13]+onemoremin+'*'+str(wave)+'*')
         #print(files)
         if len(files)==0:
             print('fido searchin')
             
             jsoc_email='jessie.m.duncan@nasa.gov'
     
-            #Get single full-disk image for region adjustment selection
+            #Get single full-disk image 
             query = Fido.search(
                 #a.Time(start_time+10*u.min, start_time + 11*u.min),
                 a.Time(time0, time0 + 10*u.s),
-                a.Wavelength(wave*u.angstrom),
-                a.jsoc.Series.aia_lev1_euv_12s,
+                a.jsoc.PrimeKey('WAVELNTH', str(wave)),
+                a.jsoc.Series('aia.lev1_euv_12s'),
                 a.jsoc.Notify(jsoc_email),
             )
             print(query)
             files = Fido.fetch(query)
 
+        #print(files)
+        files.sort()
+        print(files[0])
+        #print('')
         amap=sunpy.map.Map(files[0])
+        #print('pre:', amap.data.shape)
         #ptab = get_pointing_table(amap.date - 12 * u.h, amap.date + 12 * u.h)
-        #m_temp = update_pointing(amap, pointing_table=ptab)
+        #amap = update_pointing(amap, pointing_table=ptab)
+        try:
+            if not contains_full_disk(amap):
+                print('fido searchin')
+            
+                jsoc_email='jessie.m.duncan@nasa.gov'
+                print(wave, type(wave))
+    
+                try:
+                    #Get single full-disk image 
+                    query = Fido.search(
+                        #a.Time(start_time+10*u.min, start_time + 11*u.min),
+                        a.Time(time0, time0 + 10*u.s),
+                        a.jsoc.PrimeKey('WAVELNTH', str(wave)),
+                        a.jsoc.Series('aia.lev1_euv_12s'),
+                        a.jsoc.Notify(jsoc_email),
+                    )
+                except ValueError:
+                    
+                    return (time0, wave, jsoc_email)
+                print(query)
+                files = Fido.fetch(query)
+                files.sort()
+                amap=sunpy.map.Map(files[0])
+        except TypeError:
+            amap.meta.pop('crpix1')
+            amap.meta.pop('crpix2')
+            print('CRPIX issue on ', files[0])
+        
+        
+        
         try:
             m = register(amap)
         except TypeError:
@@ -255,6 +305,8 @@ def get_orbit_aiamaps(aia_dir, id_dirs, wave=94, return_files=False):
             amap.meta.pop('crpix2')
             print('CRPIX issue on ', files[0])
             m = register(amap)
+            
+        #print('post:', m.data.shape)
     
         aiamaps.append(m)
 

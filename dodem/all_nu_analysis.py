@@ -582,6 +582,7 @@ def do_key_dem(key, file,
                plot_xrt=False, plot_aia=False,
                use_prepped_aia=True,
                high_temp_analysis=False, rscl=True, 
+               xrt_exclude=[],
                do_no_xrt_version=False,
                do_onlyaia_version=False,
                do_aiaxrt_version=False,
@@ -869,7 +870,8 @@ def do_key_dem(key, file,
                                                    #xrt related
                                                    xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                                    xrt_exposure_dict = exposure_dict, plot=plot_xrt, #(this plots xrt)
-                                                   input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                                   input_xrt_region="circle", input_xrt_region_dict=region_input,
+                                                   xrt_exclude=xrt_exclude)
                     
 
 
@@ -902,7 +904,8 @@ def do_key_dem(key, file,
                                             #xrt related
                                             xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                             xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
-                                            input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                            input_xrt_region="circle", input_xrt_region_dict=region_input,
+                                                   xrt_exclude=xrt_exclude)
         #print('')
 
         if method in ['input', 'double']:
@@ -1010,7 +1013,8 @@ def do_key_dem(key, file,
                                                 #xrt related
                                                 xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                                 xrt_exposure_dict=exposure_dict, plot=plot_xrt, #(this plots xrt)
-                                                input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                                input_xrt_region="circle", input_xrt_region_dict=region_input,
+                                                   xrt_exclude=xrt_exclude)
 
                                                  
                     else:
@@ -1045,7 +1049,8 @@ def do_key_dem(key, file,
                                         #xrt related
                                        xrtmethod='Average', real_xrt_err=True, xrt_path=xrt_path,
                                         xrt_exposure_dict=exposure_dict, plot_xrt=plot_xrt,
-                                        input_xrt_region="circle", input_xrt_region_dict=region_input)
+                                        input_xrt_region="circle", input_xrt_region_dict=region_input,
+                                                   xrt_exclude=xrt_exclude)
 
 
                         else:

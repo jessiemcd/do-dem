@@ -42,7 +42,8 @@ def load_DEM(filename):
     
     return data, timestring, time
 
-def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
+def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False,
+                    input_ax=[], input_ax2=[]):
     """
     Takes in DEM-output dictionary, and makes a nice plot.
     Note: to plot two DEMs at once for comparison, see compare_DEMs() below. 
@@ -54,9 +55,11 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     #Turn off for linear y scale (not a very pretty option)
     logplot=True
 
-    fig = plt.figure(figsize=(18, 10), tight_layout = {'pad': 1})
-
-    fig.add_subplot(1,2,1)
+    if input_ax:
+        ax=input_ax
+    else:
+        fig = plt.figure(figsize=(18, 10), tight_layout = {'pad': 1})
+        ax = fig.add_subplot(1,2,1)
 
     clrs = comparison_colors(data)
     edem=np.array(data['edem'])
@@ -65,14 +68,14 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     #Plot loci curves for each instrument:
     for i in np.arange(len(data['chanax'])):
         if plotMK == True:
-            plt.loglog(data['ts_'],data['dn_in'][i]/data['trmatrix'][:,i],
+            ax.loglog(data['ts_'],data['dn_in'][i]/data['trmatrix'][:,i],
                        label=data['chanax'][i],color=clrs[i],lw=4)
         else:
             if logplot:
-                plt.semilogy(data['ts_'],data['dn_in'][i]/data['trmatrix'][:,i],
+                ax.semilogy(data['ts_'],data['dn_in'][i]/data['trmatrix'][:,i],
                          label=data['chanax'][i],color=clrs[i],lw=4)
             else:
-                plt.plot(data['ts_'],data1['dn_in'][i]/data['trmatrix'][:,i],
+                ax.plot(data['ts_'],data1['dn_in'][i]/data['trmatrix'][:,i],
                          label=data['chanax'][i],color=clrs[i],lw=4)
                 
 
@@ -84,48 +87,60 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     #Plot DEMs (result: plot markers. uncertainty range: shaded region)        
     if len(edem.shape) == 2:
         #Asymmetric error
-        plt.fill_between(data['ts'], dem-edem[0,:], dem+edem[1,:], color=fill_color, alpha=0.5)
+        ax.fill_between(data['ts'], dem-edem[0,:], dem+edem[1,:], color=fill_color, alpha=0.5)
     if len(edem.shape) == 1:
         #Symmetric error 
-        plt.fill_between(data['ts'], dem-edem, dem+edem, color=fill_color, alpha=0.5)
+        ax.fill_between(data['ts'], dem-edem, dem+edem, color=fill_color, alpha=0.5)
         
     if 'xdem_error' in data:
-        plt.errorbar(data['ts'],dem,xerr=data['xdem_error'],fmt='^r',label='AXN $\chi^2 =$ {:0.2f}'.format(chi_sq))
+        ax.errorbar(data['ts'],dem,xerr=data['xdem_error'],fmt='^r',
+        label='AXN $\chi^2 =$ {:0.2f}'.format(chi_sq),edgecolors='black')
     else:    
-        plt.scatter(data['ts'],dem,marker='^',label='AXN $\chi^2 =$ {:0.2f}'.format(chi_sq), color='red')
+        ax.scatter(data['ts'],dem,marker='^', s=90,
+        label='AXN $\chi^2 =$ {:0.2f}'.format(chi_sq), color='red', edgecolors='black')
     
-    plt.grid(True,which='both',lw=0.5,color='gainsboro')
+    ax.grid(True,which='both',lw=0.5,color='gainsboro')
     if logplot:
-        plt.ylim([1e20,9e29])
+        ax.set_ylim([1e20,9e29])
     else:
-        plt.ylim([1e17,1e27])
-    plt.xlim([5.5,8])
+        ax.set_ylim([1e17,1e27])
+    ax.set_xlim([5.5,8])
+    
     if plotMK == True:
-        plt.xlim([min(data['ts']),9])
+        ax.set_xlim([min(data['ts']),9])
     else:
-        plt.xlim([min(data['ts']),max(data['ts'])])
+        ax.set_xlim([min(data['ts']),max(data['ts'])])
 
-    plt.title('DEM With Instrument Loci Curves', fontsize = 30)
-    plt.legend(ncol=3, fontsize = 15)
+    ax.set_title('DEM With Instrument Loci Curves', fontsize = 30)
+    ax.legend(ncol=3, fontsize = 15)
     if plotMK == True:
-        plt.xlabel('T [MK]', fontsize=20)
+        ax.set_xlabel('T [MK]', fontsize=20)
     else:
-        plt.xlabel('$\mathrm{\log_{10}T\;[K]}$', fontsize=20)
-    plt.ylabel('$Emission\;Measure\;[cm^{-5}]$', fontsize=20)
-    plt.yticks(fontsize=15)
-    plt.xticks(fontsize=15)
+        ax.set_xlabel('$\mathrm{\log_{10}T\;[K]}$', fontsize=20)
+        
+    ax.set_ylabel('$Emission\;Measure\;[cm^{-5}]$', fontsize=20)
+    #ax.set_yticks(fontsize=15)
+    #ax.set_xticks(fontsize=15)
+    
+    if input_ax:
+        if not input_ax2:
+            return 
 
-    ax = fig.add_subplot(1,2,2)
+    if input_ax2:
+        ax = input_ax2
+    else:
+        ax = fig.add_subplot(1,2,2)
     
     residuals = data['dn_reg']/data['dn_in']
     eresiduals = data['edn']
     nf = len(residuals)
 
-    plt.errorbar(np.arange(0,nf,1),residuals, yerr=eresiduals, fmt='^r',
-                     label='$\chi^2 =$ {:0.2f}'.format(chi_sq)+', '+data['edn_string'])
+    ax.errorbar(np.arange(0,nf,1),residuals, yerr=eresiduals, fmt='^r',
+                     #label='$\chi^2 =$ {:0.2f}'.format(chi_sq)+', '+data['edn_string'])
+                     label='$\chi^2 =$ {:0.2f}'.format(chi_sq)) 
     
     #Line at y=1 (ideal)
-    plt.plot([-1,nf+1],[1,1],'--',color='grey')
+    ax.plot([-1,nf+1],[1,1],'--',color='grey')
 
 
     ax.set_ylim([0.5,2])
@@ -137,6 +152,9 @@ def plot_DEM(data, title='', plotMK=False, fill_color='lightcoral', show=False):
     ax.set_ylabel('DN$_\mathrm{(DEM\ predicted)}$/DN$_\mathrm{(measured)}$', fontsize=20)
     ax.yaxis.set_minor_formatter(NullFormatter())
     ax.legend(fontsize = 15)
+    
+    if input_ax2:
+        return
     
     plt.savefig(title+'_DEM_plot.png')
     if not show:
@@ -897,7 +915,7 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
         highT = np.where(newts > thresh)
         nTs = newts[highT[0]]
         nDEM = newdem[highT[0]]
-    #print('Actual Threshold: logT =', round(nTs[0], 2), 'or', round(10**nTs[0]), 'K')
+    #print('Actual Threshold: logT =', nTs[0], 'or', 10**nTs[0], 'K')
     
     
     res = np.trapz(nDEM, x=nTs)

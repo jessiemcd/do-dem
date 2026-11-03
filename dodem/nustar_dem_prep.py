@@ -49,8 +49,7 @@ Preparing NuSTAR Data for DEM: IDL/other helpers + other needed prep
                     through HISSW.
                     
 
-        Steps to creating NuSTAR spectral data products (overview for humans – all functionality is 
-        in make_nustar_products): 
+        Steps to creating NuSTAR spectral data products (overview for humans of what occurs in make_nustar_products): 
         
             -Time Interval Selection:
                 -Takes full .evt file from observation + input gti.fits file.

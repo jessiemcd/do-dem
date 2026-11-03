@@ -897,7 +897,7 @@ def hightemp_EM(dem, ts, thresh, extract_vals=False, lowtemp_EM=False):
         highT = np.where(newts > thresh)
         nTs = newts[highT[0]]
         nDEM = newdem[highT[0]]
-    #print('Actual Threshold: logT =', round(nTs[0], 2), 'or', round(10**nTs[0]), 'K')
+    #print('Actual Threshold: logT =', nTs[0], 'or', 10**nTs[0], 'K')
     
     
     res = np.trapz(nDEM, x=nTs)

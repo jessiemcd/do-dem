@@ -87,10 +87,10 @@ def get_drms_client():
 
 
 
-def get_harp_and_times(key, dict):
+def get_harp_and_times(key, thedict):
     
-    id_dirs = dict[key]['datapaths']
-    harps = dict[key]['HARP']
+    id_dirs = thedict[key]['datapaths']
+    harps = thedict[key]['HARP']
     
     orbits=[]
     for id in id_dirs:
@@ -117,6 +117,7 @@ def parse_tai_string(tstr,datetime=True):
 def add_harp_params(all_targets, shush=True):
 
     keys_to_check = all_targets.keys()
+    #keys_to_check = ['11-dec-22_2']
 
     c = get_drms_client()
     
