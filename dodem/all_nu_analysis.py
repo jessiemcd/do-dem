@@ -632,6 +632,26 @@ def do_key_dem(key, file,
     
     
     """
+    
+    
+    
+    #To use CHIANTI v11 aia response:
+    check_chianti_v=True
+    if check_chianti_v:
+        from scipy.io import readsav
+        aia_resp_new = '/Users/jmdunca2/Desktop/MEGADEMS PAPERs/P1 TEX/Review 1/aia_tresp_chiantiv11_google.dat'
+        aia_tresp=readsav(aia_resp_new)
+
+        #For each AIA channel, make a nicer formatted channel name:
+        for i in np.arange(len(aia_tresp['channels'])):
+            aia_tresp['channels'][i]=aia_tresp['channels'][i].decode("utf-8")
+        chans=np.array(aia_tresp['channels']) 
+
+        # Get the temperature response functions in the correct form for dem input
+        #Define the list of temperatures for which we have AIA response values
+        tresp_logt=np.array(aia_tresp['logt'])
+
+        aia_tr = aia_tresp['tr'] #AIA temperature response function is in units of [DN cm^5 s^-1 pix^-1]
 
 
     #Path to top-level do-dem directory - edit for your system.
@@ -823,6 +843,8 @@ def do_key_dem(key, file,
                         #print(data['aia_dn_s_px'])
                         input_aia_region=[]
                         input_aia_region_dict=[]
+                        if check_chianti_v:
+                            data['aia_tr'] = aia_tr
 
                 elif aia_region_dict:
                     fetch_cutout=True

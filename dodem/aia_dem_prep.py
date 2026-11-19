@@ -324,24 +324,29 @@ def load_aia(time, bl, tr, plot=True, aia_exclude=[], aia_path='./', method='Mid
     # Note, this involves a call to aia_get_response with keyword /evenorm set, which involves a 
     # normalization to agree with the SDO/EVE instrument.
     
-    #Note this is NOT for a specific time interval, so it just goes in the working directory.
-    try:
-        aia_tresp=io.readsav('aia_tresp_en.dat')
-    except FileNotFoundError: 
-        print('No AIA response file found, so using HISSW to make one using SSWIDL aia_get_response.')
-        ssw = hissw.Environment(ssw_packages=['sdo/aia', 'hessi'], ssw_paths=['aia', 'hessi'])
-        agr_path = path_to_dodem+'/hissw_idl/aia_response_hissw_wrapper.pro'
+    check_chianti_v=False
+    if check_chianti_v:
+        print('CURRENTLY HARDCODED TO CHIANTI V11 for AIA')
+        aia_tresp=io.readsav('/Users/jmdunca2/Desktop/MEGADEMS PAPERs/P1 TEX/Review 1/aia_tresp_chiantiv11_google.dat')
+    else:
+        #Note this is NOT for a specific time interval, so it just goes in the working directory.
         try:
-            ssw_resp = ssw.run(agr_path)
-            
             aia_tresp=io.readsav('aia_tresp_en.dat')
-        except Exception:
-            import traceback
-            print(traceback.print_exc())
-            print('Something is wrong with the SSWIDL run - make sure the following IDL script exists:')
-            print(agr_path)
-            print('')
-            return
+        except FileNotFoundError: 
+            print('No AIA response file found, so using HISSW to make one using SSWIDL aia_get_response.')
+            ssw = hissw.Environment(ssw_packages=['sdo/aia', 'hessi'], ssw_paths=['aia', 'hessi'])
+            agr_path = path_to_dodem+'/hissw_idl/aia_response_hissw_wrapper.pro'
+            try:
+                ssw_resp = ssw.run(agr_path)
+                
+                aia_tresp=io.readsav('aia_tresp_en.dat')
+            except Exception:
+                import traceback
+                print(traceback.print_exc())
+                print('Something is wrong with the SSWIDL run - make sure the following IDL script exists:')
+                print(agr_path)
+                print('')
+                return
 
     #For each AIA channel, make a nicer formatted channel name:
     for i in np.arange(len(aia_tresp['channels'])):

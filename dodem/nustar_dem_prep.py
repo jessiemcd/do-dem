@@ -347,6 +347,7 @@ def find_nuproducts(nustar_path, timestring, fpm, special_pha='', grade='0', shu
         print('ARF File: ', arf_files)
         print('RMF File: ', rmf_files)
         print('PHA File: ', pha_files)
+        
     
     return arf_files, rmf_files, pha_files
 
@@ -483,7 +484,7 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
                    use_fit_regfile=False, clobber=False, default_err=0.2, pile_up_corr=False, special_pha='',
                    adjacent_grades=False, nuradius=150,path_to_dodem='./', shush=False,
                    twogauss=False, onegauss=False, direction='', guess=[], guess2=[], return_for_pile_up_figure=False,
-                   energy_percents=False, ghost_factors=[]):
+                   energy_percents=False, ghost_factors=[], check_chianti_v=False):
     """
     Load in NuSTAR data and response, return DEM inputs.
     
@@ -750,27 +751,31 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     
     #======================================================
     #LOAD IN THE THERMAL EMISSION MODEL 
-
-    #Output of make_fvtharray.pro (sswidl)
-    try:
-        fvth=io.readsav('fvth_out.dat')
-    except FileNotFoundError:
-        print('Hey, where is the thermal emission model file? It should be called:')
-        print(nustar_path+'fvth_out.dat')
-        print('Let us now make a new one using hissw to run the IDL code.')
-        
-        ssw = hissw.Environment(ssw_packages=['xray', 'hessi'])
-        agr_path = path_to_dodem+'/hissw_idl/fvtharray_hissw_wrapper.pro'
+    check_chianti_v=False
+    print('CURRENTLY HARDCODED TO CHIANTI V11')
+    if check_chianti_v:
+        fvth = io.readsav('/Users/jmdunca2/Desktop/MEGADEMS PAPERs/P1 TEX/Review 1/out.sav')
+    else:
+        #Output of make_fvtharray.pro (sswidl)
         try:
-            ssw_resp = ssw.run(agr_path)
             fvth=io.readsav('fvth_out.dat')
-        except Exception:
-            import traceback
-            print(traceback.print_exc())
-            print('Something is wrong with the SSWIDL run - make sure the following IDL script exists:')
-            print(agr_path)
-            print('')
-            return
+        except FileNotFoundError:
+            print('Hey, where is the thermal emission model file? It should be called:')
+            print(nustar_path+'fvth_out.dat')
+            print('Let us now make a new one using hissw to run the IDL code.')
+            
+            ssw = hissw.Environment(ssw_packages=['xray', 'hessi'])
+            agr_path = path_to_dodem+'/hissw_idl/fvtharray_hissw_wrapper.pro'
+            try:
+                ssw_resp = ssw.run(agr_path)
+                fvth=io.readsav('fvth_out.dat')
+            except Exception:
+                import traceback
+                print(traceback.print_exc())
+                print('Something is wrong with the SSWIDL run - make sure the following IDL script exists:')
+                print(agr_path)
+                print('')
+                return
         
     #======================================================
     
@@ -778,7 +783,12 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
     #PREP DATA + RESPONSE FOR EACH ENERGY RANGE
 
     #List of energy bins
-    engs_=fvth['eng'] #units keV
+    if check_chianti_v:
+        engs_=fvth['e']
+    else:
+        engs_=fvth['eng'] #units keV
+    #print('e', engs)
+    #print('ee', engs_)
     #energy bin size
     de=engs_[1]-engs_[0]    
     #Only the part of the spectrum for which we have a thermal emission model
@@ -851,7 +861,11 @@ def load_nustar(time, eng_tr, nustar_path, fpm, make_nustar=False, gtifile='', d
         #Details: at each temperature, we find the array of counts emitted at each photon energy, 
         #assuming a isothermal spectral model with EM=1e49 cm^-3 and coronal abundances. Energy 
         #bin size: 0.04 keV.
-    phmod=np.array(fvth['fvth']) # in units of photons/s/keV/cm2
+    if check_chianti_v:
+        phmod=np.vstack(fvth['spc']['spectrum']).T
+    else:
+        phmod=np.array(fvth['fvth']) # in units of photons/s/keV/cm2
+
     #Set nan (null) values to be 0, to keep them from messing things up later.
     phmod[np.isnan(phmod)] = 0.
     

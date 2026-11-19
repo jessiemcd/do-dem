@@ -525,18 +525,18 @@ def dodem(time, bl, tr,
 
                 #with open(load_prepped_aia, 'rb') as f:
                 #    dict = pickle.load(f)
-                dict=load_prepped_aia
+                dict_=load_prepped_aia
                 
                 try:
-                    aia_dn_s_px = dict['aia_dn_s_px']
+                    aia_dn_s_px = dict_['aia_dn_s_px']
                 except KeyError:
                     print('No prepped AIA data in input AIA dictionary. Not doing DEM.')
                     return
                     
-                aia_err_dn_s_px = dict['newerr']
-                chans = dict['chans']
-                aia_tr = dict['aia_tr']
-                aia_logt = dict['tresp_logt']
+                aia_err_dn_s_px = dict_['newerr']
+                chans = dict_['chans']
+                aia_tr = dict_['aia_tr']
+                aia_logt = dict_['tresp_logt']
 
                 nf+=len(chans)
                 for i in range(0, len(chans)):
